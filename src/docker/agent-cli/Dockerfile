@@ -40,12 +40,15 @@ RUN set -eux; \
     fi; \
     apt-get install -y --no-install-recommends \
       bash \
+      bc \
       ca-certificates \
       chromium \
       curl \
       git \
       jq \
       procps \
+      ripgrep \
+      time \
       texlive-bibtex-extra \
       texlive-fonts-recommended \
       texlive-latex-base \

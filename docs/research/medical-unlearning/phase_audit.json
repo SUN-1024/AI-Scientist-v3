@@ -1,0 +1,83 @@
+{
+  "checked_at": "2026-10-17T07:58:38.477791+08:00",
+  "jobs_audited": [
+    "20261016_221356_d7251131",
+    "20261017_070528_ba5c6c51"
+  ],
+  "phases": {
+    "design": {
+      "status": "accepted_and_restored",
+      "evidence": "original accepted_review.json + design_receipt.json, restored with fingerprint and canonical task checks"
+    },
+    "task_drafting": {
+      "status": "completed_current_attempt",
+      "duration_seconds": 3037,
+      "contract_schema": "pass",
+      "contract_static_lint": "pass",
+      "candidate_boundary": "pass"
+    },
+    "independent_validation": {
+      "status": "running",
+      "current_operation": "isolated runtime dependency installation before smoke"
+    },
+    "investigation": {
+      "status": "not_started",
+      "logs_exist": false
+    },
+    "ablations": {
+      "status": "not_started",
+      "logs_exist": false
+    },
+    "final_evaluation": {
+      "status": "not_started",
+      "logs_exist": false
+    },
+    "posthoc": {
+      "status": "not_started",
+      "logs_exist": false
+    },
+    "paper": {
+      "status": "not_started",
+      "logs_exist": false
+    }
+  },
+  "observed_errors": [
+    {
+      "error": "Design schema: planes.search.correctness not a non-empty array",
+      "status": "resolved_in_previous_run",
+      "evidence": "schema repair followed by accepted design review"
+    },
+    {
+      "error": "First full drafting run7200s timeout",
+      "status": "recovered_and_overall_limit_authorization_removed",
+      "evidence": "new job reuses saved code and accepted design; current job still has original technical timer, successors uncapped"
+    },
+    {
+      "error": "OpenCode draft-task skill: ripgrep execution failed after GitHub download attempt",
+      "status": "fixed_and_verified",
+      "evidence": "live and network-disabled fresh-image OpenCode skill scans passed"
+    },
+    {
+      "error": "Temporary drafting environment missing torch/monai",
+      "status": "resolved",
+      "evidence": "versions torch2.8.0+cpu,monai1.5.1,numpy2.2.6,scipy1.16.2; development smoke ran"
+    },
+    {
+      "error": "Tsinghua pytorch-wheels/cpu index404",
+      "status": "fallback_succeeded",
+      "evidence": "official download.pytorch.org CPU index200; actual install succeeded; other packages used Tsinghua PyPI"
+    },
+    {
+      "error": "time exit127 and bc command not found",
+      "status": "fixed_and_verified",
+      "evidence": "commands installed in live container and persistent image; real executions passed"
+    },
+    {
+      "error": "final development smoke correct=false",
+      "status": "expected_scientific_gate_result_preserved",
+      "evidence": "process exit0; very small smoke reference training below fixed0.50 Dice gate; this is not a qualified experiment"
+    }
+  ],
+  "formal_gpu_training_started": false,
+  "scientific_results_available": false
+}

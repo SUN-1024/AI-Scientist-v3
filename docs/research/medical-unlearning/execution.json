@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-10-17T07:46:55.152517+08:00",
+  "updated_at": "2026-10-17T07:58:38.477791+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
   "job_id": "20261017_070528_ba5c6c51",
-  "status": "running_drafting_recovery",
+  "status": "running_independent_smoke_validation",
   "phase": "task_drafting",
   "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_070528_ba5c6c51/run.log",
   "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51",
@@ -26,13 +26,13 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T07:46:55.152517+08:00",
-    "status": "running_drafting_recovery",
+    "checked_at": "2026-10-17T07:58:38.477791+08:00",
+    "status": "running_independent_smoke_validation",
     "exit_receipt_present": false,
     "repair_applied": true,
     "restart_performed": false,
     "scientific_results_available": false,
-    "latest_check": "07:46:12: original recovery remains active. Agent internal log confirms substantive tool activity 07:43:54 and model step60 at07:43:55. Search development smoke exits0/correcttrue; final development smoke exits0/correctfalse due expected undertrained reference gate (unchanged). Contract generation pending; no full GPU training. No active-run source or generated files overwritten."
+    "latest_check": "07:56:51: drafting completed after50m37s, candidate boundary and contract passed; independent smoke validation started in sanitized runtime.08:00 vicinity: runtime dependency installer active. Fixed missing rg/time/bc live and in image; offline OpenCode skill scan passed. Formal GPU training not started."
   },
   "next_action": {
     "requires_user_decision": false,
@@ -64,7 +64,13 @@
     "repair": "Validated accepted-design recovery; retained code copied to separate task; external 7200s timeout",
     "validation": "10 recovery/launcher tests passed; shell syntax and Python compilation passed; live accepted-design and GPU preflight passed",
     "training_started": false,
-    "development_search_smoke": "Agent development smoke exit 0/correct true; independent harness validation still pending"
+    "development_search_smoke": "Agent development smoke exit 0/correct true; independent harness validation still pending",
+    "contract_schema_check": {
+      "status": "pass",
+      "checked_at": "2026-10-17T07:48:12.559487+08:00",
+      "sha256": "ae507930dd2ce2d71553033c752255d01acea4e612d239b0889bd8663b4b1151",
+      "full_qualification": false
+    }
   },
   "budget_authorization": {
     "updated_at": "2026-10-17T07:37:37.163586+08:00",
@@ -87,10 +93,51 @@
     "validation": "130 targeted tests passed on server40 Linux; shell syntax and Python compilation passed. Two broader local shell tests hit pre-existing macOS Bash3 lack of local -n; same tests pass on server Bash.",
     "deployment": "Synced to remote workspace; active job snapshot kept intact",
     "launcher": "python3 scripts/research/resume_medical_drafting.py --resume",
-    "inspection": "python3 scripts/research/resume_medical_drafting.py"
+    "inspection": "python3 scripts/research/resume_medical_drafting.py",
+    "command_line_dependencies": {
+      "old_image_id": "sha256:5e5139d93a0bb14eb5928f6a5100965b1070ded5c91277ab977fd412a440f28c",
+      "new_image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+      "tag": "agentic-scientist/agent-cli:runtime-tools-20261017",
+      "default_tag_updated": true,
+      "backup_tag": "agentic-scientist/agent-cli:before-runtime-tools-20261017",
+      "tools": [
+        "ripgrep",
+        "time",
+        "bc"
+      ],
+      "live_patch": "Patched only command-line binaries in active drafting container before it exited; no model/data/code changes or restart",
+      "validation": [
+        "Live rg skill-file search",
+        "Live OpenCode debug skill returned draft-task and memory-log, stderr0",
+        "Live bc arithmetic and time execution passed",
+        "New image built from original image with China APT mirrors",
+        "New image OpenCode debug skill passed with network=none",
+        "Independent smoke now uses new image ID"
+      ]
+    }
   },
   "monitor_hint": {
     "current_buffered_log_fallback": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51/task_drafting/.agent_home/.local/share/opencode/log/opencode.log",
     "interpretation": "Current job uses old buffered logger; use internal model tool event times plus task artifacts for progress. Do not print provider secrets or treat provider stream heartbeat as experiment progress."
+  },
+  "verification_gate": {
+    "enabled": true,
+    "required_before_downstream": [
+      "Canonical task and candidate boundary",
+      "Contract and provenance checks",
+      "Independent isolated search/final smoke and production entry",
+      "Full production baseline qualification",
+      "Independent scientific alignment review"
+    ],
+    "current_passed": [
+      "Canonical task and candidate boundary",
+      "Contract schema and static lint"
+    ],
+    "current_pending": [
+      "Independent isolated smoke/production entry",
+      "Full production baseline qualification",
+      "Independent scientific alignment review"
+    ],
+    "do_not_bypass": true
   }
 }
