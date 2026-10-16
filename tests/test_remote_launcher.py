@@ -70,3 +70,13 @@ def test_background_run_has_snapshot_and_exit_receipt(launcher, monkeypatch):
     assert "exit-code" in scripts[-1]
     assert "paths.run_dir=" in scripts[-1]
     assert shlex.quote("agent.model=model with spaces") in shlex.split(scripts[-1])[2]
+
+
+def test_gpu_selector_is_one_docker_csv_field(launcher):
+    import csv
+    setup = launcher.gpu_setup(launcher.args_for("run", [], "/tmp/job"))
+    assignment = setup.split("export AGENT_CONTAINER_GPUS=", 1)[1].split("; fi", 1)[0]
+    value = shlex.split(assignment)[0]
+    assert next(csv.reader([value])) == ["device=" + ",".join(launcher.CFG["gpu_uuids"])]
+    from src.investigation.container_gpus import validate_gpu_allocation
+    assert len(validate_gpu_allocation(value, 2)) == 2

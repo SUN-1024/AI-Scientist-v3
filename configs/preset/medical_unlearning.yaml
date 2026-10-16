@@ -1,0 +1,37 @@
+# @package _global_
+# Bounded development pilot. Full study remains gated on actual pilot evidence.
+container:
+  gpu_count: 2
+  network: host
+task_drafting:
+  timeout_seconds: 7200
+investigation:
+  execution:
+    max_idea_cycles: 2
+    max_program_evals_per_attempt: 1
+    harness_evaluated_attempts: true
+    gpu_evaluation: true
+    run_timeout_seconds: 3600
+    harness_evaluation_timeout_seconds: 2100
+    idea_timeout_seconds: 900
+  task_drafting:
+    design_max_repairs: 2
+    contract_max_repairs: 2
+    smoke_max_repairs: 2
+    alignment_max_repairs: 2
+    qualification_max_repairs: 2
+    draft_max_attempts: 1
+ablations:
+  execution:
+    num_replications: 1
+    max_evals_per_variant: 1
+    max_ablations: 2
+    variant_timeout_seconds: 2400
+final:
+  timeout_seconds: 3900
+posthoc:
+  execution:
+    max_selected_analyses: 1
+paper:
+  paper_min_refs: 8
+  paper_max_refs: 15

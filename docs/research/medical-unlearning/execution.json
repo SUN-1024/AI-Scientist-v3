@@ -1,0 +1,28 @@
+{
+  "updated_at": "2026-10-16T22:14:23.335041+08:00",
+  "tool": "SakanaAI AI-Scientist v3",
+  "agent": "opencode",
+  "model": "qwen-plan/qwen3.8-max",
+  "host": "sunguanqun@10.113.100.40",
+  "job_id": "20261016_221356_d7251131",
+  "status": "running_task_design",
+  "phase": "task_drafting",
+  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261016_221356_d7251131/run.log",
+  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261016_221356_d7251131",
+  "phases": [
+    "task_drafting",
+    "investigation",
+    "ablations",
+    "final_evaluation",
+    "posthoc",
+    "paper"
+  ],
+  "prior_failed_job": {
+    "id": "20261016_221226_9f2abf9f",
+    "reason": "Docker multi-GPU CSV selector was unquoted; fixed and GPU visibility verified",
+    "training_started": false
+  },
+  "scientific_results_available": false,
+  "paper_available": false,
+  "submission_authorized": false
+}

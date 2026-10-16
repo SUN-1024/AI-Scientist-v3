@@ -82,3 +82,7 @@ outputs/
 
 # Harness-written sealed task runtime manifest (machine-specific, derived)
 .agentic_runtime.json
+
+# Medical pilot data stays on server40; never commit patient arrays.
+/examples/medical_unlearning/resources/
+/examples/medical_unlearning/upstream/

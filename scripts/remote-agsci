@@ -66,7 +66,8 @@ def gpu_setup(cmd):
              "c=load_run_config(sys.argv[1:]); print(c.container.gpu_count)")
     query = shlex.join([REMOTE + "/.venv/bin/python", "-c", probe,
                         *[arg for arg in cmd[4:] if arg != "--dry-run"]])
-    selector = shlex.quote("device=" + ",".join(CFG["gpu_uuids"]))
+    # Docker parses --gpus as CSV, so a multi-device field needs literal quotes.
+    selector = shlex.quote('"device=' + ",".join(CFG["gpu_uuids"]) + '"')
     return (f'agsci_gpu_count=$({query})\n'
             f'if [ "$agsci_gpu_count" -gt 0 ]; then export AGENT_CONTAINER_GPUS={selector}; fi\n')
 

@@ -1,0 +1,31 @@
+{
+  "kind": "development_only",
+  "source_project": "/home/sunguanqun/patient_unlearning_20261001",
+  "source_git_head": "2883aa9ce8a6892d56816c8f6ba137d0215008aa",
+  "source_manifest_sha256": "692db20051c877495fd5424635ac0f6b1be3743964743e379134927666f10de8",
+  "source_split_sha256": "e1748a7177adbce7ea9b3339507ffd5445e349aa7b661271106b206daa18bc53",
+  "original_test_read": false,
+  "source_modified": false,
+  "preprocessing": "all ED/ES axial slices; per-volume z-score; bilinear image/nearest mask to 128x128; low-resolution 2D pilot only",
+  "planes": {
+    "search": {
+      "patients": 39,
+      "train": 29,
+      "forget": 5,
+      "heldout": 10,
+      "manifest_sha256": "005fa2312acd07fba9995cb371c0769637262bf83a10597e47f8615579502c79"
+    },
+    "final": {
+      "patients": 39,
+      "train": 29,
+      "forget": 5,
+      "heldout": 10,
+      "manifest_sha256": "6ba15441cbb41a13a6643ded314870558807c48c179ec68417e55854eccc5711"
+    }
+  },
+  "source_files": {
+    "models.py": "d76eeeb998be5596f3e8f52244b6bf078018f059d80ee2d75568bd4ed7c56d0f",
+    "losses.py": "615ff113aca6c0155ef0b1045e87e851c3d06f82160b9f9130a3e7461b7105d1",
+    "unlearning.py": "37a8b9bc23803eb2ec0791aff298285715eb5156b452661a4a645274f201a37c"
+  }
+}
