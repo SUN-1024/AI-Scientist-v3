@@ -23,6 +23,7 @@ AGENT_PROFILE=""
 AGENT_REASONING_EFFORT=""
 TASK_DIR="examples/circpack"
 OUTPUT_DIR=""
+ACCEPTED_DESIGN_DIR=""
 INSTRUCT_PATH=""
 INSTRUCT_EXPLICIT=0
 CONTAINERIZE=0
@@ -75,6 +76,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --output-dir)
       OUTPUT_DIR="$2"
+      shift 2
+      ;;
+    --accepted-design-dir)
+      ACCEPTED_DESIGN_DIR="$2"
       shift 2
       ;;
     --instruct|-i)
@@ -961,7 +966,16 @@ run_logged_agent_step() {
 
 source "$SCRIPT_DIR/lib/task_design.sh"
 task_resource_preflight || exit 4
-run_design_workflow
+if [ -n "$ACCEPTED_DESIGN_DIR" ]; then
+  [ "$TASK_DRAFTING_WORKFLOW" = "robust" ] || { echo "Design recovery requires robust workflow" >&2; exit 2; }
+  "$PYTHON_BIN" -m src.task_drafting.recovery \
+    --source "$ACCEPTED_DESIGN_DIR" --task "$TASK_SOURCE_DIR/task.md" \
+    --destination "$OUTPUT_DIR/_task_design"
+  export TASK_DESIGN_PATH="./_task_design/task_design.json"
+  task_progress_emit workflow completed "Recovered accepted task design; all scaffold gates remain required" --verdict pass
+else
+  run_design_workflow
+fi
 
 canonicalize_staged_scaffold() {
   "$PYTHON_BIN" - "$REPO_ROOT" "$STAGED_TASK_DIR" "$TASK_SOURCE_DIR" <<'PY'

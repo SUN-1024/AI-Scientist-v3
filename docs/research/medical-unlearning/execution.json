@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-10-16T22:14:23.335041+08:00",
+  "updated_at": "2026-10-17T07:05:57.499606+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
-  "job_id": "20261016_221356_d7251131",
-  "status": "running_task_design",
+  "job_id": "20261017_070528_ba5c6c51",
+  "status": "running_drafting_recovery",
   "phase": "task_drafting",
-  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261016_221356_d7251131/run.log",
-  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261016_221356_d7251131",
+  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_070528_ba5c6c51/run.log",
+  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51",
   "phases": [
     "task_drafting",
     "investigation",
@@ -24,5 +24,44 @@
   },
   "scientific_results_available": false,
   "paper_available": false,
-  "submission_authorized": false
+  "submission_authorized": false,
+  "last_monitor_check": {
+    "checked_at": "2026-10-17T07:05:57.499606+08:00",
+    "status": "running_drafting_recovery",
+    "restart_performed": true,
+    "repair_applied": true,
+    "scientific_results_available": false,
+    "latest_check": "07:05:44: live container and agent output; accepted design restored with matching fingerprint; scaffold agent active; no training yet."
+  },
+  "next_action": {
+    "requires_user_decision": false,
+    "action": "Monitor recovery gates within authorized 7200 seconds; preserve failures; no automatic budget extension"
+  },
+  "previous_execution": {
+    "job_id": "20261016_221356_d7251131",
+    "status": "failed_drafting_timeout_awaiting_budget_decision",
+    "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261016_221356_d7251131/run.log",
+    "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261016_221356_d7251131",
+    "last_monitor_check": {
+      "status": "failed_drafting_timeout_awaiting_budget_decision",
+      "exit_receipt_present": true,
+      "exit_code": 4,
+      "inner_exit_code": 124,
+      "failure_time": "2026-10-17T00:14:21+08:00",
+      "observation": "7200s drafting budget exhausted; pipeline stopped before investigation. Task container removed, other service healthy, both A40s idle. Approved design 53737 bytes, candidate 21207 bytes, evaluator 101555 bytes, requirements and capture preserved. final_evaluate.py and task_contract.json absent. No qualification or scientific results.",
+      "repair_applied": false,
+      "restart_performed": false,
+      "checked_at": "2026-10-17T07:00:01.402021+08:00",
+      "latest_check": "Unchanged at 06:59:56: exit 4; task process/container absent; no result files modified in past 10 minutes; authorized A40s idle. No new progress/error/repair/restart; additional budget authorization pending."
+    }
+  },
+  "recovery": {
+    "authorized_at": "2026-10-17T07:05:31.785066+08:00",
+    "additional_seconds": 7200,
+    "source_draft": "/home/sunguanqun/AI-Scientist-v3/results/20261016_221356_d7251131/task_drafting/_task_drafting/draft_20261016_141410_1792160050430039797",
+    "scope": "Complete interrupted scaffold and run unchanged robust validation gates",
+    "repair": "Validated accepted-design recovery; retained code copied to separate task; external 7200s timeout",
+    "validation": "10 recovery/launcher tests passed; shell syntax and Python compilation passed; live accepted-design and GPU preflight passed",
+    "training_started": false
+  }
 }
