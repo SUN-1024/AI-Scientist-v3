@@ -53,6 +53,9 @@ RUN set -eux; \
       texlive-latex-recommended; \
     rm -rf /var/lib/apt/lists/*
 
+# Allow deployment-specific mirrors without changing global package settings.
+ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+ARG PIP_INDEX_URL=https://pypi.org/simple
 RUN npm install -g \
     @openai/codex@0.153.4 \
     @anthropic-ai/claude-code@2.1.285 \

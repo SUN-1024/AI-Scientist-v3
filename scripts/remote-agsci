@@ -84,6 +84,8 @@ def main():
                f"docker build --network=host {proxy_args} "
                "--build-arg DEBIAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian "
                "--build-arg DEBIAN_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian-security "
+               "--build-arg NPM_CONFIG_REGISTRY=https://registry.npmmirror.com "
+               "--build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple "
                "-t agentic-scientist/agent-cli:latest -f src/docker/agent-cli/Dockerfile .\n")
     elif args.command in ("doctor", "dry-run", "run"):
         job = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
