@@ -1,0 +1,14 @@
+#!/bin/bash
+# 项目专用入口：使用独立 Python 环境及真实临时目录。
+set -euo pipefail
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+cd "$PROJECT_ROOT"
+if [ -x /Applications/Docker.app/Contents/Resources/bin/docker ]; then
+  export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
+fi
+if [ -d /opt/homebrew/opt/node@22/bin ]; then
+  export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+fi
+export AGENTIC_TEMP_ROOT="${AGENTIC_TEMP_ROOT:-$PROJECT_ROOT/scratch/tmp}"
+mkdir -p "$AGENTIC_TEMP_ROOT"
+exec "$PROJECT_ROOT/.venv/bin/agsci" "$@"

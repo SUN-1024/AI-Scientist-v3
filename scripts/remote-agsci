@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""本地配置、SSH 提交、远程 Docker 执行。不会自动上传凭据。"""
+import argparse
+import datetime
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+CFG = json.loads((ROOT / "configs/remote.json").read_text())
+HOST, REMOTE = CFG["host"], CFG["root"]
+SSH = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", HOST]
+if not REMOTE.startswith("/") or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/_.-" for c in REMOTE):
+    sys.exit("remote.root 必须是无空格的绝对路径")
+if HOST.startswith("-") or any(c.isspace() for c in HOST):
+    sys.exit("无效的 SSH 主机")
+
+
+def remote(script, capture=False):
+    return subprocess.run(SSH + ["bash -s"], input="set -euo pipefail\numask 077\n" + script,
+                          text=True, check=True, capture_output=capture)
+
+
+def sync(destination):
+    remote("mkdir -p " + shlex.quote(destination))
+    # 不删除服务器文件；不上传密钥、虚拟环境、数据及实验结果。
+    excludes = [".git", ".venv", ".env*", ".codex", ".claude", ".ssh", "node_modules",
+                "results", "scratch", "output", "outputs", "__pycache__", "*.egg-info",
+                ".pytest_cache", "dist", ".DS_Store", "examples/grpo/resources"]
+    subprocess.run(["rsync", "-az", *["--exclude=" + x for x in excludes],
+                    str(ROOT) + "/", HOST + ":" + destination + "/"], check=True)
+
+
+def preamble(directory):
+    return (f"cd {shlex.quote(directory)}\n"
+            f"export PATH={shlex.quote(REMOTE + '/.venv/bin')}:\"$HOME/.local/bin:$PATH\"\n"
+            f"export PYTHONPATH={shlex.quote(directory)}\n"
+            f"export AGENTIC_TEMP_ROOT={shlex.quote(REMOTE + '/scratch/tmp')}\n"
+            "unset AGENT_CONTAINER_GPUS\n"
+            'umask 077\nmkdir -p "$AGENTIC_TEMP_ROOT"\n'
+            f"chmod 700 {REMOTE} {REMOTE}/scratch {REMOTE}/scratch/tmp\n")
+
+
+def args_for(command, extra, directory):
+    return [REMOTE + "/.venv/bin/python", "-m", "src.agsci.main", command, "task.dir=" + CFG["task"],
+            *CFG["overrides"], *extra, "container.enabled=true",
+            "container.auth_root=" + REMOTE + "/auth",
+            "container.env_file=" + REMOTE + "/.env"]
+
+
+def gpu_setup(cmd):
+    probe = ("import sys; from src.agsci.doctor import load_run_config; "
+             "c=load_run_config(sys.argv[1:]); print(c.container.gpu_count)")
+    query = shlex.join([REMOTE + "/.venv/bin/python", "-c", probe, *cmd[4:]])
+    selector = shlex.quote("device=" + ",".join(CFG["gpu_uuids"]))
+    return f'if [ "$({query})" -gt 0 ]; then export AGENT_CONTAINER_GPUS={selector}; fi\n'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["setup", "sync", "build", "doctor", "dry-run", "run", "status", "pull"])
+    parser.add_argument("overrides", nargs="*", help="Hydra key=value 参数；覆盖 configs/remote.json")
+    args = parser.parse_args()
+    if args.command == "setup":
+        sync(REMOTE + "/workspace")
+        remote(f"mkdir -p {REMOTE}/auth {REMOTE}/scratch/tmp {REMOTE}/jobs {REMOTE}/results\n"
+               f"chmod 700 {REMOTE} {REMOTE}/scratch {REMOTE}/scratch/tmp {REMOTE}/auth\n"
+               f"touch {REMOTE}/.env\nchmod 600 {REMOTE}/.env\n"
+               f"cd {REMOTE}/workspace\n"
+               f"UV_PROJECT_ENVIRONMENT={REMOTE}/.venv \"$HOME/.local/bin/uv\" sync --python 3.12 "
+               "--default-index https://pypi.tuna.tsinghua.edu.cn/simple --no-dev\n")
+    elif args.command == "sync":
+        sync(REMOTE + "/workspace")
+    elif args.command == "build":
+        sync(REMOTE + "/workspace")
+        proxy = os.environ.get("AGSCI_BUILD_PROXY", "")
+        proxy_args = shlex.join(["--build-arg", "HTTP_PROXY=" + proxy,
+                                "--build-arg", "HTTPS_PROXY=" + proxy])
+        remote(f"cd {REMOTE}/workspace\n"
+               f"docker build --network=host {proxy_args} "
+               "--build-arg DEBIAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian "
+               "--build-arg DEBIAN_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian-security "
+               "-t agentic-scientist/agent-cli:latest -f src/docker/agent-cli/Dockerfile .\n")
+    elif args.command in ("doctor", "dry-run", "run"):
+        job = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
+        directory = REMOTE + "/jobs/" + job
+        sync(directory)
+        cmd = args_for("doctor" if args.command == "doctor" else "run", args.overrides, directory)
+        if args.command == "dry-run":
+            cmd.append("--dry-run")
+        if args.command != "run":
+            remote(preamble(directory) + gpu_setup(cmd) + shlex.join(cmd))
+            return
+        # 每次提交使用独立快照；本地后续编辑不改变正在运行的任务。
+        # 明确要求配置凭据后才运行，避免误用服务器上其他项目的登录。
+        remote(f"test -s {REMOTE}/.env || {{ echo '请先配置服务器专用 .env（模型尚未绑定）'; exit 1; }}")
+        cmd += ["run_id=" + job, "paths.run_dir=" + REMOTE + "/results/" + job]
+        runner = ("#!/bin/bash\nset -euo pipefail\n" + preamble(directory) + gpu_setup(cmd) + "set +e\n" + shlex.join(cmd)
+                  + "\nrc=$?\nprintf '%s\\n' \"$rc\" > exit-code\nexit \"$rc\"\n")
+        remote(f"printf %s {shlex.quote(runner)} > {directory}/run.sh\n"
+               f"cd {directory}\nnohup bash run.sh > run.log 2>&1 < /dev/null &\n"
+               "echo $! > pid\n")
+        print("已提交：", job, "\n使用 status 查看状态，pull 拉回结果。")
+    elif args.command == "status":
+        remote(f"nvidia-smi --query-gpu=index,name,memory.used,utilization.gpu --format=csv\n"
+               f"for d in {REMOTE}/jobs/*; do\n"
+               '  [ -f "$d/pid" ] || continue\n'
+               '  echo "JOB $(basename "$d")"\n'
+               '  if [ -f "$d/exit-code" ]; then echo "exit=$(cat "$d/exit-code")"; '
+               'elif kill -0 "$(cat "$d/pid")" 2>/dev/null; then echo running; else echo interrupted; fi\n'
+               '  tail -5 "$d/run.log"\ndone\n')
+    elif args.command == "pull":
+        (ROOT / "results/remote40").mkdir(parents=True, exist_ok=True)
+        subprocess.run(["rsync", "-az", "--exclude=.env*", "--exclude=.agent_home", "--exclude=.codex",
+                        "--exclude=.ssh", HOST + ":" + REMOTE + "/results/",
+                        str(ROOT / "results/remote40") + "/"], check=True)
+        print("结果已同步。使用 打开结果界面.command 查看。")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except subprocess.CalledProcessError as exc:
+        sys.exit(exc.returncode)

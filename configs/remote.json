@@ -1,0 +1,10 @@
+{
+  "host": "sunguanqun@10.113.100.40",
+  "root": "/home/sunguanqun/AI-Scientist-v3",
+  "gpu_uuids": [
+    "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f",
+    "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113"
+  ],
+  "task": "examples/circpack",
+  "overrides": []
+}
