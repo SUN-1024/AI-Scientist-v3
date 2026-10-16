@@ -363,6 +363,8 @@ def check_selected_agent_cli(host: Host, cfg: PipelineConfig) -> CheckResult:
 def check_selected_credentials(host: Host, cfg: PipelineConfig) -> CheckResult:
     agent = cfg.agent.name
     names = AGENT_CREDENTIAL_ENV.get(agent)
+    if agent == "opencode" and str(cfg.agent.model or "").startswith("qwen-plan/"):
+        names = ("QWEN_PLAN_API_KEY",)
     if names is None:
         return CheckResult("credentials", WARN, f"unknown agent {agent!r}; skipped")
     env_file = _env_file_path(host, cfg)

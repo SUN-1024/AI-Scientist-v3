@@ -6,5 +6,9 @@
     "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113"
   ],
   "task": "examples/circpack",
-  "overrides": []
+  "overrides": [
+    "agent.name=opencode",
+    "agent.model=qwen-plan/qwen3.8-max",
+    "execution.phases='task_drafting,investigation,ablations,final_evaluation,posthoc,paper'"
+  ]
 }

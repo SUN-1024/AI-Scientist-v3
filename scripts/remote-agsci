@@ -48,21 +48,32 @@ def preamble(directory):
 def args_for(command, extra, directory):
     return [REMOTE + "/.venv/bin/python", "-m", "src.agsci.main", command, "task.dir=" + CFG["task"],
             *CFG["overrides"], *extra, "container.enabled=true",
-            "container.auth_root=" + REMOTE + "/auth",
+            "container.auth_root=" + directory + "/auth",
             "container.env_file=" + REMOTE + "/.env"]
+
+
+def stage_auth(directory):
+    # 保留每次提交时的代理配置；密钥仍从项目专用 .env 注入。
+    remote(f"mkdir -p {directory}/auth\n"
+           f"cp -a {REMOTE}/auth/. {directory}/auth/\n"
+           f"if [ -f {directory}/configs/opencode-qwen.json ]; then\n"
+           f"mkdir -p {directory}/auth/.config/opencode\n"
+           f"cp {directory}/configs/opencode-qwen.json {directory}/auth/.config/opencode/opencode.json\nfi\n")
 
 
 def gpu_setup(cmd):
     probe = ("import sys; from src.agsci.doctor import load_run_config; "
              "c=load_run_config(sys.argv[1:]); print(c.container.gpu_count)")
-    query = shlex.join([REMOTE + "/.venv/bin/python", "-c", probe, *cmd[4:]])
+    query = shlex.join([REMOTE + "/.venv/bin/python", "-c", probe,
+                        *[arg for arg in cmd[4:] if arg != "--dry-run"]])
     selector = shlex.quote("device=" + ",".join(CFG["gpu_uuids"]))
-    return f'if [ "$({query})" -gt 0 ]; then export AGENT_CONTAINER_GPUS={selector}; fi\n'
+    return (f'agsci_gpu_count=$({query})\n'
+            f'if [ "$agsci_gpu_count" -gt 0 ]; then export AGENT_CONTAINER_GPUS={selector}; fi\n')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["setup", "sync", "build", "doctor", "dry-run", "run", "status", "pull"])
+    parser.add_argument("command", choices=["setup", "configure", "sync", "build", "doctor", "dry-run", "run", "status", "pull"])
     parser.add_argument("overrides", nargs="*", help="Hydra key=value 参数；覆盖 configs/remote.json")
     args = parser.parse_args()
     if args.command == "setup":
@@ -73,6 +84,13 @@ def main():
                f"cd {REMOTE}/workspace\n"
                f"UV_PROJECT_ENVIRONMENT={REMOTE}/.venv \"$HOME/.local/bin/uv\" sync --python 3.12 "
                "--default-index https://pypi.tuna.tsinghua.edu.cn/simple --no-dev\n")
+    elif args.command == "configure":
+        if not (ROOT / ".env").is_file() or not (ROOT / ".env").stat().st_size:
+            sys.exit("请先填写本地 .env")
+        (ROOT / ".env").chmod(0o600)
+        subprocess.run(["scp", "-q", str(ROOT / ".env"), HOST + ":" + REMOTE + "/.env"], check=True)
+        remote(f"chmod 600 {REMOTE}/.env")
+        print("项目凭据已更新；未显示密钥。下次提交将使用本地最新的代理配置。")
     elif args.command == "sync":
         sync(REMOTE + "/workspace")
     elif args.command == "build":
@@ -95,11 +113,13 @@ def main():
         if args.command == "dry-run":
             cmd.append("--dry-run")
         if args.command != "run":
+            stage_auth(directory)
             remote(preamble(directory) + gpu_setup(cmd) + shlex.join(cmd))
             return
         # 每次提交使用独立快照；本地后续编辑不改变正在运行的任务。
         # 明确要求配置凭据后才运行，避免误用服务器上其他项目的登录。
         remote(f"test -s {REMOTE}/.env || {{ echo '请先配置服务器专用 .env（模型尚未绑定）'; exit 1; }}")
+        stage_auth(directory)
         cmd += ["run_id=" + job, "paths.run_dir=" + REMOTE + "/results/" + job]
         runner = ("#!/bin/bash\nset -euo pipefail\n" + preamble(directory) + gpu_setup(cmd) + "set +e\n" + shlex.join(cmd)
                   + "\nrc=$?\nprintf '%s\\n' \"$rc\" > exit-code\nexit \"$rc\"\n")

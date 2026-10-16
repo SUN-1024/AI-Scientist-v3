@@ -337,6 +337,14 @@ def test_doctor_container_gpus_fails_on_mismatch_or_runtime_error_and_skips_with
     assert docker_calls == []
 
 
+def test_doctor_qwen_credentials_are_provider_specific(tmp_path) -> None:
+    host = _healthy_host(tmp_path)
+    cfg = _run_config(**{"agent.name": "opencode", "agent.model": "qwen-plan/qwen3.8-max"})
+    assert doctor.check_selected_credentials(host, cfg).status == "warn"
+    (host.repo_root / ".env").write_text("QWEN_PLAN_API_KEY=test-only\n")
+    assert doctor.check_selected_credentials(host, cfg).status == "ok"
+
+
 def test_doctor_selected_agent_cli_and_credentials(tmp_path) -> None:
     # a native run needs the selected cli on PATH
     host = _healthy_host(tmp_path / "cli", missing=frozenset({"cursor-agent"}))

@@ -22,11 +22,20 @@
 - Doctor verified **both selected GPUs are visible inside the final agent image**.
 - Results pull command: passed; no experiment results exist yet.
 
+## Qwen binding — verified later on 2026-10-16
+
+- Bound `qwen-plan/qwen3.8-max` through OpenCode and the user's existing Qwen Token Plan endpoint.
+- Dedicated local/server `.env` contains `QWEN_PLAN_API_KEY`; provider config contains only an environment-variable reference.
+- Actual server Docker → Headless → OpenCode → Qwen test passed: the model called bash to run `printf QWEN_BINDING_OK` and returned `QWEN_BINDING_OK`.
+- CPU and GRPO configuration previews select Qwen. Six scientific phases remain enabled; the separate OpenAI-backed PDF review/revision phases are excluded.
+- Qwen credential forwarding and concept-figure config seeding are covered by Linux regression tests (35 passed).
+- Updated launcher and credential doctor tests: 20 passed locally. Qwen CPU doctor: 20 ok, 8 optional host warnings, 0 failures.
+- Full scientific experiments were not started.
+
 ## Not yet configured or verified
 
-- No model provider or credentials selected. Project `.env` files are empty.
-- Doctor credential warning is expected; host-only optional agent/inspector warnings are expected because agents run in Docker and the inspector runs locally.
-- No paid model calls, real training, dataset/model downloads for a scientific task, or complete paper generation were performed.
+- Host-only optional agent/inspector warnings are expected because agents run in Docker and the inspector runs locally.
+- A small Token Plan tool-call test was performed. Real training, dataset/model downloads for a scientific task, and complete paper generation were not performed.
 - Individual scientific tasks may build additional task runtime images and need their own datasets and dependencies.
 - GPU visibility is verified; CUDA training correctness and scientific performance are not yet verified.
 

@@ -37,6 +37,14 @@ def test_container_and_auth_cannot_be_disabled_by_extra_overrides(launcher):
     assert launcher.CFG["task"] not in argv  # no conflicting positional task
 
 
+def test_gpu_probe_excludes_action_flags_and_fails_before_launch(launcher):
+    cmd = launcher.args_for("run", ["preset=grpo"], "/tmp/job") + ["--dry-run"]
+    setup = launcher.gpu_setup(cmd)
+    assert "--dry-run" not in setup
+    assert setup.startswith("agsci_gpu_count=$(")
+    assert 'if [ "$agsci_gpu_count" -gt 0 ]' in setup
+
+
 def test_run_with_no_credentials_does_not_start_job(launcher, monkeypatch):
     calls = []
     monkeypatch.setattr(launcher, "sync", lambda *a: None)

@@ -638,6 +638,10 @@ select_concept_figure_backend() {
     opencode)
       CONCEPT_FIGURE_SEED_AGENT_AUTH=0
       case "$(concept_figure_setting PAPER_CONCEPT_FIGURE_AGENT_PROVIDER)" in
+        qwen-plan)
+          CONCEPT_FIGURE_SEED_AGENT_AUTH=1
+          add_concept_figure_secret_key "QWEN_PLAN_API_KEY"
+          ;;
         anthropic) add_concept_figure_secret_key "ANTHROPIC_API_KEY" ;;
         gemini|google) add_concept_figure_secret_key "GEMINI_API_KEY" ;;
         openai) add_concept_figure_secret_key "OPENAI_API_KEY" ;;

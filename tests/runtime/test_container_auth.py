@@ -34,6 +34,32 @@ AGENT_AUTH_PATHS: list[tuple[str, str, str]] = [
 q = shlex.quote
 
 
+def test_qwen_plan_environment_is_scoped_to_selected_provider(tmp_path: Path) -> None:
+    env_file = tmp_path / "provider.env"
+    env_file.write_text("PI_CODING_AGENT_PROVIDER=qwen-plan\nQWEN_PLAN_API_KEY=test-only\n")
+    keys = _ok(f"agent_provider_allowed_env_keys opencode qwen-plan/qwen3.8-max {q(str(env_file))}").stdout.split()
+    assert "QWEN_PLAN_API_KEY" in keys
+    assert "OPENAI_API_KEY" not in keys
+    assert "ANTHROPIC_API_KEY" not in keys
+    other = _ok("agent_provider_allowed_env_keys opencode openai/gpt-5.6-sol ''").stdout.split()
+    assert "QWEN_PLAN_API_KEY" not in other
+
+
+def test_qwen_concept_figure_keeps_provider_config_without_openai_credentials() -> None:
+    result = _ok(
+        f"source {q(str(REPO_ROOT / 'src/scripts/lib/concept_figure.sh'))}\n"
+        "AGENT=opencode; PAPER_CONCEPT_FIGURE_AGENT_PROVIDER=qwen-plan\n"
+        "CONTAINER_ENV_FILE=; PAPER_OPENAI_API_KEY_AVAILABLE=false; PAPER_GEMINI_API_KEY_AVAILABLE=false\n"
+        "concept_figure_log() { :; }\n"
+        "select_concept_figure_backend\n"
+        "printf '%s|%s|%s' \"$CONCEPT_FIGURE_SEED_AGENT_AUTH\" \"$CONCEPT_FIGURE_SECRET_KEYS\" \"$CONCEPT_FIGURE_BACKEND_FLAGS\""
+    ).stdout
+    assert result.startswith("1|")
+    assert "QWEN_PLAN_API_KEY" in result
+    assert "OPENAI_API_KEY" not in result
+    assert "--skip-enhance" in result
+
+
 def _sh(script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     body = f"set -euo pipefail\nsource {q(str(HELPER))}\n{script}"
     return subprocess.run(

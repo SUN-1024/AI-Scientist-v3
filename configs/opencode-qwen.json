@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "qwen-plan/qwen3.8-max",
+  "small_model": "qwen-plan/qwen3.8-max",
+  "enabled_providers": ["qwen-plan"],
+  "provider": {
+    "qwen-plan": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen Token Plan",
+      "options": {
+        "baseURL": "https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1",
+        "apiKey": "{env:QWEN_PLAN_API_KEY}"
+      },
+      "models": {
+        "qwen3.8-max": {
+          "name": "Qwen3.8 Max",
+          "limit": {"context": 983616, "output": 32768}
+        }
+      }
+    }
+  }
+}
