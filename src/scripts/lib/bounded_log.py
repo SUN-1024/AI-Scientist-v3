@@ -145,7 +145,10 @@ def retain_bounded_stream(
 
     report_first_failure()
     try:
-        while chunk := sys.stdin.buffer.read(READ_CHUNK_BYTES):
+        # BufferedReader.read(n) waits for n bytes (or EOF), which hides sparse
+        # agent events for minutes. read1 returns the bytes currently available.
+        read_chunk = getattr(sys.stdin.buffer, "read1", sys.stdin.buffer.read)
+        while chunk := read_chunk(READ_CHUNK_BYTES):
             if passthrough:
                 try:
                     sys.stdout.buffer.write(chunk)

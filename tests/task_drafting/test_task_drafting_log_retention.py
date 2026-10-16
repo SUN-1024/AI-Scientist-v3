@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -44,6 +45,30 @@ def test_bounded_log_preserves_stream_under_quota_and_truncates_passthrough(tmp_
     assert len(retained) <= 2048
     assert b"output truncated after exceeding 2048 bytes" in retained
     assert retained.endswith(b"\nstream-tail\n")
+
+
+def test_bounded_log_persists_small_event_before_producer_exits(tmp_path: Path) -> None:
+    output = tmp_path / "live.log"
+    env = os.environ | {"AGENTIC_TEMP_ROOT": str(tmp_path.resolve())}
+    with subprocess.Popen(
+        [sys.executable, str(BOUNDED_LOG_SCRIPT), "--output", str(output), "--max-bytes", "2048"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+    ) as writer:
+        try:
+            writer.stdin.write(b"live step completed\n")
+            writer.stdin.flush()
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if output.exists() and output.read_bytes() == b"live step completed\n":
+                    break
+                time.sleep(0.02)
+            else:
+                pytest.fail("Small agent event remained buffered until EOF/full chunk")
+            assert writer.poll() is None
+        finally:
+            writer.stdin.close()
+            writer.wait(timeout=5)
+    assert writer.returncode == 0
 
 
 def test_agent_log_quota_validation_and_shell_runners_share_bounded_writer() -> None:

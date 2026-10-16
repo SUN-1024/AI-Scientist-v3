@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-17T07:05:57.499606+08:00",
+  "updated_at": "2026-10-17T07:46:55.152517+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
@@ -26,16 +26,17 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T07:05:57.499606+08:00",
+    "checked_at": "2026-10-17T07:46:55.152517+08:00",
     "status": "running_drafting_recovery",
-    "restart_performed": true,
+    "exit_receipt_present": false,
     "repair_applied": true,
+    "restart_performed": false,
     "scientific_results_available": false,
-    "latest_check": "07:05:44: live container and agent output; accepted design restored with matching fingerprint; scaffold agent active; no training yet."
+    "latest_check": "07:46:12: original recovery remains active. Agent internal log confirms substantive tool activity 07:43:54 and model step60 at07:43:55. Search development smoke exits0/correcttrue; final development smoke exits0/correctfalse due expected undertrained reference gate (unchanged). Contract generation pending; no full GPU training. No active-run source or generated files overwritten."
   },
   "next_action": {
     "requires_user_decision": false,
-    "action": "Monitor recovery gates within authorized 7200 seconds; preserve failures; no automatic budget extension"
+    "action": "While current job runs, monitor it without duplicate launch. If stopped unsuccessfully, diagnose retained failure then use updated resume_medical_drafting.py --resume to continue latest source without overall deadline. If drafting succeeds, validate published qualification/alignment receipts and proceed to original investigation/ablations/final/posthoc/paper phases."
   },
   "previous_execution": {
     "job_id": "20261016_221356_d7251131",
@@ -62,6 +63,34 @@
     "scope": "Complete interrupted scaffold and run unchanged robust validation gates",
     "repair": "Validated accepted-design recovery; retained code copied to separate task; external 7200s timeout",
     "validation": "10 recovery/launcher tests passed; shell syntax and Python compilation passed; live accepted-design and GPU preflight passed",
-    "training_started": false
+    "training_started": false,
+    "development_search_smoke": "Agent development smoke exit 0/correct true; independent harness validation still pending"
+  },
+  "budget_authorization": {
+    "updated_at": "2026-10-17T07:37:37.163586+08:00",
+    "user_instruction": "无预算上限",
+    "overall_time_limit_seconds": null,
+    "overall_model_call_limit": null,
+    "automatic_recovery_authorized": true,
+    "scientific_protocol_unchanged": true,
+    "existing_process_timeout_seconds": 7200,
+    "existing_process_policy": "Preserve current work. If technical timeout occurs, resume automatically from latest saved artifacts without asking for additional budget; successor runs omit overall timeout."
+  },
+  "runtime_repairs": {
+    "verified_at": "2026-10-17T07:46:55.152517+08:00",
+    "changes": [
+      "Recovery now discovers latest saved draft instead of hardcoded initial job; live host process and Docker mount checks prevent duplicate submission",
+      "Uncapped recovery omits outer timeout and uses qualification-timeout-seconds=0 to remove shared drafting deadline; scientific per-evaluation limits retained",
+      "Bounded log writer uses read1 to persist small events before EOF/64KiB accumulation",
+      "Recovery preserves qualified runtime cache, records early failures, locks submission and records job identity before dispatch"
+    ],
+    "validation": "130 targeted tests passed on server40 Linux; shell syntax and Python compilation passed. Two broader local shell tests hit pre-existing macOS Bash3 lack of local -n; same tests pass on server Bash.",
+    "deployment": "Synced to remote workspace; active job snapshot kept intact",
+    "launcher": "python3 scripts/research/resume_medical_drafting.py --resume",
+    "inspection": "python3 scripts/research/resume_medical_drafting.py"
+  },
+  "monitor_hint": {
+    "current_buffered_log_fallback": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51/task_drafting/.agent_home/.local/share/opencode/log/opencode.log",
+    "interpretation": "Current job uses old buffered logger; use internal model tool event times plus task artifacts for progress. Do not print provider secrets or treat provider stream heartbeat as experiment progress."
   }
 }

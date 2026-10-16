@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # Qualification recovery stays provisional until production and alignment both pass.
 
+# Zero removes the shared drafting deadline. Individual gate calls retain a
+# watchdog; the contract still enforces each scientific evaluation's budget.
+qualification_remaining_seconds() {
+  local cleanup_reserve="${1:-30}"
+  if [ "$QUALIFICATION_TIMEOUT_SECONDS" -eq 0 ]; then
+    printf '%s\n' 604800
+  else
+    printf '%s\n' "$((QUALIFICATION_TIMEOUT_SECONDS - SECONDS - cleanup_reserve))"
+  fi
+}
+
 clear_provisional_acceptance() {
   ACCEPTED_ALIGNMENT_REPORT=""
   ACCEPTED_QUALIFICATION_REPORT=""

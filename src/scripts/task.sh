@@ -315,10 +315,10 @@ if [[ ! "$EVALUATOR_SMOKE_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] \
   echo "--evaluator-smoke-timeout-seconds must be an integer from 1 to 7200" >&2
   exit 1
 fi
-if [[ ! "$QUALIFICATION_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] \
+if [[ ! "$QUALIFICATION_TIMEOUT_SECONDS" =~ ^(0|[1-9][0-9]*)$ ]] \
   || [ "${#QUALIFICATION_TIMEOUT_SECONDS}" -gt 7 ] \
   || [ "$QUALIFICATION_TIMEOUT_SECONDS" -gt 604800 ]; then
-  echo "--qualification-timeout-seconds must be an integer from 1 to 604800" >&2
+  echo "--qualification-timeout-seconds must be 0 (no shared deadline) or 1 to 604800" >&2
   exit 1
 fi
 if [[ ! "$MAX_GATE_CHECKS_PER_REPAIR" =~ ^[1-9][0-9]*$ ]] \
@@ -1314,7 +1314,7 @@ PY
 smoke_staged_evaluators() {
   local timeout_seconds="${1:-$EVALUATOR_SMOKE_TIMEOUT_SECONDS}"
   local production_timeout_seconds="${2:-$PRODUCTION_ENTRY_TIMEOUT_SECONDS}"
-  local acceptance_timeout_seconds="${3:-$QUALIFICATION_TIMEOUT_SECONDS}"
+  local acceptance_timeout_seconds="${3:-$(qualification_remaining_seconds 0)}"
   local operation="${4:-acceptance-smoke}"
   case "$operation" in
     acceptance-smoke|contract|runtime|search-smoke|final-smoke|production-entry) ;;
@@ -1936,7 +1936,7 @@ smoke_until_valid() {
 
   while true; do
     if [ "$validation_operation" != "acceptance-smoke" ]; then
-      remaining_timeout="$((QUALIFICATION_TIMEOUT_SECONDS - SECONDS - cleanup_reserve))"
+      remaining_timeout="$(qualification_remaining_seconds "$cleanup_reserve")"
       if ! smoke_target_sequence_fits_deadline \
         "$remaining_timeout" "$validation_operation" "$validation_followup_operation"; then
         validation_operation="acceptance-smoke"
@@ -1963,7 +1963,7 @@ smoke_until_valid() {
     while true; do
       smoke_output="$VALIDATION_ROOT/smoke_${smoke_attempt}.log"
       raw_smoke_output="$VALIDATION_ROOT/raw_smoke_${smoke_attempt}.tmp"
-      remaining_timeout="$((QUALIFICATION_TIMEOUT_SECONDS - SECONDS - cleanup_reserve))"
+      remaining_timeout="$(qualification_remaining_seconds "$cleanup_reserve")"
       if [ "$validation_operation" != "acceptance-smoke" ]; then
         if ! smoke_target_sequence_fits_deadline \
           "$remaining_timeout" "$validation_operation" "$validation_followup_operation"; then
@@ -2716,7 +2716,7 @@ qualification_staged_task() {
   if [ "$QUALIFICATION_TIMEOUT_SECONDS" -le 60 ]; then
     cleanup_reserve=5
   fi
-  remaining_timeout="$((QUALIFICATION_TIMEOUT_SECONDS - SECONDS - cleanup_reserve))"
+  remaining_timeout="$(qualification_remaining_seconds "$cleanup_reserve")"
   if [ "$remaining_timeout" -lt 1 ]; then
     printf '%s\n' \
       '{"category":"qualification_deadline_exhausted","diagnostic":"The overall task-drafting deadline has no time remaining for full qualification.","elapsed_seconds":0.0,"receipt_path":null,"stage":"production-search","status":"infrastructure_failure","task_fingerprint":""}' \
