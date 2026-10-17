@@ -1,8 +1,10 @@
 {
-  "checked_at": "2026-10-17T08:18:26.061251+08:00",
+  "checked_at": "2026-10-17T09:06:26.038348+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
-    "20261017_070528_ba5c6c51"
+    "20261017_070528_ba5c6c51",
+    "20261017_084517_1b64cdd7",
+    "20261017_085117_652b0da2"
   ],
   "phases": {
     "design": {
@@ -10,19 +12,33 @@
       "evidence": "original accepted_review.json + design_receipt.json, restored with fingerprint and canonical task checks"
     },
     "task_drafting": {
-      "status": "completed_current_attempt",
+      "status": "complete_scaffold_reused_with_metric_fix",
       "duration_seconds": 3037,
       "contract_schema": "pass",
       "contract_static_lint": "pass",
-      "candidate_boundary": "pass"
+      "candidate_boundary": "pass",
+      "canonical_task_unchanged": true
     },
     "independent_validation": {
-      "status": "isolated_smoke_and_production_entry_passed",
-      "gate": "acceptance-smoke",
-      "exit_code": 0,
-      "duration_seconds": 527,
-      "scaffold_fingerprint": "sha256:78bade6dbb6ffa7ea5ec7029affbf383d0d4c876875104b0e927e2fe5cf38399",
-      "current_operation": "independent scientific alignment review round0; full production baseline qualification pending"
+      "status": "corrected_isolated_smoke_passed_alignment_active",
+      "candidate_boundary": "pass",
+      "contract": "pass",
+      "acceptance_smoke": "pass",
+      "alignment": "running",
+      "full_baseline_qualification": "pending",
+      "prior_smoke_receipt": "Historical only; did not cover corrected metric",
+      "duration_seconds": 225,
+      "gate_scaffold_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
+      "full_baseline_preflight": {
+        "status": "pass",
+        "correct": true,
+        "feasible": true,
+        "seed": 1701,
+        "total_seconds": 60.85846066195518,
+        "source_gate_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
+        "main_qualification_gate": "pending",
+        "used_as_release_receipt": false
+      }
     },
     "investigation": {
       "status": "not_started",
@@ -85,8 +101,28 @@
       "error": "Alignment reviewer package installation/download timeouts",
       "status": "scoped_mirror_fixed_and_source_read_resumed",
       "evidence": "MONAI1.5.1 wheel downloaded from Tsinghua and read by judge08:15:38; future reviews instructed to inspect pinned source archives and leave full runtime execution to qualification"
+    },
+    {
+      "error": "Tolerant boundary F1 reused one directional match count",
+      "status": "implementation_fixed_full_validation_pending",
+      "evidence": "Two actual evaluator modules each passed7 geometric regressions under pinned NumPy/SciPy; all gates rerun"
+    },
+    {
+      "error": "Isolated runtime pip did not inherit package mirror; measured23KiB/s Torch download",
+      "status": "fixed_and_unit_integration_verified",
+      "evidence": "Medical runner explicitly selects Tsinghua for writable install containers only;99tests passLinux; new job resumed"
     }
   ],
-  "formal_gpu_training_started": false,
-  "scientific_results_available": false
+  "scientific_results_available": true,
+  "current_job_id": "20261017_085117_652b0da2",
+  "gpu_stage": "isolated development validation only",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/gpu-samples.csv",
+  "gpu_training": {
+    "observed": true,
+    "purpose": "Complete production-search baseline qualification on isolated copy",
+    "reference_updates_each": 400,
+    "baseline_updates_each": 80,
+    "investigation_started": false
+  },
+  "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results"
 }

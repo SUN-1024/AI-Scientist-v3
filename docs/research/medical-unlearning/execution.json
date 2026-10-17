@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-10-17T08:51:10.910150+08:00",
+  "updated_at": "2026-10-17T09:06:26.038348+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
-  "job_id": "20261017_084517_1b64cdd7",
-  "status": "stopped_for_package_mirror_repair",
+  "job_id": "20261017_085117_652b0da2",
+  "status": "running_drafting_recovery",
   "phase": "task_drafting",
-  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_084517_1b64cdd7/run.log",
-  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7",
+  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/run.log",
+  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2",
   "phases": [
     "task_drafting",
     "investigation",
@@ -22,20 +22,23 @@
     "reason": "Docker multi-GPU CSV selector was unquoted; fixed and GPU visibility verified",
     "training_started": false
   },
-  "scientific_results_available": false,
+  "scientific_results_available": true,
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T08:51:10.910150+08:00",
-    "status": "owned_install_stopped_after_measured_download_stall",
-    "exit_code": 130,
-    "process_ids": [],
-    "container_ids": [],
-    "scientific_results_available": false
+    "checked_at": "2026-10-17T09:06:26.038348+08:00",
+    "status": "full_baseline_preflight_passed_independent_alignment_running",
+    "scientific_results_available": true,
+    "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results",
+    "gpu_training_observed": true,
+    "investigation_started": false,
+    "repair_applied": false,
+    "restart_performed": false,
+    "latest_effective_activity": "Independent judge inspected pinned MONAI source at09:04:55; report pending"
   },
   "next_action": {
     "requires_user_decision": false,
-    "action": "Monitor, diagnose and recover without overall budget cap; preserve scientific per-evaluation budgets"
+    "action": "Finish independent alignment and main framework qualification; verify main publication receipts and corrected metric AST, then launch original investigation phases. Supplemental baseline proof does not bypass main gates."
   },
   "previous_execution": {
     "job_id": "20261016_221356_d7251131",
@@ -56,7 +59,7 @@
     }
   },
   "recovery": {
-    "source_draft": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51/task_drafting",
+    "source_draft": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7/task_drafting",
     "overall_timeout_seconds": null,
     "scope": "Continue latest saved code with all robust validation gates",
     "runtime_cache_handoff": true,
@@ -69,8 +72,8 @@
     "overall_model_call_limit": null,
     "automatic_recovery_authorized": true,
     "scientific_protocol_unchanged": true,
-    "existing_process_timeout_seconds": 7200,
-    "existing_process_policy": "Preserve current work. If technical timeout occurs, resume automatically from latest saved artifacts without asking for additional budget; successor runs omit overall timeout."
+    "existing_process_timeout_seconds": null,
+    "existing_process_policy": "Current recovery has no outer/shared drafting timeout; scientific per-evaluation ceilings are unchanged"
   },
   "runtime_repairs": {
     "verified_at": "2026-10-17T07:46:55.152517+08:00",
@@ -133,8 +136,7 @@
     }
   },
   "monitor_hint": {
-    "current_buffered_log_fallback": "/tmp/agentic-task-validation-y7hu4t/.judge_home_0/.local/share/opencode/log/opencode.log",
-    "interpretation": "Current job uses old buffered logger; use internal model tool event times plus task artifacts for progress. Do not print provider secrets or treat provider stream heartbeat as experiment progress."
+    "interpretation": "Current job includes read1 bounded-log fix; read current job and gate logs directly, then inspect only scoped provider tool events if progress stalls. Do not print provider secrets or count provider heartbeats as scientific progress."
   },
   "verification_gate": {
     "enabled": true,
@@ -145,11 +147,12 @@
       "Full production baseline qualification",
       "Independent scientific alignment review"
     ],
-    "current_passed": [],
-    "current_pending": [
+    "current_passed": [
       "Canonical task and candidate boundary",
       "Contract and provenance checks",
-      "Independent isolated search/final smoke and production entry",
+      "Independent isolated search/final smoke and production entry"
+    ],
+    "current_pending": [
       "Full production baseline qualification",
       "Independent scientific alignment review"
     ],
@@ -160,7 +163,7 @@
   },
   "blocking_findings": [],
   "boundary_metric_finding": {
-    "status": "confirmed_fix_tested_pending_safe_restart",
+    "status": "fixed_in_current_copy_pending_independent_validation",
     "counterexample": {
       "A_rectangle": [
         2,
@@ -210,6 +213,21 @@
         "scientific_results_available": false,
         "repair_applied": false
       }
+    },
+    {
+      "job_id": "20261017_084517_1b64cdd7",
+      "status": "stopped_for_package_mirror_repair",
+      "phase": "task_drafting",
+      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_084517_1b64cdd7/run.log",
+      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7",
+      "last_monitor_check": {
+        "checked_at": "2026-10-17T08:51:10.910150+08:00",
+        "status": "owned_install_stopped_after_measured_download_stall",
+        "exit_code": 130,
+        "process_ids": [],
+        "container_ids": [],
+        "scientific_results_available": false
+      }
     }
   ],
   "boundary_f1_repair": {
@@ -236,6 +254,92 @@
     "fix": "Pass an explicitly configured public HTTPS package index only to writable installation containers; scientific evaluation containers do not receive it",
     "index": "https://pypi.tuna.tsinghua.edu.cn/simple",
     "requirements_changed": false,
-    "current_job_stopped_before_gpu_training": true
-  }
+    "current_job_stopped_before_gpu_training": true,
+    "validation": "99 targeted tests passed on server40 Linux;1 platform skip. Changed mirror tests pass on Mac; broader Mac run exposed unrelated Bash3 and broker-root portability failures.",
+    "live_verification": {
+      "torch_wheel_downloaded_bytes": 887913624,
+      "reported_small_wheel_speeds_mb_s": [
+        53.8,
+        95.0
+      ],
+      "isolated_acceptance_smoke_seconds_including_install": 225,
+      "status": "pass"
+    }
+  },
+  "baseline_preflight": {
+    "pid": 2404543,
+    "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/baseline_preflight",
+    "source_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task_drafting/task",
+    "install_cache": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/cache/agentic-task-runtime-cache-071907f7d15a79276d2afcb8cef35224f3d4f8aa4ef2a91692b02b43c90e4171",
+    "scientific_protocol_unchanged": true,
+    "purpose": "Independent full production baseline diagnostic; not a substitute for main publication gates",
+    "started_at": "2026-10-17T09:02:30.062741+08:00",
+    "status": "passed",
+    "used_as_release_receipt": false,
+    "finished_observed_at": "2026-10-17T09:06:26.038348+08:00",
+    "receipt": {
+      "accelerator_model": "NVIDIA A40",
+      "baseline_combined_score": 0.8177455611478867,
+      "baseline_correct": true,
+      "baseline_feasible": true,
+      "candidate_gpu_count": 1,
+      "evaluator_gpu_count": 1,
+      "evaluator_tree_sha256": "26247fdefa2c5a36e1d0ea38465d642d3c8f1d0d45b1182cbc2cdfe755cf744d",
+      "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+      "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
+      "requirements_sha256": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
+      "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb",
+      "schema_version": 2,
+      "tooling_sha256": "f280b40fae21e60e74ebc909b89a290b0678783acf9a3d5e2f5bee543ca231b5",
+      "validation_profile": "production_search_v2"
+    },
+    "report": {
+      "category": "qualification_passed",
+      "compute_usage": {
+        "elapsed_seconds": 35.66258652880788,
+        "max_rpc_calls": 160,
+        "objective_counts": "advisory",
+        "outcome": "completed",
+        "rpc_calls": 113,
+        "wall_clock_limit_seconds": 1800
+      },
+      "diagnostic": "",
+      "elapsed_seconds": 60.85846066195518,
+      "failure_evidence": null,
+      "output_evidence": null,
+      "receipt_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/baseline_preflight/qualification_receipt.json",
+      "stage": "production-search",
+      "status": "pass",
+      "task_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793"
+    },
+    "metrics": {
+      "combined_score": 0.8177455611478867,
+      "forget_retrain_probability_mae": 0.049480793669757335,
+      "heldout_macro_dice": 0.673407057602781,
+      "heldout_boundary_f1": 0.7023192035096555,
+      "forget_macro_dice": 0.8006942913485029,
+      "original_heldout_macro_dice": 0.6599504164335419,
+      "retrain_heldout_macro_dice": 0.645816920026032,
+      "original_forget_retrain_probability_mae": 0.05264527168735085,
+      "finetune_forget_retrain_probability_mae": 0.04909991689013499,
+      "neggrad_forget_retrain_probability_mae": 0.0466722630855789,
+      "original_forget_macro_dice": 0.7984798709176861,
+      "finetune_forget_macro_dice": 0.8238830039119035,
+      "neggrad_forget_macro_dice": 0.8100910903177567,
+      "finetune_heldout_macro_dice": 0.6816650963090747,
+      "neggrad_heldout_macro_dice": 0.6783178042941398,
+      "original_train_seconds": 5.938354247016832,
+      "retrain_train_seconds": 4.805704317986965,
+      "finetune_seconds": 0.9589315420016646,
+      "neggrad_seconds": 1.6585187029559165,
+      "candidate_deletion_seconds": 6.171933631179854,
+      "heldout_gt_absence_count": 0.0,
+      "forget_gt_absence_count": 0.0
+    },
+    "production_reference_updates": 400,
+    "production_baseline_updates": 80,
+    "local_evidence_directory": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_085117_652b0da2/baseline_preflight"
+  },
+  "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results",
+  "formal_experiment_results_available": false
 }
