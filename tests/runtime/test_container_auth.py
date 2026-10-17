@@ -45,6 +45,56 @@ def test_qwen_plan_environment_is_scoped_to_selected_provider(tmp_path: Path) ->
     assert "QWEN_PLAN_API_KEY" not in other
 
 
+@pytest.mark.parametrize("posthoc_policy", [False, True])
+def test_variant_agent_passes_selected_qwen_key_to_container(
+    tmp_path: Path, posthoc_policy: bool,
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    auth = tmp_path / "auth"
+    auth.mkdir()
+    env_file = tmp_path / "provider.env"
+    env_file.write_text(
+        "PI_CODING_AGENT_PROVIDER=qwen-plan\nQWEN_PLAN_API_KEY=test-only\n"
+        "UNRELATED_SECRET=must-not-pass\n"
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    captured = tmp_path / "container.env"
+    docker = fake_bin / "docker"
+    docker.write_text(
+        f"#!{sys.executable}\nimport pathlib,sys\n"
+        "args=sys.argv[1:]\n"
+        "if '--env-file' in args:\n"
+        f" pathlib.Path({str(captured)!r}).write_text("
+        "pathlib.Path(args[args.index('--env-file')+1]).read_text())\n"
+    )
+    docker.chmod(0o755)
+    headless = fake_bin / "headless"
+    headless.write_text("#!/bin/sh\nexit 0\n")
+    headless.chmod(0o755)
+    command = [
+        "bash", str(VARIANT_AGENT), "--agent", "opencode",
+        "--agent-model", "qwen-plan/qwen3.8-max", "--work-dir", str(work),
+        "--prompt", "test", "--containerize", "--container-auth-root", str(auth),
+        "--container-env-file", str(env_file),
+    ]
+    if posthoc_policy:
+        command.append("--posthoc-env-policy")
+    run = subprocess.run(
+        command, cwd=REPO_ROOT, capture_output=True, text=True, timeout=20,
+        env=os.environ | {
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "WRAPPER_PYTHON": sys.executable, "HEADLESS_BIN": str(headless),
+            "TMPDIR": str(tmp_path),
+            "AGENT_CHATGPT_SUBSCRIPTION": "0",
+        },
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "QWEN_PLAN_API_KEY=test-only" in captured.read_text()
+    assert "UNRELATED_SECRET" not in captured.read_text()
+
+
 def test_qwen_concept_figure_keeps_provider_config_without_openai_credentials() -> None:
     result = _ok(
         f"source {q(str(REPO_ROOT / 'src/scripts/lib/concept_figure.sh'))}\n"

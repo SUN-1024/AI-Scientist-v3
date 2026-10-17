@@ -229,7 +229,7 @@ def test_preflight_discovers_validates_or_keeps_selectors() -> None:
     # an explicit selector skips discovery and must match exactly
     environment = {GPUS: _selector(*UUIDS)}
     assert prepare_gpu_allocation(cfg, {"investigation"}, environment, discover=_no_discovery) is None
-    assert environment == {GPUS: _selector(*UUIDS)}
+    assert environment == {GPUS: _selector(*UUIDS), "VARIANT_EVAL_SANDBOX_GPUS": _selector(*UUIDS)}
     environment = {GPUS: _selector(*UUIDS[:2])}
     assert (
         prepare_gpu_allocation(cfg, {"final_evaluation"}, environment, discover=_no_discovery)
@@ -276,7 +276,10 @@ def test_parallel_workers_widen_the_pool_only_for_investigation_and_slice_it() -
     cfg = _parallel_config(2)
     environment = {GPUS: _selector(*UUIDS)}
     assert prepare_gpu_allocation(cfg, {"investigation"}, environment, discover=_no_discovery) is None
-    assert environment == {POOL: _selector(*UUIDS), GPUS: _selector(*UUIDS[:2])}
+    assert environment == {
+        POOL: _selector(*UUIDS), GPUS: _selector(*UUIDS[:2]),
+        "VARIANT_EVAL_SANDBOX_GPUS": _selector(*UUIDS[:2]),
+    }
     for exposed in (UUIDS[:2], UUIDS[:3]):
         environment = {GPUS: _selector(*exposed)}
         error = prepare_gpu_allocation(cfg, {"investigation"}, environment, discover=_no_discovery)
@@ -296,7 +299,9 @@ def test_parallel_workers_widen_the_pool_only_for_investigation_and_slice_it() -
     # a single worker leaves the allocation untouched
     environment = {GPUS: _selector(*UUIDS[:2])}
     assert prepare_gpu_allocation(_parallel_config(1), {"investigation"}, environment, discover=_no_discovery) is None
-    assert environment == {GPUS: _selector(*UUIDS[:2])}
+    assert environment == {
+        GPUS: _selector(*UUIDS[:2]), "VARIANT_EVAL_SANDBOX_GPUS": _selector(*UUIDS[:2]),
+    }
 
 
 # --------------------------------------------------------------------------- parallel investigation workers

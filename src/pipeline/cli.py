@@ -1946,9 +1946,11 @@ def prepare_gpu_allocation(
     if settled is None:
         return None
     pool, first_slice = settled
+    # Explicit and discovered pools need the same evaluator handoff.  Variant
+    # scoring does not fall back to the agent's GPU selector.
+    environment.setdefault("VARIANT_EVAL_SANDBOX_GPUS", first_slice)
     if discovered:
         environment[GPU_SELECTOR_ENV] = pool
-        environment.setdefault("VARIANT_EVAL_SANDBOX_GPUS", first_slice)
         logger.info(
             "Discovered %d GPU(s) for container.gpu_count=%d x %d worker(s): %s",
             gpu_count * workers, gpu_count, workers, pool,
