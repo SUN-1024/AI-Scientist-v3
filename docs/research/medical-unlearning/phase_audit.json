@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T12:36:32.683173+08:00",
+  "checked_at": "2026-10-17T12:42:23.784908+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -82,7 +82,7 @@
       "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "running_recovery_generation",
+      "status": "running_recovery_selection",
       "logs_exist": true,
       "original_status": "degraded_infrastructure_failure",
       "original_exit_code": 4,
@@ -90,7 +90,15 @@
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
       "host_scoring_started": false,
-      "latest_agent_activity": "2026-10-17T12:32:24.690000+08:00"
+      "latest_agent_activity": "2026-10-17T12:40:08.772000+08:00",
+      "current_stage": "select_variants",
+      "generation_completed": true,
+      "proposed_candidates": 8,
+      "proposed_counts": {
+        "ablation": 5,
+        "baseline": 3
+      },
+      "accepted_candidates": null
     },
     "final_evaluation": {
       "status": "completed_not_qualified",
@@ -210,7 +218,7 @@
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "Development cycle2 and sealed final completed; recovered ablations is generating plans and both assigned GPUs are currently idle",
+    "current_purpose": "Recovered ablations is selecting proposed variants; no new GPU scoring since the completed development/final runs",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -220,8 +228,8 @@
     "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
   "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
-  "last_effective_activity": "2026-10-17T12:32:24.690000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_123632.json",
+  "last_effective_activity": "2026-10-17T12:40:08.772000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_124223.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "scoped_sampler_restarted_after_ablation_recovery",

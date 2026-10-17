@@ -1,0 +1,154 @@
+{
+  "decision": "propose_variants",
+  "summary": "The best program (BAMOA) replaces the reference split-step NegGrad+ starter with a joint boundary-anchored composition: (a) a weight-normalised 1-pixel boundary-band fidelity term added to the retain objective (boundary_anchored_loss), (b) a cached retain minibatch anchor that lets each forget RPC recompute a boundary-anchored retain gradient, (c) PCGrad-style orthogonalisation of the ascent gradient against the retain gradient, (d) a self-closing memorization gate driven by a retain-loss EMA, (e) element-wise sensitivity damping from an EMA of |retain gradient|, and (f) an ascent-norm clamp at ASCENT_NORM_RATIO times the retain-gradient norm, composed as parameter.grad = retain_grad - FORGET_ASCENT_WEIGHT * gate * ascent_scale * damping * ascent_grad. I propose five single-component ablations, one per novel mechanism (a, c, d, e, f), to attribute the combined_score gain to each protection. I propose three baselines: pure gradient ascent (the naive extreme named in the task hypothesis and NOT among the evaluator-owned comparisons), plain joint-step NegGrad+ on the identical anchor/RPC skeleton (all-protections-off endpoint isolating structure vs. protections), and boundary-anchored retain-only fine-tuning (directly tests Alternative 2: that the benefit is extra retain training/compute rather than the forgetting term; the evaluator's retain-only FT lacks both the boundary objective and the anchor replay). The predict-time nan_to_num/renormalisation guard and the graceful-degradation fallbacks are validity/robustness guards required by the correctness predicate, are kept unchanged in every variant, and are deliberately not ablated.",
+  "candidates": [
+    {
+      "variant_id": "ablation_no_boundary_anchor",
+      "title": "Ablation: remove the boundary-anchored retain fidelity term",
+      "kind": "ablation",
+      "base_program": "best",
+      "hypothesis": "The weight-normalised 1-pixel boundary-band term (boundary_anchored_loss, BOUNDARY_WEIGHT=2.0, BOUNDARY_DILATE=3) is what lifts heldout_boundary_f1 and heldout_macro_dice; without it, utility components of combined_score drop while forget_retrain_probability_mae stays roughly unchanged.",
+      "relevance_reason": "Boundary anchoring is the headline 'anatomy-preserving' mechanism of BAMOA and is entirely new relative to the reference starter. The screening score weights heldout_boundary_f1 at 0.2 and heldout_macro_dice at 0.3, and the pilot explicitly labels boundary F1 as a first-class metric, so a reader needs this row to know whether the boundary term (rather than the gradient-protection machinery) drives utility preservation.",
+      "feasibility_reason": "A single localized edit inside the candidate update handler in program_0/src/program.py: delete the two '+ boundary_anchored_loss(...)' additions so retain_total = retain_seg in both the retain branch and the forget-branch anchor recomputation. No evaluator, protocol, RPC schema, split, or dependency changes; strictly less compute per RPC than the best program, so the 180 s deletion window and 20 s per-call update deadline are unaffected.",
+      "target_components": ["boundary_anchored_loss", "retain_total in update handler (retain branch and forget-branch anchor recomputation)"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the update handler retain branch, change 'retain_total = retain_seg + boundary_anchored_loss(logits, y)' to 'retain_total = retain_seg'.",
+        "In the update handler forget branch, change 'retain_total = retain_seg + boundary_anchored_loss(retain_logits, retain_y)' to 'retain_total = retain_seg'.",
+        "Leave boundary_anchored_loss/min_pool defined but unused (or delete them), and leave retain_cache, orthogonalize, memorization_gate, sensitivity_damping, ascent_scale, all EMA updates, the non-finite gradient guard, and the predict nan_to_num/renormalisation exactly as in the best program.",
+        "Update the module docstring to declare this attempt as the no-boundary-anchor ablation of BAMOA, keeping the one-Adam-step-per-RPC statement accurate.",
+        "Verify with a dry-run of the handle protocol (reset -> weights transfer -> alternating retain/forget updates -> finalize -> predict) that responses keep the exact required schemas and predictions remain finite and normalised."
+      ],
+      "expected_effect": "Lower heldout_boundary_f1 and heldout_macro_dice (0.2 and 0.3 weights) and therefore lower combined_score; forget_retrain_probability_mae approximately unchanged. A large delta would confirm the boundary term, not extra retain compute, drives utility preservation."
+    },
+    {
+      "variant_id": "ablation_no_orthogonalization",
+      "title": "Ablation: remove PCGrad-style ascent/retain orthogonalisation",
+      "kind": "ablation",
+      "base_program": "best",
+      "hypothesis": "Projecting out the retain-conflicting component of the ascent gradient (orthogonalize) is what prevents forgetting from cancelling retain-descent directions; with raw ascent gradients, heldout utility degrades and forget-patient divergence from clean Retrain becomes damage-driven rather than targeted.",
+      "relevance_reason": "Gradient-conflict handling is one of the candidate exploration axes the task explicitly names and is a new component in the diff. This ablation directly discriminates the primary hypothesis (boundary/conflict-aware forgetting gives a better deletion/utility trade-off) from Alternative 1 (apparent forgetting is global model damage): if removing orthogonalisation hurts heldout metrics and increases forget-vs-Retrain MAE simultaneously, the conflict projection is doing real targeted-forgetting work.",
+      "feasibility_reason": "One-line change in the forget branch of the update handler: skip the call 'ascent_grads = orthogonalize(ascent_grads, retain_grads)' and use the raw ascent gradients. Everything else (anchor, gate, damping, norm clamp, guards, predict path) is untouched; the variant is strictly cheaper than the best program, so all enforced budgets still hold.",
+      "target_components": ["orthogonalize", "ascent_grads pipeline in update handler forget branch"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the update handler forget branch, remove the line 'ascent_grads = orthogonalize(ascent_grads, retain_grads)' so the ascent gradients from _parameter_grads(forget_seg, parameters) flow unmodified into the composed gradient.",
+        "Leave the orthogonalize/flat_dot helpers defined but unused (or delete them), and keep retain caching, importance EMA, retain-loss EMA, memorization_gate, sensitivity_damping, ascent_scale clamping, the non-finite gradient guard, and predict normalisation identical to the best program.",
+        "Update the module docstring to declare the no-orthogonalisation ablation while keeping the one-Adam-step-per-RPC and no-hidden-epochs statements accurate.",
+        "Dry-run the handle protocol to confirm response schemas, finite normalised predictions, and that no RPC count or timing envelope changes."
+      ],
+      "expected_effect": "Lower heldout_macro_dice and heldout_boundary_f1, and plausibly higher forget_retrain_probability_mae because conflicting ascent pushes the model past (not toward) the clean Retrain solution; combined_score should drop, quantifying the contribution of gradient-conflict handling."
+    },
+    {
+      "variant_id": "ablation_no_memorization_gate",
+      "title": "Ablation: remove the self-closing memorization gate (gate fixed at 1)",
+      "kind": "ablation",
+      "base_program": "best",
+      "hypothesis": "The gate clamp((retain_loss_ema - forget_loss)/MEMORIZATION_GATE_SCALE, 0, 1) stops ascent once the forget batch is no longer fit better than the retain anchor; with the gate always open, ascent continues past the point of memorisation removal, overshooting away from clean Retrain (higher forget_retrain_probability_mae) and damaging retained utility.",
+      "relevance_reason": "The memorization gate is a novel adaptive stopping mechanism unique to BAMOA and central to its claim of approximating Retrain rather than merely corrupting forget patients. Since 0.5 of the combined_score weight sits on (1 - forget_retrain_probability_mae), this row tells a reader whether the gate is what converts raw ascent into retrain-approximating forgetting, and it probes Alternative 1 (damage vs. targeted forgetting) from the ascent-magnitude-control side.",
+      "feasibility_reason": "Single change in the forget branch: replace 'gate = memorization_gate(float(forget_seg), _STATE[\"retain_loss_ema\"])' with 'gate = 1.0'. The retain-loss EMA update may stay (it is then unused by the coefficient) so no other state transitions change; compute per RPC is unchanged or lower, and all protocol, timing, and validity guards remain as in the best program.",
+      "target_components": ["memorization_gate", "gate factor in coefficient = FORGET_ASCENT_WEIGHT * gate * ascent_scale"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the update handler forget branch, set 'gate = 1.0' instead of calling memorization_gate, so coefficient = FORGET_ASCENT_WEIGHT * ascent_scale.",
+        "Keep update_retain_loss_ema and _STATE['retain_loss_ema'] bookkeeping intact (unused by the coefficient) to avoid any collateral state change, and keep orthogonalize, sensitivity_damping, ascent_scale, retain caching, guards, and predict normalisation identical.",
+        "Update the module docstring to declare the no-gate ablation, removing only the gate description and keeping the enforced/advisory step-bound statements accurate.",
+        "Dry-run the handle protocol to confirm schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "Higher forget_retrain_probability_mae (ascent no longer self-terminates, so predictions overshoot the Retrain reference) and some heldout utility loss; combined_score drops mainly through the 0.5-weight MAE term, demonstrating the gate's role in bounded, retrain-approximating forgetting."
+    },
+    {
+      "variant_id": "ablation_no_sensitivity_damping",
+      "title": "Ablation: remove element-wise sensitivity damping (uniform damping = 1)",
+      "kind": "ablation",
+      "base_program": "best",
+      "hypothesis": "Damping each ascent coordinate by 1/(1 + SENSITIVITY_DAMP * relative_importance), with importance an EMA (IMPORTANCE_EMA=0.9) of |retain gradient|, protects parameters that matter for retained anatomy; with uniform damping, ascent injures high-importance coordinates and heldout utility drops even if forget-side behaviour looks similar.",
+      "relevance_reason": "Parameter-selective protection is the third exploration axis the task names and is a new component in the diff (update_importance + sensitivity_damping). This row isolates the parameter-selective contribution from the direction-level (orthogonalisation) and magnitude-level (gate, norm clamp) protections, which is exactly the decomposition a paper ablation table needs.",
+      "feasibility_reason": "Single change in the forget branch: replace 'damping = sensitivity_damping(_STATE[\"importance\"])' with a list of torch.ones_like(parameter). The importance EMA update is kept (then unused) so state evolution is otherwise identical; compute is unchanged or lower and no protocol or budget property changes.",
+      "target_components": ["sensitivity_damping", "damping factor in the composed gradient retain_grad - coefficient * damp * ascent_grad"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the update handler forget branch, replace the sensitivity_damping call with 'damping = [torch.ones_like(parameter) for parameter in parameters]'.",
+        "Keep update_importance and _STATE['importance'] bookkeeping intact (unused by the composed gradient) so no other state changes, and keep boundary_anchored_loss, orthogonalize, memorization_gate, ascent_scale, retain caching, the non-finite guard, and predict normalisation identical.",
+        "Update the module docstring to declare the no-sensitivity-damping ablation while keeping step-bound statements accurate.",
+        "Dry-run the handle protocol to confirm response schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "Lower heldout_macro_dice and heldout_boundary_f1 at roughly similar forget_retrain_probability_mae; combined_score drops through the utility terms, attributing retained-anatomy protection to the importance-based element-wise damping."
+    },
+    {
+      "variant_id": "ablation_no_ascent_norm_clamp",
+      "title": "Ablation: remove the ascent-gradient norm clamp (ascent_scale fixed at 1)",
+      "kind": "ablation",
+      "base_program": "best",
+      "hypothesis": "Clamping the ascent gradient's flat norm to ASCENT_NORM_RATIO=0.5 times the retain gradient's norm (ascent_scale = min(1, 0.5 * retain_norm / ascent_norm)) prevents destabilising overshoot; without the clamp, raw-magnitude ascent steps inflate divergence from Retrain and damage utility, and in the worst case trigger the non-finite-gradient fallback.",
+      "relevance_reason": "The adaptive norm bound is a new magnitude-control mechanism distinct from the gate (which controls when to ascend) and the damping (which controls where to ascend); it controls how hard. Ablating it completes the direction/when/where/how-hard decomposition of BAMOA's protections and tests whether a fixed FORGET_ASCENT_WEIGHT alone is enough, which a reviewer comparing against NegGrad+'s fixed 0.1 weight will ask.",
+      "feasibility_reason": "Single change in the forget branch: set 'ascent_scale = 1.0' instead of computing min(1.0, ASCENT_NORM_RATIO * retain_norm / max(ascent_norm, 1e-12)). The norm computations may remain unused; all other logic, guards, and the predict path stay identical, and per-RPC compute is unchanged or lower.",
+      "target_components": ["ascent_scale computation (ASCENT_NORM_RATIO clamp)", "coefficient = FORGET_ASCENT_WEIGHT * gate * ascent_scale"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the update handler forget branch, replace 'ascent_scale = min(1.0, ASCENT_NORM_RATIO * retain_norm / max(ascent_norm, 1e-12))' with 'ascent_scale = 1.0'; the retain_norm/ascent_norm lines may be kept (unused) or removed.",
+        "Keep boundary_anchored_loss, retain caching, orthogonalize, memorization_gate, sensitivity_damping, both EMA updates, the non-finite gradient guard, and predict normalisation identical to the best program.",
+        "Update the module docstring to declare the no-norm-clamp ablation while keeping step-bound statements accurate.",
+        "Dry-run the handle protocol to confirm response schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "Higher forget_retrain_probability_mae and lower heldout utility (larger, unbounded ascent steps overshoot the Retrain reference and injure retained anatomy); occasionally engages the non-finite-gradient fallback, which itself demonstrates why the clamp stabilises the episode."
+    },
+    {
+      "variant_id": "baseline_gradient_ascent",
+      "title": "Baseline: pure gradient ascent unlearning on forget patients",
+      "kind": "baseline",
+      "base_program": "best",
+      "hypothesis": "Generic gradient ascent - the naive unlearning extreme named in the task hypothesis and absent from the evaluator-owned comparison set - destroys forget-patient predictions without approximating clean Retrain and leaks damage into heldout utility, yielding a much lower combined_score than BAMOA.",
+      "relevance_reason": "The evaluator already owns Original, Retrain, retain-only fine-tuning, and NegGrad+ comparisons, but not pure gradient ascent, even though the task hypothesis is explicitly framed against it. This row anchors the full spectrum of forgetting strength and operationalises the task's warning that inaccurate predictions on forgotten patients must not be equated with successful unlearning: GA should maximally corrupt forget predictions while scoring poorly on the Retrain-distance and utility terms.",
+      "feasibility_reason": "Confined to the candidate update handler in program_0/src/program.py: retain-role RPCs return ok without stepping; forget-role RPCs take one Adam step (lr=DELETION_LR=1e-4) ascending the copied segmentation_loss. All weight-transfer, finalize, predict, guard, and normalisation code from the best program is kept, so the RPC schemas, the <=80 offered update bound, and the 180 s deletion window are untouched; compute per RPC is lower than BAMOA's.",
+      "target_components": ["update handler role branching (replace BAMOA composition with pure ascent)", "FORGET_ASCENT_WEIGHT/gate/damping/orthogonalise/anchor machinery (bypassed)"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "Rewrite the update handler: for role == 'retain', validate inputs as before and return {'ok': True} without touching parameters or optimizer state; for role == 'forget', compute 'loss, _ = segmentation_loss(model(x), y)', obtain gradients via backward or torch.autograd.grad, assign them to parameter.grad with a positive (ascent) sign, skip the step if any gradient is non-finite (reuse the existing guard), then run one Adam step at DELETION_LR and zero the gradients.",
+        "Remove or leave dormant the BAMOA-only state (retain_cache, importance EMA, retain_loss_ema) and reset their initialisation harmlessly in the reset/weights_commit paths so no protocol behaviour changes.",
+        "Keep make_model, the copied segmentation_loss, weight chunk transfer, finalize, predict with nan_to_num and renormalisation, and all response schemas exactly as in the best program.",
+        "Update the module docstring to declare the pure-gradient-ascent baseline: one Adam step per offered forget RPC (<=40 steps per episode), retain RPCs are no-ops, offered-RPC bound vs. internal-step distinction unchanged.",
+        "Dry-run the handle protocol to confirm schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "forget_macro_dice collapses and forget predictions diverge strongly, but forget_retrain_probability_mae stays high or worsens relative to BAMOA (damage is not retrain-approximation) and heldout_macro_dice/heldout_boundary_f1 degrade through shared-weight injury; combined_score should fall well below BAMOA, evidencing that forget-side inaccuracy alone is not unlearning success."
+    },
+    {
+      "variant_id": "baseline_joint_neggrad",
+      "title": "Baseline: plain joint-step NegGrad+ on the same anchor/RPC skeleton",
+      "kind": "baseline",
+      "base_program": "best",
+      "hypothesis": "With the identical alternating-RPC structure and cached retain anchor but the plain NegGrad+ composition parameter.grad = retain_grad - 0.1 * ascent_grad (no boundary term, no orthogonalisation, no gate, no damping, no norm clamp), performance should land near the evaluator's split-step NegGrad+ and clearly below BAMOA, showing the gains come from the protections and boundary objective rather than the joint/anchor structure itself.",
+      "relevance_reason": "The evaluator-owned NegGrad+ baseline differs from BAMOA in both composition structure (split batches per update, 80 joint steps) and protections, so a reader cannot tell whether BAMOA's advantage comes from its skeleton (anchor replay plus joint composition under the same RPC and compute envelope) or from its five novel mechanisms. This baseline is the all-protections-off endpoint at identical offered-update structure, complementing the one-at-a-time ablations, and it uses the recognisable NegGrad+ objective (Thudi et al.) with the task-specified 0.1 forget weight.",
+      "feasibility_reason": "Confined to program_0/src/program.py: retain branch drops the boundary term; forget branch keeps the anchor recomputation but uses plain segmentation_loss gradients and the fixed composition retain_grad - 0.1 * ascent_grad, deleting the orthogonalize/gate/damping/ascent_scale factors. One Adam step per RPC and the same state lifecycle are preserved, so all protocol, budget, and validity properties carry over; per-RPC compute is lower than BAMOA's.",
+      "target_components": ["update handler composition (replace protected joint gradient with plain NegGrad+ joint gradient)", "boundary_anchored_loss usage", "orthogonalize/memorization_gate/sensitivity_damping/ascent_scale factors"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "In the retain branch, set 'retain_total = retain_seg' (drop the boundary term) but keep caching the decoded minibatch into _STATE['retain_cache'] exactly as BAMOA does.",
+        "In the forget branch, recompute the plain retain gradient on the cached anchor (retain_total = retain_seg from segmentation_loss), compute ascent gradients from segmentation_loss on the current forget batch, and set 'parameter.grad = retain_grad - 0.1 * ascent_grad' with no orthogonalisation, gate, damping, or norm clamp; keep the missing-anchor early return and the non-finite gradient guard.",
+        "Remove or leave dormant the boundary/orthogonalise/gate/damping/importance/EMA helpers and constants; keep make_model, segmentation_loss, weight transfer, finalize, predict with nan_to_num and renormalisation, and all response schemas unchanged.",
+        "Update the module docstring to declare the joint-step NegGrad+ baseline (forget weight 0.1, one Adam step per offered RPC, anchor replay retained for structural comparability) and keep the offered-RPC vs. internal-step distinction accurate.",
+        "Dry-run the handle protocol to confirm schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "combined_score between the evaluator's NegGrad+ and BAMOA: without the boundary term, heldout_boundary_f1 should drop; without gate/clamp/orthogonalisation/damping, forget_retrain_probability_mae and heldout utility should be worse than BAMOA. A clear BAMOA advantage over this skeleton attributes the gain to the novel mechanisms rather than to the anchor/joint-step structure."
+    },
+    {
+      "variant_id": "baseline_boundary_retain_only",
+      "title": "Baseline: boundary-anchored retain-only fine-tuning (no forgetting term)",
+      "kind": "baseline",
+      "base_program": "best",
+      "hypothesis": "If BAMOA's benefit were merely extra retain training under its boundary objective (Alternative 2), then boundary-anchored retain-only fine-tuning - the exact degenerate fallback BAMOA's own docstring describes - would match its combined_score; we expect it to preserve heldout utility but barely move forget-patient predictions away from Original, so forget_retrain_probability_mae stays near the Original's and the 0.5-weight MAE term keeps combined_score below BAMOA's.",
+      "relevance_reason": "The task requires an equal-compute answer to Alternative 2 before any superiority claim, and the evaluator's retain-only fine-tuning baseline lacks both BAMOA's boundary objective and its anchor replay, so it cannot separate 'boundary-anchored retain training' from 'actual forgetting'. This baseline is the matched-objective, matched-structure retain-only control: same RPC skeleton, same per-RPC anchor descent, zero ascent. It is also a recognisable standard unlearning baseline (fine-tuning on retained data with an auxiliary boundary loss).",
+      "feasibility_reason": "Confined to program_0/src/program.py: retain branch keeps segmentation_loss + boundary_anchored_loss descent and anchor caching; forget branch recomputes the boundary-anchored retain gradient on the cached anchor and descends it (parameter.grad = retain_grad) instead of composing any ascent. Guards, EMA bookkeeping (dormant), weight transfer, finalize, and predict normalisation are unchanged; per-RPC compute is lower than BAMOA's, so all enforced budgets hold.",
+      "target_components": ["update handler forget branch (replace composed ascent gradient with boundary-anchored retain descent on the cached anchor)", "FORGET_ASCENT_WEIGHT/gate/damping/orthogonalise/ascent_scale factors (bypassed)"],
+      "implementation_plan": [
+        "Copy the best program's src/program.py unchanged as the starting point.",
+        "Keep the retain branch exactly as in BAMOA: descend segmentation_loss + boundary_anchored_loss with one Adam step at DELETION_LR and cache the minibatch anchor.",
+        "Rewrite the forget branch: if the anchor is missing return {'ok': True} (reuse the existing early return); otherwise recompute retain_total = retain_seg + boundary_anchored_loss on the cached anchor, set 'parameter.grad = retain_grad' for every parameter, keep the non-finite gradient guard, and take one Adam descent step; compute no forget-batch gradient and apply no ascent, orthogonalisation, gate, damping, or norm clamp.",
+        "Leave the importance/retain-loss EMA updates in place or remove them (they no longer affect parameters); keep make_model, segmentation_loss, boundary_anchored_loss, weight transfer, finalize, predict with nan_to_num and renormalisation, and all response schemas unchanged.",
+        "Update the module docstring to declare the boundary-anchored retain-only fine-tuning baseline (one Adam descent step per offered RPC, no forgetting term) with accurate offered-RPC vs. internal-step statements.",
+        "Dry-run the handle protocol to confirm schemas, finite normalised predictions, and unchanged RPC/timing envelopes."
+      ],
+      "expected_effect": "heldout_macro_dice and heldout_boundary_f1 at least as high as BAMOA (possibly higher, since nothing erodes retained anatomy), but forget_retrain_probability_mae close to the Original's no-update value because forget patients are never actively forgotten; combined_score should fall below BAMOA through the 0.5-weight MAE term. Matching BAMOA instead would falsify the forgetting mechanism's value and confirm Alternative 2."
+    }
+  ]
+}
