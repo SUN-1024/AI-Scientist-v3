@@ -1,0 +1,145 @@
+{
+  "checked_at": "2026-10-17T11:34:58.767669+08:00",
+  "sha256": {
+    "metrics.json": "9d28fec3426e4a9f6cac952fc82a7a16bbaf153cda06103ca7b00c384d3e1557",
+    "correct.json": "7c0d29a11468b859de53d45a2d29c869036d98a0a5abd894d143aa3683b49f01",
+    "evaluation_manifest.json": "5bedbcfc3337e258e3ce71b49a50aac84a205ed3dcd6d432ac4b212b23905d0a",
+    "evaluation_evidence.json": "65b95487f521bc156d99d33303dc75224bd4c126908822db2a37542035d1d8d0",
+    "rubric_status.json": "fa865a6d9a6969e0871cb1e72d9351322046f1aba9a388bff38ebde0af2e076b"
+  },
+  "candidate_source_sha256": "67b2c84e86350c601dba292c90c3d9d6012fc3427c19b2d3ea1ca48db8170ad7",
+  "gpu_trace_during_host_evaluation": {
+    "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+      "peak_memory_mib": 592.0,
+      "peak_utilization_percent": 29.0,
+      "productive_samples": 42,
+      "first_activity": "2026/10/17 11:29:10.759",
+      "last_activity": "2026/10/17 11:29:53.597"
+    },
+    "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+      "peak_memory_mib": 404.0,
+      "peak_utilization_percent": 9.0,
+      "productive_samples": 39,
+      "first_activity": "2026/10/17 11:29:13.893",
+      "last_activity": "2026/10/17 11:29:53.598"
+    }
+  },
+  "cycle2_private_view": {
+    "evaluate_final.py_bytes": 0,
+    "task_contract.json_bytes": 0,
+    "final_data_entries": 0
+  },
+  "manifest_producer": "sandbox_host_eval",
+  "manifest_exit_code": 0,
+  "evaluation_seconds": 63.58950621797703,
+  "scoring_plane": "search",
+  "seed": 1701,
+  "correct": true,
+  "metrics": {
+    "combined_score": 0.8194708063004026,
+    "forget_retrain_probability_mae": 0.0507581186505983,
+    "heldout_macro_dice": 0.6779066380165859,
+    "heldout_boundary_f1": 0.7073893711036301,
+    "forget_macro_dice": 0.8124240704203999,
+    "original_heldout_macro_dice": 0.6599504164335419,
+    "retrain_heldout_macro_dice": 0.645816920026032,
+    "original_forget_retrain_probability_mae": 0.05264527168735085,
+    "finetune_forget_retrain_probability_mae": 0.04909991689013499,
+    "neggrad_forget_retrain_probability_mae": 0.0466722630855789,
+    "original_forget_macro_dice": 0.7984798709176861,
+    "finetune_forget_macro_dice": 0.8238830039119035,
+    "neggrad_forget_macro_dice": 0.8100910903177567,
+    "finetune_heldout_macro_dice": 0.6816650963090747,
+    "neggrad_heldout_macro_dice": 0.6783178042941398,
+    "original_train_seconds": 13.266170980874449,
+    "retrain_train_seconds": 7.545420506969094,
+    "finetune_seconds": 1.4847969389520586,
+    "neggrad_seconds": 2.6436770961154252,
+    "candidate_deletion_seconds": 7.787821281002834,
+    "heldout_gt_absence_count": 0.0,
+    "forget_gt_absence_count": 0.0
+  },
+  "rubrics_passed": 7,
+  "source_snapshot_receipts": {
+    "profile": "production",
+    "rpc_calls_total": 113,
+    "rpc_budget": 160,
+    "reset_transcript_declared": [
+      1701
+    ],
+    "reset_transcript_sent": [
+      1701
+    ],
+    "predict_blocks": 25,
+    "deletion_seconds": 7.787821281002834,
+    "reference_updates": 400,
+    "baseline_updates": 80,
+    "reference_init_identity_sha256": "7abda4a922ff6e9720cb96db833116410a004fd9280f0b539ca5cce35a2b2568",
+    "data_identity_sha256": "37878fd106e3aae3085f8919d37fdc5bc460faefa0573e5c44a11ea777ca5c21",
+    "manifest_sha256": "005fa2312acd07fba9995cb371c0769637262bf83a10597e47f8615579502c79",
+    "upstream_snapshot_sha256": {
+      "models.py": "d76eeeb998be5596f3e8f52244b6bf078018f059d80ee2d75568bd4ed7c56d0f",
+      "losses.py": "615ff113aca6c0155ef0b1045e87e851c3d06f82160b9f9130a3e7461b7105d1",
+      "unlearning.py": "37a8b9bc23803eb2ec0791aff298285715eb5156b452661a4a645274f201a37c"
+    },
+    "model_config": {
+      "channels": [
+        16,
+        32,
+        64,
+        128
+      ],
+      "num_res_units": 1
+    },
+    "device": "cuda:0",
+    "evaluator_visible_cuda_devices": 1,
+    "productive_baseline_seconds": 24.940065522911027,
+    "enforced_limits": [
+      "offered_update_rpcs<=80",
+      "deletion_window<=180s",
+      "per_call_deadlines",
+      "wire_limit<64MiB",
+      "rpc_budget<=160"
+    ],
+    "advisory_limits": [
+      "candidate_internal_optimizer_steps_not_counted"
+    ],
+    "episode_seconds": {
+      "original_train": 13.266170980874449,
+      "retrain_train": 7.545420506969094,
+      "finetune": 1.4847969389520586,
+      "neggrad": 2.6436770961154252,
+      "candidate_deletion": 7.787821281002834
+    }
+  },
+  "receipt_files_local": [
+    "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1/metrics.json",
+    "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1/correct.json",
+    "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1/evaluation_manifest.json",
+    "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1/evaluation_evidence.json",
+    "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1/rubric_status.json"
+  ],
+  "starting_candidate_comparison": {
+    "combined_score": {
+      "starting_candidate": 0.8177455611478867,
+      "cycle1_candidate": 0.8194708063004026,
+      "difference": 0.0017252451525159307
+    },
+    "forget_retrain_probability_mae": {
+      "starting_candidate": 0.049480793669757335,
+      "cycle1_candidate": 0.0507581186505983,
+      "difference": 0.0012773249808409673
+    },
+    "heldout_macro_dice": {
+      "starting_candidate": 0.673407057602781,
+      "cycle1_candidate": 0.6779066380165859,
+      "difference": 0.004499580413804938
+    },
+    "heldout_boundary_f1": {
+      "starting_candidate": 0.7023192035096555,
+      "cycle1_candidate": 0.7073893711036301,
+      "difference": 0.005070167593974606
+    }
+  },
+  "same_data_initialization_and_update_budget_verified": true
+}
