@@ -2,6 +2,18 @@
 # Run the unified entry point with this checkout's Python environment.
 set -euo pipefail
 RESEARCH_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+# V3 host wrappers use Bash 4+ features; macOS still ships Bash 3.2.
+for RESEARCH_BASH in "$RESEARCH_ROOT/scratch/tools/bin/bash" /opt/homebrew/bin/bash /usr/local/bin/bash; do
+  if [ -x "$RESEARCH_BASH" ] && "$RESEARCH_BASH" -c 'test "${BASH_VERSINFO[0]}" -ge 4'; then
+    export PATH="$(dirname "$RESEARCH_BASH"):$PATH"
+    break
+  fi
+done
+# Keep host tempfile users on the same canonical path as the V3 runtime.
+RESEARCH_TEMP_ROOT="${AGENTIC_TEMP_ROOT:-$RESEARCH_ROOT/scratch/tmp}"
+mkdir -p "$RESEARCH_TEMP_ROOT"
+export AGENTIC_TEMP_ROOT="$(cd "$RESEARCH_TEMP_ROOT" && pwd -P)"
+export TMPDIR="$AGENTIC_TEMP_ROOT"
 if [ ! -x "$RESEARCH_ROOT/.venv/bin/agsci" ]; then
   printf '%s\n' "Missing .venv/bin/agsci. Run uv sync --frozen in $RESEARCH_ROOT first." >&2
   exit 2

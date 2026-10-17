@@ -11,6 +11,8 @@ Fetch references from Semantic Scholar Graph API, OpenAlex, or Google Scholar (v
 - Related-work section needs grounded citations.
 
 # What to do
+For a unified research task (`task/research.yaml` exists in the paper workspace), the host uses the configured model-search provider and source bibliographic metadata. Use its `references.bib`, `references_provenance.json`, and `reference_search/` receipts. Do not run `s2_fetch.py`, OpenAlex, or scholarly in this mode. If references are missing, report the host retrieval failure or prepare a focused reference query plan; do not fabricate citations or replace the configured provider. Local sources with explicit author/title/year metadata can support offline retrieval. The remaining instructions below apply to legacy tasks without `research.yaml`.
+
 1. Build focused search queries from task goal, method names, and top experiment ideas.
 2. Preferred path (Semantic Scholar Graph API):
 ```bash

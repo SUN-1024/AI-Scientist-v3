@@ -1,0 +1,12 @@
+# Fill in model. API keys belong in environment variables, never in this file.
+literature:
+  model_search:
+    provider: gemini
+    model: ''
+    base_url: https://generativelanguage.googleapis.com/v1beta
+    api_key_env: GEMINI_API_KEY
+    api_format: gemini
+    mode: native
+    max_output_tokens: 6000
+    max_search_calls: 4
+    timeout_seconds: 180

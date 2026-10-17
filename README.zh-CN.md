@@ -37,7 +37,7 @@ flowchart TD
 | 组成 | 实际行为 | 来源与性质 |
 |---|---|---|
 | 可复用起点 | `init --template circpack` 或 `grpo`，复制任务并记录来源；也支持 `--brief` | 借鉴 V1 的模板思路，复用 V3 自带模板，没有导入 V1 的旧执行器 |
-| 前置文献 | Semantic Scholar 检索，读取公开 PDF 或本地全文，保存来源、全文状态、哈希和可定位片段 | 借鉴 V1/V2，将检索接到实验前 |
+| 文献与引用 | 可配置模型 API 联网检索并解析返回文本；读取公开 PDF 或本地全文，保存来源、哈希和可定位片段；写作阶段从原始来源核对引用字段 | 借鉴 V1/V2，将检索接到实验前，并接入 V3 论文流程；整合任务不依赖 Semantic Scholar API |
 | 差异记录 | 每个 idea 记录最近工作、重合、差异、替代解释和判别实验；引用须定位到保存文本 | 本次新增的证据连接层 |
 | 分支搜索 | 每个 worker 保留实验树，普通轮次用最高分有效分支，默认每 3 轮探索访问较少的候选 | 借鉴 V2 的树搜索思想；不是完整复刻 V2 阶段管理器或 MCTS |
 | 实验与写作 | 复用 V3 的隔离、任务契约、基线/消融、最终评估、图表和论文审计 | 上游已有能力；本次将文献比较接入论文数据 |
@@ -53,10 +53,13 @@ uv sync --frozen --group dev --index-url https://mirrors.aliyun.com/pypi/simple
 source .venv/bin/activate
 ```
 
-从仓库根目录创建 CPU 示例。`prepare` 只准备输入和文献，不调用研究 agent，也不训练模型。
+主机脚本需要 GNU Bash 4 或以上。macOS 的系统 Bash 3.2 不够；可使用 Homebrew Bash。新入口会识别 Homebrew 或项目内 `scratch/tools/bin/bash`，并为临时文件设置规范路径。本工作区已准备项目内 Bash 5.2.37。
+
+从仓库根目录创建 CPU 示例。`prepare` 准备输入和文献，会使用已配置的检索模型 API；它不启动实验 coding agent，也不训练模型。先按[多模型检索配置指南](docs/model-search.zh-CN.md)设置服务、模型和 key。
 
 ```bash
 ./scripts/research-agent init playground/circle-study --template circpack \
+  --provider openrouter --model '填入模型ID' \
   --query "circle packing unequal circles unit square optimization"
 
 # 配置预览：不创建工作区、不联网。
@@ -110,15 +113,19 @@ literature:
   fetch_full_text: true
   timeout_seconds: 15
   proxy_fallback: http://127.0.0.1:7890
+  model_search:
+    provider: openrouter
+    model: "填入模型ID"
+    api_key_env: OPENROUTER_API_KEY
 search:
   strategy: tree
   width: 4
   explore_every: 3
 ```
 
-这是字段示例，须替换标题、链接和文件。纯在线检索可设 `sources: []`。本地来源支持 `.pdf/.txt/.md`。可选 `S2_API_KEY` 只用于 Semantic Scholar 请求。检索失败时尝试配置的代理，错误保留在目录中。
+这是字段示例，须替换标题、链接、文件和模型 ID。纯在线检索可设 `sources: []`。本地来源支持 `.pdf/.txt/.md`。key 通过环境变量传入。可以换用其他服务；[配置指南](docs/model-search.zh-CN.md)和[27 份模板](configs/research-providers/README.md)说明了原生联网、普通模型加搜索后端、自定义地址和代理的用法。
 
-来源状态为 `metadata`、`abstract`、`full_text` 或 `full_text_partial`。扫描 PDF 需要先 OCR。全文可用不等于完整阅读或判断正确。自动片段只是阅读入口，agent 可以读取全文并引用任意有效字符区间。
+来源状态为 `metadata`、`abstract`、`full_text` 或 `full_text_partial`。模型生成的摘要仅保存在 `model_summary`，不能作为原始摘要或全文。扫描 PDF 需要先 OCR。全文可用不等于完整阅读或判断正确。自动片段只是阅读入口，agent 可以读取全文并引用任意有效字符区间。
 
 | `research_basis.status` | 行为 |
 |---|---|
@@ -134,7 +141,7 @@ search:
 ```text
 results/unified/circle-study/
 ├── input_task/                   # 冻结的任务、配置、原始文献
-│   └── research_context/         # catalog.json、来源说明、抽取文本
+│   └── research_context/         # catalog.json、来源说明、抽取文本、模型检索响应
 ├── research_manifest.json        # 输入哈希与启动参数
 ├── research_execution.json       # 正式运行后保存的最近一次模型与预算参数
 ├── research_report.json          # 退出码、来源状态、树和 idea 判断

@@ -1,0 +1,12 @@
+# Fill in model. API keys belong in environment variables, never in this file.
+literature:
+  model_search:
+    provider: openrouter
+    model: ''
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    api_format: chat_completions
+    mode: native
+    max_output_tokens: 6000
+    max_search_calls: 4
+    timeout_seconds: 180

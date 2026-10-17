@@ -2088,6 +2088,21 @@ print(
     flush=True,
 )
 
+if (task_dir / "research.yaml").is_file():
+    from src.research.paper_references import write_references_for_plan
+
+    try:
+        count = write_references_for_plan(
+            task_dir, output_dir, queries=queries, min_refs=paper_min_refs,
+            max_refs=paper_max_refs, plan_metadata=query_plan_metadata,
+            context={"results_dir": str(source_results_dir.resolve()),
+                     "campaign_results_dir": str(campaign_results_dir.resolve())},
+        )
+    except (ValueError, OSError) as exc:
+        raise SystemExit(f"[paper.sh] configured model reference retrieval failed: {exc}") from exc
+    print(f"[paper.sh] configured model search: {count} source-backed references", flush=True)
+    raise SystemExit(0)
+
 s2_forbidden_error = semantic_scholar_key_forbidden_error(
     queries[0],
     timeout_seconds=20,
@@ -2424,10 +2439,14 @@ PY
 
 run_reference_retrieval_with_log() {
   : > "$REFERENCE_RETRIEVAL_LOG_FILE"
-  printf '[paper.sh] reference providers: semantic_scholar=%s openalex=%s\n' \
-    "$([ -n "${S2_API_KEY:-}" ] && printf keyed || printf anonymous)" \
-    "$([ -n "${OPENALEX_EMAIL:-}" ] && printf polite-pool || printf anonymous)" \
-    | tee -a "$REFERENCE_RETRIEVAL_LOG_FILE"
+  if [ -f "$TASK_DIR/research.yaml" ]; then
+    printf '[paper.sh] reference provider: configured model search + source metadata\n' | tee -a "$REFERENCE_RETRIEVAL_LOG_FILE"
+  else
+    printf '[paper.sh] reference providers: semantic_scholar=%s openalex=%s\n' \
+      "$([ -n "${S2_API_KEY:-}" ] && printf keyed || printf anonymous)" \
+      "$([ -n "${OPENALEX_EMAIL:-}" ] && printf polite-pool || printf anonymous)" \
+      | tee -a "$REFERENCE_RETRIEVAL_LOG_FILE"
+  fi
   set +e
   retrieve_references_from_plan "$OUTPUT_DIR/reference_query_plan.json" 2>&1 | tee "$REFERENCE_RETRIEVAL_LOG_FILE"
   local stage_rc=${PIPESTATUS[0]}

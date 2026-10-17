@@ -1,0 +1,17 @@
+# Fill in model. API keys belong in environment variables, never in this file.
+# Fill in an existing SearXNG base_url with JSON enabled, or configure Tavily/Brave/Zhipu.
+literature:
+  model_search:
+    provider: fireworks
+    model: ''
+    base_url: https://api.fireworks.ai/inference/v1
+    api_key_env: FIREWORKS_API_KEY
+    api_format: chat_completions
+    mode: external
+    max_output_tokens: 6000
+    max_search_calls: 4
+    timeout_seconds: 180
+    external_search:
+      provider: searxng
+      base_url: ''
+      max_results: 5

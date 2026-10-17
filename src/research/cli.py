@@ -6,10 +6,14 @@ import argparse
 import json
 import secrets
 import sys
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
+
 from .config import ResearchConfig, load_config, write_config
+from .providers import PROVIDERS
 from .workspace import copy_task, execution_overrides, prepare, record_execution, resume, write_report
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,12 +48,16 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agsci research", description="V1 literature/templates + V2 branching + V3 verified execution")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("templates", help="List reusable baseline/evaluator templates")
+    providers = sub.add_parser("providers", help="List model providers or print a model_search YAML template")
+    providers.add_argument("--config", choices=tuple(PROVIDERS))
     init = sub.add_parser("init", help="Create a research project without overwriting existing files")
     init.add_argument("project", type=Path)
     source = init.add_mutually_exclusive_group()
     source.add_argument("--template", choices=tuple(TEMPLATES))
     source.add_argument("--brief", type=Path, help="Create from a research brief; V3 task drafting is experimental")
     init.add_argument("--query", action="append", default=[], help="Repeat for focused literature searches")
+    init.add_argument("--provider", choices=tuple(PROVIDERS), default="custom")
+    init.add_argument("--model", default="", help="Model ID from your chosen provider")
     for name in ("prepare", "run"):
         command = sub.add_parser(name, help="Prepare literature" if name == "prepare" else "Prepare literature and execute the V3 pipeline")
         command.add_argument("task", type=Path, nargs="?")
@@ -76,12 +84,26 @@ def main(argv: list[str] | None = None) -> int:
             for name, description in TEMPLATES.items():
                 print(f"{name}: {description}")
             return 0
+        if args.command == "providers":
+            if args.config:
+                spec = PROVIDERS[args.config]
+                model_cfg = ResearchConfig().literature.model_search
+                model_cfg.provider, model_cfg.base_url, model_cfg.api_key_env = args.config, spec.base_url, spec.api_key_env
+                model_cfg.api_format, model_cfg.mode = spec.api_format, spec.mode
+                print(yaml.safe_dump({"literature": {"model_search": asdict(model_cfg)}}, sort_keys=False, allow_unicode=True), end="")
+            else:
+                for name, spec in PROVIDERS.items():
+                    print(f"{name:25} {spec.mode:8} {spec.api_format:24} {spec.label}")
+                print("Model IDs and credentials are user-configured. Native search requires a supported model and account.")
+            return 0
         if args.command == "init":
             destination = args.project.expanduser().absolute()
             if destination.exists() or destination.is_symlink():
                 raise ValueError(f"Project already exists: {destination}")
             cfg = ResearchConfig()
             cfg.literature.queries = args.query
+            cfg.literature.model_search.provider = args.provider
+            cfg.literature.model_search.model = args.model
             if args.brief:
                 brief = args.brief.expanduser().read_text(encoding="utf-8")
                 if not brief.strip():
@@ -99,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             write_config(destination / "research.yaml", cfg)
             load_config(destination)
             print(f"Created research project: {destination}")
-            print("Edit research.yaml to add focused queries and full-text sources, then run agsci research prepare.")
+            print("Edit research.yaml for the model provider, model ID, key environment variable and sources; then run agsci research prepare.")
             return 0
         if args.command == "report":
             path = args.workspace.expanduser() / "research_report.json"
@@ -136,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
                 "dry_run": True, "workspace": str(workspace),
                 "prepare_literature": not bool(args.resume), "queries": cfg.literature.queries,
                 "local_sources": len(cfg.literature.sources), "search_strategy": cfg.search.strategy,
+                "literature_model": {"provider": cfg.literature.model_search.provider, "model": cfg.literature.model_search.model,
+                                     "mode": cfg.literature.model_search.mode or PROVIDERS[cfg.literature.model_search.provider].mode},
                 "pipeline_argv": command, "note": "No agent, network request, training, or workspace creation occurred.",
             }, ensure_ascii=False, indent=2))
             return 0

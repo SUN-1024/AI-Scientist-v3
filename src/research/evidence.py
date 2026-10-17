@@ -163,10 +163,14 @@ def render_context(task_dir: Path, *, for_paper: bool = False) -> str:
         "when a meaningful difference exists; similarity alone is not grounds for rejection. "
         "Do not force a novelty claim when the core problem, method, and contribution coincide. "
         "Metadata/abstract-only records cannot establish differentiation or collision. "
+        "model_summary and model_extracted_unverified metadata are model output, not original paper evidence. "
         "Use needs_verification when evidence is insufficient.\n"
     )
     if for_paper:
         rules += (
+            "References for this research.yaml task use the configured model-search provider on the host. "
+            "Use its references.bib, references_provenance.json and reference_search receipts; "
+            "do not invoke Semantic Scholar, OpenAlex or scholarly fallback scripts. "
             "Read research_assessments and research_basis on evaluated programs in paper_data.json. Treat their judgments "
             "as agent assessments. Replications and unresolved ideas must retain that status. "
             "Experimental score improvements do not establish novelty. Cite the actual papers and "
@@ -189,7 +193,8 @@ def render_context(task_dir: Path, *, for_paper: bool = False) -> str:
     for source in catalog["sources"]:
         sources.append({
             key: source.get(key)
-            for key in ("id", "title", "year", "venue", "url", "availability", "passages", "text_path")
+            for key in ("id", "title", "year", "venue", "url", "availability", "passages", "text_path",
+                        "metadata_status", "model_summary", "search_sources")
         })
     return rules + "\n" + json.dumps({
         "retrieval_status": catalog["status"], "sources": sources,

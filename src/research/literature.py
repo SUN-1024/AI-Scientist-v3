@@ -10,7 +10,6 @@ import hashlib
 import io
 import ipaddress
 import json
-import os
 import re
 import socket
 import urllib.error
@@ -21,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import LiteratureConfig
+from .model_search import search_literature
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 MAX_TEXT_CHARS = 200_000
@@ -45,11 +45,11 @@ class _PublicRedirect(urllib.request.HTTPRedirectHandler):
         return redirected
 
 
-def download(url: str, cfg: LiteratureConfig, *, api: bool = False) -> bytes:
+def download(url: str, cfg: LiteratureConfig, *, accept: str | None = None) -> bytes:
     _public_url(url)
     headers = {"User-Agent": "AgenticScientist-Research/0.1"}
-    if api and os.environ.get("S2_API_KEY"):
-        headers["x-api-key"] = os.environ["S2_API_KEY"]
+    if accept:
+        headers["Accept"] = accept
     proxies: list[dict[str, str] | None] = [None]
     if cfg.proxy_fallback:
         proxies.append({"https": cfg.proxy_fallback, "http": cfg.proxy_fallback})
@@ -131,21 +131,10 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
     text_dir.mkdir()
     errors: list[dict[str, str]] = []
     records: list[dict[str, Any]] = [dict(source) for source in cfg.sources]
-    if not offline:
-        for query in cfg.queries:
-            params = urllib.parse.urlencode({
-                "query": query, "limit": cfg.results_per_query,
-                "fields": "paperId,title,year,venue,url,abstract,openAccessPdf,externalIds",
-            })
-            try:
-                payload = json.loads(download(
-                    "https://api.semanticscholar.org/graph/v1/paper/search?" + params, cfg, api=True,
-                ))
-                if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
-                    raise ValueError("Invalid Semantic Scholar search response")
-                records.extend(row for row in payload["data"] if isinstance(row, dict) and row.get("title"))
-            except (ValueError, OSError) as exc:
-                errors.append({"stage": "search", "query": query, "error": str(exc)})
+    if not offline and cfg.queries:
+        retrieved, search_errors = search_literature(cfg, output)
+        records.extend(retrieved)
+        errors.extend(search_errors)
     elif cfg.queries:
         errors.append({"stage": "search", "error": "Online searches skipped in offline mode"})
 
@@ -195,7 +184,10 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
         sources.append({
             "id": source_id, "title": record["title"], "year": record.get("year"),
             "venue": record.get("venue"), "url": record.get("url"),
+            "authors": record.get("authors"),
             "origin": origin, "availability": availability,
+            "metadata_status": record.get("metadata_status", "user_supplied"),
+            "model_summary": record.get("model_summary"), "search_sources": record.get("search_sources", []),
             "text_path": text_path, "text_sha256": hashlib.sha256(text.encode()).hexdigest() if text else None,
             "download_sha256": raw_hash, "passages": passages(text, source_id, cfg.queries),
         })
@@ -206,6 +198,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
         "queries": cfg.queries, "offline": offline, "sources": sources, "retrieval_errors": errors,
         "status": "ready" if sources and not errors else "partial" if sources else "unavailable",
         "novelty_status": "not_assessed",
+        "model_search_trace": "model_search/trace.json" if not offline and cfg.queries else None,
     }
     (output / "catalog.json").write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     lines = ["# Literature sources", "", "Retrieval does not establish novelty. See the cited text for each comparison.", ""]

@@ -1,0 +1,13 @@
+# Fill in model. API keys belong in environment variables, never in this file.
+# Fill in your regional/workspace DashScope API root, ending in /api/v1.
+literature:
+  model_search:
+    provider: dashscope
+    model: ''
+    base_url: ''
+    api_key_env: DASHSCOPE_API_KEY
+    api_format: dashscope
+    mode: native
+    max_output_tokens: 6000
+    max_search_calls: 4
+    timeout_seconds: 180

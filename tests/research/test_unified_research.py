@@ -82,9 +82,9 @@ def test_basis_is_preserved_and_forged_passage_is_rejected(tmp_path):
 def test_abstract_only_does_not_establish_novelty_or_collision(tmp_path, monkeypatch):
     task = make_task(tmp_path / "task")
     cfg = LiteratureConfig(queries=["optimization"], fetch_full_text=False, proxy_fallback="")
-    monkeypatch.setattr(literature, "download", lambda *_args, **_kwargs: json.dumps({"data": [{
+    monkeypatch.setattr(literature, "search_literature", lambda *_args, **_kwargs: ([{
         "paperId": "1", "title": "A method", "abstract": "We use a fixed step size.",
-    }]}).encode())
+    }], []))
     catalog = literature.prepare_literature(task, cfg)
     for status in ("differentiated", "collision"):
         with pytest.raises(ValueError, match="full-text passage"):
@@ -101,7 +101,7 @@ def test_text_tampering_is_detected_and_empty_retrieval_stays_unknown(tmp_path, 
         load_catalog(task)
     empty_task = tmp_path / "empty"
     empty_task.mkdir()
-    monkeypatch.setattr(literature, "download", Mock(side_effect=ValueError("HTTP 429")))
+    monkeypatch.setattr(literature, "search_literature", lambda *_args: ([], [{"stage": "model_search", "error": "HTTP 429"}]))
     catalog = literature.prepare_literature(empty_task, LiteratureConfig(queries=["unknown topic"]))
     assert catalog["status"] == "unavailable"
     assert catalog["novelty_status"] == "not_assessed"
