@@ -1,0 +1,195 @@
+{
+  "checked_at": "2026-10-17T14:47:05.219342+08:00",
+  "job_id": "20261017_144456_83ff4bef",
+  "since": "2026-10-17T14:44:59.245418+08:00",
+  "exit_code": null,
+  "main_log_tail": [
+    "██║  ██║╚██████╔╝    ███████║╚██████╗██║███████╗██║ ╚████║   ██║   ██║███████║   ██║",
+    "╚═╝  ╚═╝ ╚═════╝     ╚══════╝ ╚═════╝╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚══════╝   ╚═╝",
+    "",
+    "Agentic Scientist · task · 4 cycles",
+    "Agent: opencode / qwen-plan/qwen3.8-max",
+    "Config: 1 evaluations/idea · 1 worker · Docker",
+    "Results: /home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef",
+    "",
+    "Pipeline · task · run 20261017_144456_83ff4bef",
+    "Phases: investigation",
+    "Investigation · 1/1",
+    "Temporary storage: /home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-d703ffba394c432f9aca930286b431fe (base=/home/sunguanqun/AI-Scientist-v3/scratch/tmp, free_bytes=3254190764032)",
+    "  Waiting for runtime build capacity…",
+    "  Waiting for runtime build capacity · complete · 0.0s",
+    "  Creating isolated Python runtime…",
+    "  Creating isolated Python runtime · complete · 2.6s",
+    "  Installing runtime build tools…",
+    "  Installing runtime build tools · complete · 2.6s",
+    "  Installing evaluator tooling…",
+    "  Installing evaluator tooling · complete · 2.1s",
+    "  Installing pinned task dependencies…",
+    "1/1 · Running Investigation… 1m 0s · still running",
+    "1/1 · Running Investigation… 2m 0s · still running",
+    "Installing pinned task dependencies 1m 52s · still running"
+  ],
+  "ownership": {
+    "job_id": "20261017_144456_83ff4bef",
+    "running": true,
+    "process_ids": [
+      3027607,
+      3027611,
+      3027864,
+      3028868
+    ],
+    "container_ids": [
+      "132d7de33cd4"
+    ],
+    "exit_code": null,
+    "source_draft": null,
+    "published_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef/task",
+    "has_qualification_receipt": true
+  },
+  "phases": {
+    "investigation": {
+      "started": true,
+      "recent_nonheartbeat_events": [
+        {
+          "time": "2026-10-17T06:45:03.815Z",
+          "event": "container_session_stopped",
+          "fields": {}
+        },
+        {
+          "time": "2026-10-17T06:45:04.502Z",
+          "event": "task_runtime_cache_miss",
+          "fields": {}
+        },
+        {
+          "time": "2026-10-17T06:45:04.627Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "runtime_capacity"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:04.627Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "runtime_capacity"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:04.646Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "runtime_create"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:07.269Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "runtime_create"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:07.269Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "tooling_build"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:09.820Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "tooling_build"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:09.822Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "tooling_install"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:11.931Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "tooling_install"
+          }
+        },
+        {
+          "time": "2026-10-17T06:45:11.932Z",
+          "event": "preparation_step",
+          "fields": {
+            "step": "dependency_install"
+          }
+        }
+      ],
+      "new_errors": [],
+      "recent_logs": [],
+      "reports": []
+    },
+    "ablations": {
+      "started": false
+    },
+    "final_evaluation": {
+      "started": false
+    },
+    "posthoc": {
+      "started": false
+    },
+    "paper": {
+      "started": false
+    }
+  },
+  "live_variant_agent_streams": [],
+  "latest_tools": [],
+  "new_agent_errors": [],
+  "ideas_history.jsonl": {
+    "records": 0,
+    "tail": []
+  },
+  "attempts_history.jsonl": {
+    "records": 0,
+    "tail": []
+  },
+  "idea_generation_failures.jsonl": {
+    "records": 0,
+    "tail": []
+  },
+  "latest_phase_events": [
+    {
+      "time": "2026-10-17T06:45:00.774Z",
+      "event": "phase_start",
+      "current": 1,
+      "label": "Investigation",
+      "phase_name": "investigation",
+      "total": 1
+    }
+  ],
+  "gpu_now": "0, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0 MiB, 0 %\n3, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0 MiB, 0 %",
+  "containers": "132d7de33cd4 laughing_jennings Up About a minute \n6bec8cc0ec3e bridge-defect-model Up 2 weeks (healthy)",
+  "sampler": {
+    "pid": 3027721,
+    "running": true,
+    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/gpu_samples.csv",
+    "bytes": 19011,
+    "last_rows": [
+      "2026-10-17T14:47:04.571095+08:00,GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,0,0",
+      "2026-10-17T14:47:04.571095+08:00,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113,0,0"
+    ],
+    "peaks": {
+      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+        "memory_mib": 0,
+        "utilization_percent": 0,
+        "active_samples": 0,
+        "last_active": null
+      },
+      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+        "memory_mib": 0,
+        "utilization_percent": 0,
+        "active_samples": 0,
+        "last_active": null
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-17T15:04:13.518648+08:00",
+  "linux_targeted_tests": {
+    "passed": 125,
+    "failed": 0
+  },
+  "mac_targeted_tests": {
+    "passed": 53,
+    "failed": 0
+  },
+  "actual_mock_request_body_low_effort": true,
+  "actual_mock_transport_cases_passed": 5,
+  "actual_provider_http_status": 200,
+  "actual_provider_health_elapsed_seconds": 1.3542117211036384,
+  "source_of_slowdown": {
+    "observed_reasoning_tokens": 11906,
+    "observed_request_purpose": "Follow-up file-reading decision",
+    "configuration_reseeding_bug_confirmed_live": true
+  },
+  "benchmark_changed": false,
+  "used_scientific_evaluations_reset": false
+}

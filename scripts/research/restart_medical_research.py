@@ -38,7 +38,8 @@ def require_restart(record, state, source, retained, transport):
         raise ValueError("An actual container source-isolation check is required")
     if (not transport.get("passed") or transport.get("image_id") != source["image_id"]
             or {x["mode"] for x in transport.get("checks", [])}
-               != {"success", "stream_control", "headers", "chunks", "total"}):
+               != {"success", "stream_control", "headers", "chunks", "total"}
+            or not all(x.get("low_effort_verified") for x in transport.get("checks", []))):
         raise ValueError("Actual model transport and timeout checks must pass")
     if not record.get("automation_control", {}).get("all_paused"):
         raise ValueError("Keep scheduled tasks paused as the human user requested")
@@ -114,6 +115,12 @@ def main():
 
         probe = (ROOT / "scripts/research/medical_job_state.py").read_text()
         state = remote_python(probe, [base, old])
+        if record.get("development_campaign"):
+            if args.run:
+                raise ValueError("The development campaign already exists; do not submit a duplicate")
+            print(json.dumps({"ready":False,"reason":"Development campaign already exists",
+                              "job_id":old,"state":state}, indent=2))
+            return
         source = remote_python(continuation["VERIFY"],
             [source_path, record["boundary_f1_repair"]["expected_metric_ast_sha256"]],
             cwd=base + "/jobs/" + source_job)
@@ -128,7 +135,7 @@ print(json.dumps({k:{'expected':v,'actual':hashlib.sha256((base/k).read_bytes())
 """, [record["remote_results"], json.dumps(expected)])
         transport = remote_python("""import json
 from pathlib import Path
-print((Path('/home/sunguanqun/AI-Scientist-v3/scratch/opencode-transport-verification.json')).read_text())
+print((Path('/home/sunguanqun/AI-Scientist-v3/scratch/opencode-low-effort-transport-verification.json')).read_text())
 """)
         require_restart(record, state, source, retained, transport)
         for relative, key in (("src/scripts/variant_agent.sh", "wrapper_sha256"),
@@ -140,6 +147,8 @@ print((Path('/home/sunguanqun/AI-Scientist-v3/scratch/opencode-transport-verific
         options = config["provider"]["qwen-plan"]["options"]
         if {k:options[k] for k in EXPECTED_TIMEOUTS} != EXPECTED_TIMEOUTS:
             raise ValueError("The deployment must use the verified model wait settings")
+        if config["provider"]["qwen-plan"]["models"]["qwen3.8-max"].get("options") != {"reasoningEffort":"low"}:
+            raise ValueError("The model reasoning profile must match the actual request-body check")
         if not args.run:
             print(json.dumps({"ready":True,"previous_job":old,"state":state,
                               "source":source,"phases":["investigation"],

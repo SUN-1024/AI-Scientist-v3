@@ -896,9 +896,9 @@ seed_auth_into_home() {
       mkdir -p "$destination_parent" || return $?
       cp "$src" "$dst" || return $?
     elif [ -d "$src" ]; then
-      destination_parent="$(dirname "$dst")" || return $?
-      mkdir -p "$destination_parent" || return $?
-      cp -R "$src" "$dst" || return $?
+      mkdir -p "$dst" || return $?
+      # Re-seeding must refresh the same directory, not create dst/basename(src).
+      cp -R "$src/." "$dst/" || return $?
     fi
   done <<< "$seed_paths"
 

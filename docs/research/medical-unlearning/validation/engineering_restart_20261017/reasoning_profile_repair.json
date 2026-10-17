@@ -1,0 +1,21 @@
+{
+  "updated_at": "2026-10-17T14:57:22.120086+08:00",
+  "job_id": "20261017_144456_83ff4bef",
+  "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/attempts/reasoning_profile_20261017_145722",
+  "configuration_changes": {
+    "configs/opencode-qwen.json": {
+      "before_sha256": "9b7fc919b9ce24369683abe5883e371d014a8b0b41bdd80786a79207dba1ede7",
+      "after_sha256": "97d2405d2b91ae7ae8577953465962f24615b9ed1fc12a6f61d555f973ae425b"
+    },
+    "auth/.config/opencode/opencode.json": {
+      "before_sha256": "9b7fc919b9ce24369683abe5883e371d014a8b0b41bdd80786a79207dba1ede7",
+      "after_sha256": "97d2405d2b91ae7ae8577953465962f24615b9ed1fc12a6f61d555f973ae425b"
+    }
+  },
+  "reason": "Observed11906 reasoning tokens for one follow-up file-read decision; switch to verified low reasoning effort",
+  "completed_cycles_before": 0,
+  "scientific_evaluations_before": 0,
+  "baseline_preserved": true,
+  "only_model_agent_restarted": true,
+  "docker_stop_returncode": 0
+}

@@ -1,0 +1,122 @@
+{
+  "passed": true,
+  "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+  "checks": [
+    {
+      "mode": "success",
+      "passed": true,
+      "elapsed_seconds": 3.6962224321905524,
+      "request_count": 2,
+      "return_code": 0,
+      "timeout_message_observed": false,
+      "timeout_signal_observed": false,
+      "server_disconnect_seconds": [],
+      "identical_request_max_count": 1,
+      "reasoning_effort_on_wire": [
+        "low",
+        "low"
+      ],
+      "low_effort_verified": true,
+      "no_conflicting_thinking_budget": true,
+      "mock_body_delay_seconds": 0,
+      "stopped_after_expected_timeout": false,
+      "network": "local mock only",
+      "credentials": "dummy only",
+      "gpu": "none",
+      "medical_data_mounted": false
+    },
+    {
+      "mode": "stream_control",
+      "passed": true,
+      "elapsed_seconds": 5.969113186001778,
+      "request_count": 2,
+      "return_code": 0,
+      "timeout_message_observed": false,
+      "timeout_signal_observed": false,
+      "server_disconnect_seconds": [],
+      "identical_request_max_count": 1,
+      "reasoning_effort_on_wire": [
+        "low",
+        "low"
+      ],
+      "low_effort_verified": true,
+      "no_conflicting_thinking_budget": true,
+      "mock_body_delay_seconds": 2.5,
+      "stopped_after_expected_timeout": false,
+      "network": "local mock only",
+      "credentials": "dummy only",
+      "gpu": "none",
+      "medical_data_mounted": false
+    },
+    {
+      "mode": "headers",
+      "passed": true,
+      "elapsed_seconds": 4.8773215669207275,
+      "request_count": 2,
+      "return_code": 137,
+      "timeout_message_observed": true,
+      "timeout_signal_observed": true,
+      "server_disconnect_seconds": [],
+      "identical_request_max_count": 1,
+      "reasoning_effort_on_wire": [
+        "low",
+        "low"
+      ],
+      "low_effort_verified": true,
+      "no_conflicting_thinking_budget": true,
+      "mock_body_delay_seconds": 0,
+      "stopped_after_expected_timeout": true,
+      "network": "local mock only",
+      "credentials": "dummy only",
+      "gpu": "none",
+      "medical_data_mounted": false
+    },
+    {
+      "mode": "chunks",
+      "passed": true,
+      "elapsed_seconds": 7.7466224930249155,
+      "request_count": 3,
+      "return_code": 137,
+      "timeout_message_observed": false,
+      "timeout_signal_observed": true,
+      "server_disconnect_seconds": [],
+      "identical_request_max_count": 2,
+      "reasoning_effort_on_wire": [
+        "low",
+        "low",
+        "low"
+      ],
+      "low_effort_verified": true,
+      "no_conflicting_thinking_budget": true,
+      "mock_body_delay_seconds": 2.5,
+      "stopped_after_expected_timeout": true,
+      "network": "local mock only",
+      "credentials": "dummy only",
+      "gpu": "none",
+      "medical_data_mounted": false
+    },
+    {
+      "mode": "total",
+      "passed": true,
+      "elapsed_seconds": 4.386165244970471,
+      "request_count": 2,
+      "return_code": 1,
+      "timeout_message_observed": true,
+      "timeout_signal_observed": true,
+      "server_disconnect_seconds": [],
+      "identical_request_max_count": 1,
+      "reasoning_effort_on_wire": [
+        "low",
+        "low"
+      ],
+      "low_effort_verified": true,
+      "no_conflicting_thinking_budget": true,
+      "mock_body_delay_seconds": 2.5,
+      "stopped_after_expected_timeout": false,
+      "network": "local mock only",
+      "credentials": "dummy only",
+      "gpu": "none",
+      "medical_data_mounted": false
+    }
+  ]
+}

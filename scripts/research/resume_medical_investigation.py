@@ -57,7 +57,18 @@ def require_resumable(record: dict, state: dict, witness: dict, validation: dict
         raise ValueError('Only a stopped investigation can resume; refusing overlap')
     if state['exit_code'] in (None, 0):
         raise ValueError('Investigation has no recorded failed exit')
-    if not validation.get('ready') or record.get('blocking_findings'):
+    blockers = set(record.get('blocking_findings', []))
+    development = record.get('development_campaign')
+    if development:
+        if (development.get('version') != 2
+                or development.get('max_idea_cycles') != 4
+                or development.get('final_evaluation_enabled') is not False
+                or not record.get('research_restart_authorization', {}).get('human_authorized')):
+            raise ValueError('Development recovery must retain its authorized final-data boundary')
+        # This finding blocks confirmatory claims and final evaluation, not
+        # the separately authorized SEARCH-only development campaign.
+        blockers.discard('independent_confirmatory_evidence_not_available')
+    if not validation.get('ready') or blockers:
         raise ValueError('Scientific validation is not valid for this source')
     event = witness['last_phase_event']
     if (event.get('event') != 'phase_end' or event.get('phase_name') != 'investigation'
@@ -65,9 +76,19 @@ def require_resumable(record: dict, state: dict, witness: dict, validation: dict
         raise ValueError('Latest failed phase is not an unfinished investigation')
     budget, current = witness['cycle_budget'], witness['current_cycle']
     expected = record['current_investigation_progress']['max_cycles']
+    if development and expected != development['max_idea_cycles']:
+        raise ValueError('Development recovery cannot reset its frozen cycle budget')
     if (witness['errors'] or type(budget) is not int or budget != expected
             or type(current) is not int or not 0 <= current < budget):
         raise ValueError('No valid unfinished framework checkpoint with the original cycle budget')
+
+
+def recovery_overrides(record: dict, source: str, image: str) -> list[str]:
+    if record.get('development_campaign'):
+        restart = runpy.run_path(str(ROOT / 'scripts/research/restart_medical_research.py'))
+        return restart['overrides'](source, image)
+    continuation = runpy.run_path(str(ROOT / 'scripts/research/continue_medical_experiment.py'))
+    return continuation['overrides'](source, image) + continuation['agent_wait_overrides'](record)
 
 
 def main() -> None:
@@ -126,8 +147,7 @@ def main() -> None:
 
         # Reuse the frozen job code and the original results directory. No research
         # files or environments are copied, reset, or removed by this launcher.
-        extra = (continuation['overrides'](source, validation['image_id'])
-                 + continuation['agent_wait_overrides'](record)
+        extra = (recovery_overrides(record, source, validation['image_id'])
                  + ['investigation.execution.resume=true',
                     'investigation.execution.max_idea_cycles=' + str(witness['cycle_budget']),
                     'run_id=' + job, 'paths.run_dir=' + results])
@@ -143,7 +163,8 @@ def main() -> None:
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat()
         recovery = {'attempt_id': attempt, 'job_id': job, 'prior_exit_code': state['exit_code'],
                     'archive': archive, 'resumed_at': now, 'checkpoint': witness,
-                    'model_watchdog_seconds': 7200, 'scientific_protocol_changed': False,
+                    'model_watchdog_seconds': 1800 if record.get('development_campaign') else 7200,
+                    'scientific_protocol_changed': False,
                     'framework_code_replaced': False}
         record.setdefault('investigation_recoveries', []).append(recovery)
         record.update(updated_at=now, status='submitting_investigation_checkpoint_resume')
@@ -152,12 +173,29 @@ def main() -> None:
                + shlex.quote(str(state['exit_code'])) + '\nmv exit-code '
                + shlex.quote(archive + '/stopped-exit-code') + '\nnohup bash ' + shlex.quote(path)
                + ' > run.log 2>&1 < /dev/null &\necho $! > pid\n')
+        if record.get('development_campaign'):
+            sampler = run_python(directory, '''import json,subprocess,sys
+from pathlib import Path
+d=Path(sys.argv[1]);a=Path(sys.argv[2]);pid=int((d/'pid').read_text())
+csv=a/'gpu_samples.csv';state=a/'gpu_watch.json'
+with (a/'gpu_watch.log').open('w')as out:
+ p=subprocess.Popen([sys.executable,str(d/'scripts/research/watch_research_gpus.py'),
+    '--pid',str(pid),'--uuids',sys.argv[3],'--csv',str(csv),'--state',str(state)],
+    stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.STDOUT,start_new_session=True)
+print(json.dumps({'pid':p.pid,'csv':str(csv),'state':str(state),'target_pid':pid}))
+''', [directory,archive,','.join(launcher['CFG']['gpu_uuids'])])
+            record.setdefault('gpu_sampling_history', []).append(record['gpu_sampling'])
+            record['gpu_sampling'] = sampler
         record['status'] = 'running_investigation'
         record['substage'] = 'idea_generation_cycle_' + str(witness['current_cycle'] + 1)
         record['next_action'] = {'requires_user_decision': False,
                                 'action': 'Monitor the resumed investigation and original downstream phases. '
                                           'If investigation fails again, inspect its retained framework checkpoint '
                                           'with resume_medical_investigation.py before --resume; do not redraft.'}
+        if record.get('development_campaign'):
+            record['next_action']['action'] = (
+                'Directly monitor the same four development cycles and inspect native results. '
+                'The old final stays quarantined, all schedules stay paused, and no later phase is enabled.')
         record['last_monitor_check'] = {'checked_at': now, 'status': 'resumed_existing_investigation_checkpoint',
                                         'restart_performed': True, 'repair_applied': True,
                                         'prior_exit_code': state['exit_code'], 'attempt_id': attempt}

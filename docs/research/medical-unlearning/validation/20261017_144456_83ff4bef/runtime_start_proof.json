@@ -1,0 +1,167 @@
+{
+  "checked_at": "2026-10-17T14:51:58.966099+08:00",
+  "job_id": "20261017_144456_83ff4bef",
+  "runtime_manifest": {
+    "path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef/task/.agentic_runtime.json",
+    "fields": {
+      "baseline_correct": true,
+      "baseline_combined_score": 0.8177455611478867,
+      "baseline_feasible": null,
+      "tooling_sha256": "766724435338c2ba9cb584e23ce97b67bc34fe493a9e0b3c7d10210963727cc1",
+      "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+      "evaluator_sha256": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+      "requirements_sha256": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
+      "gpu_evaluation": true,
+      "sandbox_gpus": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\""
+    }
+  },
+  "tooling_change": {
+    "old_digest": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
+    "new_digest": "766724435338c2ba9cb584e23ce97b67bc34fe493a9e0b3c7d10210963727cc1",
+    "changed": {
+      "src/pipeline/cli.py": {
+        "old": "6a93de8467ab51bb6b4c2113e14d92f8d0c56a2be9ce989bc9f98c6203c67173",
+        "new": "1803f25c916532b3c204c0df9fb3e5ed7b42669959921298722e9cf04d296954"
+      }
+    }
+  },
+  "entry_evaluation_seconds": 40.5,
+  "entry_score_reproduced": true,
+  "agent_isolation": {
+    "checked_at": "2026-10-17T14:49:33.427069+08:00",
+    "containers": [
+      {
+        "id": "f6aa3770e9d5",
+        "image": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+        "check_returncode": 0,
+        "check": {
+          "evaluate_final.py": {
+            "exists": true,
+            "bytes": null
+          },
+          "task_contract.json": {
+            "exists": true,
+            "bytes": null
+          },
+          ".agentic_task_validation.json": {
+            "exists": true,
+            "bytes": null
+          },
+          "final_files": 0,
+          "docker_socket_absent": true,
+          "provider_timeouts": {
+            "timeout": 300000,
+            "headerTimeout": 90000,
+            "chunkTimeout": 90000
+          },
+          "key_present": true
+        },
+        "mounts": [
+          {
+            "source": "/dev/null",
+            "destination": "/workspace/task/evaluate_final.py",
+            "read_only": true
+          },
+          {
+            "source": "/dev/null",
+            "destination": "/workspace/task/.agentic_task_validation.json",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-d703ffba394c432f9aca930286b431fe/agentic-idea-seal-empty-EPmboX",
+            "destination": "/workspace/task/resources/final",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-d703ffba394c432f9aca930286b431fe/agentic-idea-task-source-smW9JK",
+            "destination": "/task-source",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef/investigation/.agent_home",
+            "destination": "/home/agent-home",
+            "read_only": false
+          },
+          {
+            "source": "/dev/null",
+            "destination": "/task-source/.agentic_task_validation.json",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-d703ffba394c432f9aca930286b431fe/agentic-idea-seal-empty-EPmboX",
+            "destination": "/task-source/resources/final",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-d703ffba394c432f9aca930286b431fe/agentic-idea-task-source-smW9JK",
+            "destination": "/workspace/task",
+            "read_only": true
+          },
+          {
+            "source": "/dev/null",
+            "destination": "/workspace/task/task_contract.json",
+            "read_only": true
+          },
+          {
+            "source": "/dev/null",
+            "destination": "/task-source/evaluate_final.py",
+            "read_only": true
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef/investigation",
+            "destination": "/workspace",
+            "read_only": false
+          },
+          {
+            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/containers/run-d703ffba394c432f9aca930286b431fe/agent-tmp-rci1sy37",
+            "destination": "/agent-tmp",
+            "read_only": false
+          },
+          {
+            "source": "/dev/null",
+            "destination": "/task-source/task_contract.json",
+            "read_only": true
+          }
+        ]
+      }
+    ]
+  },
+  "sealed_read_checks": {
+    "checked_at": "2026-10-17T14:51:58.966099+08:00",
+    "checks": [
+      {
+        "container": "f6aa3770e9d5",
+        "all_sealed_reads_empty": true,
+        "values": {
+          "/task-source": {
+            "evaluate_final.py_read_bytes": 0,
+            "task_contract.json_read_bytes": 0,
+            ".agentic_task_validation.json_read_bytes": 0,
+            "final_files": 0
+          },
+          "/workspace/task": {
+            "evaluate_final.py_read_bytes": 0,
+            "task_contract.json_read_bytes": 0,
+            ".agentic_task_validation.json_read_bytes": 0,
+            "final_files": 0
+          }
+        }
+      }
+    ]
+  },
+  "gpu_peaks": {
+    "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+      "memory_mib": 592.0,
+      "utilization_percent": 31.0,
+      "active_samples": 37,
+      "last_active": "2026-10-17T14:48:36.714967+08:00"
+    },
+    "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+      "memory_mib": 398.0,
+      "utilization_percent": 10.0,
+      "active_samples": 33,
+      "last_active": "2026-10-17T14:48:36.714967+08:00"
+    }
+  },
+  "scope": "New campaign entry revalidation; no new method result yet; regular search feasible field is not emitted"
+}

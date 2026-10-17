@@ -19,7 +19,7 @@ def _case():
     source = {"ready":True,"publication_plan_sha256":"plan","image_id":"image"}
     retained = {str(i):{"unchanged":True} for i in range(5)}
     transport = {"passed":True,"image_id":"image",
-                 "checks":[{"mode":s}for s in
+                 "checks":[{"mode":s,"low_effort_verified":True}for s in
                            ("success","stream_control","headers","chunks","total")]}
     return deepcopy((record,state,source,retained,transport))
 
@@ -34,7 +34,7 @@ def test_accepts_new_development_campaign_without_old_final_reuse():
 
 @pytest.mark.parametrize("change", ["authorization","running","no_exit","duplicate",
     "source","plan","image","final_changed","final_missing","isolation",
-    "transport","transport_image","transport_missing","schedules"])
+    "transport","transport_image","transport_missing","reasoning_not_sent","schedules"])
 def test_refuses_drift_overlap_unverified_transport_and_lost_old_results(change):
     r,s,v,f,t = _case()
     if change == "authorization":r["research_restart_authorization"] = {}
@@ -50,6 +50,7 @@ def test_refuses_drift_overlap_unverified_transport_and_lost_old_results(change)
     if change == "transport":t["passed"] = False
     if change == "transport_image":t["image_id"] = "other"
     if change == "transport_missing":t["checks"].pop()
+    if change == "reasoning_not_sent":t["checks"][0]["low_effort_verified"] = False
     if change == "schedules":r["automation_control"]["all_paused"] = False
     with pytest.raises(ValueError):MODULE["require_restart"](r,s,v,f,t)
 

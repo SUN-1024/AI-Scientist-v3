@@ -1,0 +1,20 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 1.3542117211036384,
+  "model": "qwen3.8-max",
+  "requested_reasoning_effort": "low",
+  "expected_text_received": true,
+  "usage": {
+    "prompt_tokens": 58,
+    "total_tokens": 82,
+    "completion_tokens": 24,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "text_tokens": 58
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 20,
+      "text_tokens": 24
+    }
+  }
+}

@@ -1,0 +1,385 @@
+{
+  "checked_at": "2026-10-17T14:25:31.966378+08:00",
+  "jobs_audited": [
+    "20261016_221356_d7251131",
+    "20261017_070528_ba5c6c51",
+    "20261017_084517_1b64cdd7",
+    "20261017_085117_652b0da2",
+    "20261017_095210_4a83c897",
+    "20261017_095922_f607f42f",
+    "20261017_102054_544b6a4c"
+  ],
+  "phases": {
+    "design": {
+      "status": "accepted_and_restored",
+      "evidence": "original accepted_review.json + design_receipt.json, restored with fingerprint and canonical task checks"
+    },
+    "task_drafting": {
+      "status": "completed_with_verified_publication_recovery",
+      "duration_seconds": 3037,
+      "contract_schema": "pass",
+      "contract_static_lint": "pass",
+      "candidate_boundary": "pass",
+      "canonical_task_unchanged": true,
+      "published_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task"
+    },
+    "independent_validation": {
+      "status": "all_source_gates_passed",
+      "candidate_boundary": "pass",
+      "contract": "pass",
+      "acceptance_smoke": "pass",
+      "alignment": "pass_11_of_11_dimensions",
+      "full_baseline_qualification": "pass_correct_and_feasible",
+      "prior_smoke_receipt": "Historical only; did not cover corrected metric",
+      "duration_seconds": 225,
+      "gate_scaffold_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
+      "full_baseline_preflight": {
+        "status": "pass",
+        "correct": true,
+        "feasible": true,
+        "seed": 1701,
+        "total_seconds": 60.85846066195518,
+        "source_gate_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
+        "main_qualification_gate": "pass_separate_main_receipt",
+        "used_as_release_receipt": false
+      },
+      "publication": "pass_after_owned_resource_recovery",
+      "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
+    },
+    "investigation": {
+      "status": "completed_two_cycles_winner_cycle1",
+      "logs_exist": true,
+      "job_id": "20261017_102054_544b6a4c",
+      "private_inputs_present": true,
+      "entry_baseline_revalidation": "pass_current_tooling",
+      "new_method_results_available": true,
+      "starting_candidate_correct": true,
+      "starting_candidate_score": 0.8177455611478867,
+      "starting_candidate_evaluation_seconds": 44.6,
+      "model_watchdog_seconds": 7200,
+      "prior_exit_code": 2,
+      "source_checkpoint_preserved": true,
+      "proposal_draft_available": true,
+      "accepted_idea_available": true,
+      "proposal_draft_bytes": 33438,
+      "accepted_idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
+      "target_rubrics_count": 7,
+      "candidate_implementation_available": true,
+      "method_attempt_in_progress": false,
+      "cycle": 2,
+      "method_attempts_completed": 2,
+      "first_candidate_correct": true,
+      "first_candidate_score": 0.8194708063004026,
+      "proposal_draft_cycle": 2,
+      "current_cycle_proposal_accepted": true,
+      "current_cycle_method_implementation_started": true,
+      "accepted_ideas": 2,
+      "current_cycle_gpu_training_observed": true,
+      "second_candidate_correct": true,
+      "second_candidate_score": 0.8067816335890312,
+      "second_candidate_rubric_passed": 6,
+      "second_candidate_rubric_total": 7,
+      "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
+    },
+    "ablations": {
+      "status": "running_unused_checkpoint_prior_source_isolation_unqualified",
+      "logs_exist": true,
+      "original_status": "degraded_infrastructure_failure",
+      "original_exit_code": 4,
+      "original_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations",
+      "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
+      "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
+      "host_scoring_started": true,
+      "latest_agent_activity": "2026-10-17T14:18:06.870000+08:00",
+      "current_stage": "execute_unused_variant_checkpoint",
+      "generation_completed": true,
+      "proposed_candidates": 8,
+      "proposed_counts": {
+        "ablation": 5,
+        "baseline": 3
+      },
+      "accepted_candidates": 5,
+      "accepted_counts": {
+        "ablation": 2,
+        "baseline": 3
+      },
+      "fixed_controls": 2,
+      "total_variant_workspaces": 7,
+      "control_host_evaluation": {
+        "correct": true,
+        "score": 0.8194708063004026,
+        "elapsed_seconds": 41.965879891999066,
+        "finished_at": "2026-10-17T04:45:06.339212+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T04:58:48.212803+00:00",
+        "source_isolation_qualified": false
+      },
+      "completed_variant_receipts": 4,
+      "current_variant": "baseline_gradient_ascent",
+      "current_variant_index": 5,
+      "reference_baseline_host_evaluation": {
+        "correct": true,
+        "score": 0.8177455611478867,
+        "heldout_macro_dice": 0.673407057602781,
+        "forget_retrain_probability_mae": 0.049480793669757335,
+        "elapsed_seconds": 41.95416694809683,
+        "started_at": "2026-10-17T05:10:25.835255+00:00",
+        "finished_at": "2026-10-17T05:11:07.787683+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "program_id": "program_1",
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T05:19:26.261587+00:00",
+        "source_isolation_qualified": false
+      },
+      "first_ablation_host_evaluation": {
+        "correct": true,
+        "score": 0.8198481998044542,
+        "elapsed_seconds": 43.628322278149426,
+        "started_at": "2026-10-17T05:25:23.485105+00:00",
+        "finished_at": "2026-10-17T05:26:07.111950+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "program_id": "program_1",
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T05:31:22.275252+00:00",
+        "source_isolation_qualified": false
+      },
+      "second_ablation_host_evaluation": {
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "correct": true,
+        "score": 0.819450948044027,
+        "control_score": 0.8194708063004026,
+        "seed": 1701,
+        "deltas_variant_minus_control": {
+          "combined_score": -1.985825637562666e-05,
+          "heldout_macro_dice": -3.9123098996451944e-05,
+          "heldout_boundary_f1": -6.0184750385938734e-05,
+          "forget_retrain_probability_mae": -7.831246800892033e-06
+        },
+        "elapsed_seconds": 42.672777886968106,
+        "started_at": "2026-10-17T05:39:25.548319+00:00",
+        "finished_at": "2026-10-17T05:40:08.219811+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "program_id": "program_1",
+        "interpretation": "Native verification passed9/9. The single development-seed score difference is tiny and does not establish a stable contribution; the earlier authoring source view remains uncertified.",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T05:50:03.433951+00:00",
+        "source_isolation_qualified": false
+      },
+      "isolation_qualified": false,
+      "new_agent_source_view_verified": true,
+      "prior_results_scope": "Four exploratory native executions; prior generation/authoring task-source view exposure cannot be retrospectively certified",
+      "checkpoint_recovery_started_at": "2026-10-17T14:10:26.957095+08:00",
+      "current_model_request_last_stream_output": "2026-10-17T14:18:09.053078+08:00",
+      "current_model_request_silence_seconds": 442.9133,
+      "current_variant_evaluations": 0
+    },
+    "final_evaluation": {
+      "status": "completed_not_qualified",
+      "logs_exist": true,
+      "process_exit_code": 0,
+      "correct": false,
+      "episode_seeds": [
+        2701,
+        2702
+      ],
+      "reference_quality_pass": true,
+      "failure_reason": "Heldout Dice below fine-tuning, NegGrad+ and equal-time controls under preregistered condition",
+      "one_time_result_preserved": true,
+      "local_proof": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/final_evaluation/verification.json"
+    },
+    "posthoc": {
+      "status": "not_started_pending_valid_ablation_inputs",
+      "logs_exist": false,
+      "started": false
+    },
+    "paper": {
+      "status": "blocked_by_not_qualified_final",
+      "logs_exist": false,
+      "started": false
+    }
+  },
+  "observed_errors": [
+    {
+      "error": "Design schema: planes.search.correctness not a non-empty array",
+      "status": "resolved_in_previous_run",
+      "evidence": "schema repair followed by accepted design review"
+    },
+    {
+      "error": "First full drafting run7200s timeout",
+      "status": "recovered_and_overall_limit_authorization_removed",
+      "evidence": "Historical timeout preserved; uncapped successors completed all task qualification and publication gates"
+    },
+    {
+      "error": "OpenCode draft-task skill: ripgrep execution failed after GitHub download attempt",
+      "status": "fixed_and_verified",
+      "evidence": "live and network-disabled fresh-image OpenCode skill scans passed"
+    },
+    {
+      "error": "Temporary drafting environment missing torch/monai",
+      "status": "resolved",
+      "evidence": "versions torch2.8.0+cpu,monai1.5.1,numpy2.2.6,scipy1.16.2; development smoke ran"
+    },
+    {
+      "error": "Tsinghua pytorch-wheels/cpu index404",
+      "status": "fallback_succeeded",
+      "evidence": "official download.pytorch.org CPU index200; actual install succeeded; other packages used Tsinghua PyPI"
+    },
+    {
+      "error": "time exit127 and bc command not found",
+      "status": "fixed_and_verified",
+      "evidence": "commands installed in live container and persistent image; real executions passed"
+    },
+    {
+      "error": "final development smoke correct=false",
+      "status": "expected_scientific_gate_result_preserved",
+      "evidence": "process exit0; very small smoke reference training below fixed0.50 Dice gate; this is not a qualified experiment"
+    },
+    {
+      "error": "Alignment reviewer package installation/download timeouts",
+      "status": "scoped_mirror_fixed_and_source_read_resumed",
+      "evidence": "MONAI1.5.1 wheel downloaded from Tsinghua and read by judge08:15:38; future reviews instructed to inspect pinned source archives and leave full runtime execution to qualification"
+    },
+    {
+      "error": "Tolerant boundary F1 reused one directional match count",
+      "status": "fixed_and_fully_independently_validated",
+      "evidence": "Corrected actual evaluators passed pinned geometry regressions, independent alignment, isolated smoke and main full production baseline qualification; current metric AST reverified"
+    },
+    {
+      "error": "Isolated runtime pip did not inherit package mirror; measured23KiB/s Torch download",
+      "status": "fixed_and_unit_integration_verified",
+      "evidence": "Medical runner explicitly selects Tsinghua for writable install containers only;99tests passLinux; new job resumed"
+    },
+    {
+      "error": "Temporary judge container missing from recovery container ownership check",
+      "status": "fixed_and_verified",
+      "evidence": "Future agent containers carry the medical job label; a private ownership journal covers current legacy judge; live guard reports ec2551f78639 and rejects duplicate launch;62tests passLinux"
+    },
+    {
+      "error": "Recovery copied unowned resources into publication destination",
+      "status": "fixed_and_published_through_official_API",
+      "evidence": "Only duplicate resource directory moved to retained backup after hash equality; genuine alignment and qualification receipts validated; published plan69b121... unchanged; qualified cache reactivated"
+    },
+    {
+      "error": "Internal source snapshot marker leaked through legacy recovery copy",
+      "status": "fixed_without_changing_publication_identity",
+      "evidence": "Marker retained in publication recovery backup; plan hash and alignment unchanged; future recovery staging omits managed runtime/snapshot state"
+    },
+    {
+      "error": "Fresh run discarded evaluator-private resources/contract using agent-view ignore rules",
+      "status": "fixed_and_regression_verified",
+      "evidence": "95 checks passLinux; validated published task snapshots preserve private inputs, original agent ignore file unchanged, agent view sealed, corrupt source refused; actual current run has all5private inputs"
+    },
+    {
+      "error": "Two idea-generation attempts exceeded900s pilot model watchdog",
+      "status": "fixed_and_checkpoint_resume_live_verified",
+      "evidence": "63 checks pass on local/server; original research files and failed exits retained; actual resumed config model7200s, hostscoring2100s, resume=true, original2cycles"
+    },
+    {
+      "error": "Generation APIError401 No API-key provided",
+      "status": "fixed_and_live_execution_verified",
+      "evidence": "Native generation and selection completed; control_best isolated host GPU evaluation exited0 correct=true in41.97s using approved two-GPU broker; score reproduced original winner"
+    },
+    {
+      "error": "Variants infrastructure failure: gpu_allocation_invalid",
+      "status": "fixed_and_live_execution_verified",
+      "evidence": "Native generation and selection completed; control_best isolated host GPU evaluation exited0 correct=true in41.97s using approved two-GPU broker; score reproduced original winner"
+    },
+    {
+      "error": "Credential-bearing variants agent can read sealed task source/final data through /task-source",
+      "status": "fixed_for_new_views_prior_results_uncertified",
+      "evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/isolation_repair_20261017_135417"
+    },
+    {
+      "error": "Successful variant tool logs were removed at cleanup, so previous complete access history is unavailable",
+      "status": "future_private_bounded_logs_retained_canary_verified",
+      "evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661/agent_audit"
+    }
+  ],
+  "scientific_results_available": true,
+  "current_job_id": "20261017_102054_544b6a4c",
+  "gpu_stage": "ablations_unused_checkpoint_baseline_gradient_ascent_preparing",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv",
+  "gpu_training": {
+    "observed": true,
+    "current_purpose": "No new GPU activity after14:10 checkpoint restart; previous four native evaluations preserved",
+    "reference_updates_each": 400,
+    "baseline_updates_each": 80,
+    "first_current_activity": "2026/10/17 10:24:06.627",
+    "new_method_training_started": true,
+    "first_method_evaluation_finished": "2026-10-17T11:29:54.923+08:00",
+    "second_method_evaluation_finished": "2026-10-17T04:17:37.146098+00:00",
+    "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
+  },
+  "scientific_results_scope": "Two development candidates and one negative sealed final completed before the variants exposure; four subsequent native variant executions retained as exploratory due to exposed authoring views. Three unused baseline budgets now resume with verified sealed agent views. Entire campaign and paper remain unqualified.",
+  "last_effective_activity": "2026-10-17T14:16:04.298000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_141634.json",
+  "new_error_events": [],
+  "sampling_maintenance": {
+    "status": "scoped_sampler_restarted_after_ablation_recovery",
+    "new_sampler_pid": 2799652,
+    "old_trace_preserved": true,
+    "same_two_assigned_gpus_only": true,
+    "duplicate_prevention": "No existing watcher plus exclusive lock in helper",
+    "scientific_protocol_changed": false
+  },
+  "recovered_tool_errors": [
+    {
+      "timestamp": 1792207816328,
+      "tool": "read",
+      "status": "error",
+      "title": null,
+      "log": "investigation/_idea_generation/cycle_0002_attempt_01_1792207795863820656/idea_agent_opencode_20261017_112956.log",
+      "error": "File not found: /workspace/_idea_generation/task/task.md",
+      "blocking": false,
+      "resolution": "Agent successfully read /workspace/task/task.md at11:30:23 and histories at11:30:24"
+    },
+    {
+      "timestamp": 1792213250444,
+      "tool": "bash",
+      "exit": 2,
+      "kind": "optional_memory_files_absent_during_probe",
+      "blocking": false,
+      "recovery": "Subsequent command found memory-log helper and program_0 and exited0",
+      "following_exit": 0
+    },
+    {
+      "timestamp": 1792217562943,
+      "tool": "grep",
+      "status": "error",
+      "error": "Ripgrep JSON record exceeded65536bytes during broad CSV search",
+      "blocking": false,
+      "resolution": "Agent switched to scoped rg and source inspection, then proceeded to current task planning at14:16:04"
+    },
+    {
+      "timestamp": 1792217570060,
+      "tool": "bash",
+      "exit": 1,
+      "blocking": false,
+      "reason": "Scoped rg returned no CSV matches; subsequent source reads and planning succeeded"
+    }
+  ],
+  "scientific_outcomes": {
+    "second_candidate_not_promoted": "Lower score; original winner retained",
+    "sealed_final_not_qualified": "Scientifically valid execution; pre-registered tradeoff demonstration failed; preserve result and do not retune",
+    "boundary_anchor_ablation": "Single development seed1701: removing boundary term increases score0.00037739, Dice0.00115399 and boundaryF1 0.00067036 while worsening forget MAE0.00020575; no evidence here for primary-score benefit from boundary term",
+    "variants_isolation": "New execution views repaired and checked inside the actual research container; earlier four native execution results retained as exploratory because original authoring/generation views exposed sealed source"
+  },
+  "manual_control": {
+    "all_scheduled_tasks_paused": true,
+    "task_count": 15,
+    "active_count": 0,
+    "research_process_running": true
+  }
+}

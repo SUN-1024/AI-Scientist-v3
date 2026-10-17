@@ -160,6 +160,19 @@ def _seed_into_prepared_home(agent: str, auth_root: Path, workspace: Path, *, pr
 # ---------------------------------------------------------------------------
 
 
+def test_reseeding_opencode_refreshes_configuration_without_a_nested_directory(tmp_path: Path) -> None:
+    auth = tmp_path / "auth"
+    config = auth / ".config/opencode/opencode.json"
+    config.parent.mkdir(parents=True)
+    config.write_text('{"profile":"old"}\n')
+    home = tmp_path / "home"
+    _ok(f"seed_auth_into_home opencode {q(str(auth))} {q(str(home))}\n")
+    config.write_text('{"profile":"new","reasoningEffort":"low"}\n')
+    _ok(f"seed_auth_into_home opencode {q(str(auth))} {q(str(home))}\n")
+    assert (home / ".config/opencode/opencode.json").read_text() == config.read_text()
+    assert not (home / ".config/opencode/opencode").exists()
+
+
 def test_seed_auth_into_home_copies_only_the_agents_credentials_and_allowlists_subscription_env(
     tmp_path: Path,
 ) -> None:

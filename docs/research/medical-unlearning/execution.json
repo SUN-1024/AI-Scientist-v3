@@ -1,105 +1,8 @@
 {
-  "updated_at": "2026-10-17T14:25:31.966378+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
-  "job_id": "20261017_102054_544b6a4c",
-  "status": "stopped_for_user_authorized_new_research",
-  "phase": "ablations",
-  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/run.log",
-  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c",
-  "phases": [
-    "task_drafting",
-    "investigation",
-    "ablations",
-    "final_evaluation",
-    "posthoc",
-    "paper"
-  ],
-  "prior_failed_job": {
-    "id": "20261016_221226_9f2abf9f",
-    "reason": "Docker multi-GPU CSV selector was unquoted; fixed and GPU visibility verified",
-    "training_started": false
-  },
-  "scientific_results_available": true,
-  "paper_available": false,
-  "submission_authorized": false,
-  "last_monitor_check": {
-    "checked_at": "2026-10-17T14:32:26.523041+08:00",
-    "status": "stopped_for_new_research",
-    "exit_code": 143,
-    "restart_performed": false,
-    "repair_applied": false,
-    "gpu_training_observed": true,
-    "gpu_training_scope": "Previous four scoped native evaluations exist; checkpoint recovery after14:10 has no new GPU evaluation yet",
-    "gpu_currently_idle": true,
-    "latest_effective_activity": "2026-10-17T14:18:06.870000+08:00",
-    "latest_effective_activity_detail": {
-      "timestamp": 1792217886870,
-      "tool": "todowrite",
-      "status": "completed",
-      "title": "command",
-      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/agentic-variant-cost-ezvylv/agent_opencode.jsonl"
-    },
-    "source_validation_rechecked": true,
-    "new_wrapper_errors": [],
-    "recovered_tool_errors": [
-      {
-        "timestamp": 1792217562943,
-        "tool": "grep",
-        "status": "error",
-        "error": "Ripgrep JSON record exceeded65536bytes during broad CSV search",
-        "blocking": false,
-        "resolution": "Agent switched to scoped rg and source inspection, then proceeded to current task planning at14:16:04"
-      },
-      {
-        "timestamp": 1792217570060,
-        "tool": "bash",
-        "exit": 1,
-        "blocking": false,
-        "reason": "Scoped rg returned no CSV matches; subsequent source reads and planning succeeded"
-      }
-    ],
-    "past_ten_minutes_progress": "14:22人工暂停全部15项定时任务；本次实查没有新研究评价。第5/7个基线仍在代码生成，最新完整工具活动14:18:06，14:18:09后的模型流持续静默。两张A40空闲，当前恢复自14:10以来尚无新GPU训练；先前两轮开发、一次最终评价和四项比较均有真实GPU回执。",
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/scratch/medical-research-restart-stop.json",
-    "sealed_final_qualified": false,
-    "sealed_final_hashes_unchanged": true,
-    "prior_variant_source_isolation_qualified": false,
-    "new_agent_source_isolation_verified": true,
-    "check_mode": "manual_after_scheduled_tasks_paused",
-    "model_request_silence_seconds": 442.9133
-  },
-  "next_action": {
-    "requires_user_decision": false,
-    "action": "Directly inspect the current model-authoring request and finish only the original three unused baseline budgets. All schedules stay paused. Preserve completed results and the one-time sealed negative final; posthoc and paper remain blocked by scientific findings. Do not create duplicate runs or reset used evaluation budgets.",
-    "scientific_decision_pending_after_scoped_recovery": true
-  },
-  "previous_execution": {
-    "job_id": "20261016_221356_d7251131",
-    "status": "failed_drafting_timeout_awaiting_budget_decision",
-    "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261016_221356_d7251131/run.log",
-    "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261016_221356_d7251131",
-    "last_monitor_check": {
-      "status": "failed_drafting_timeout_awaiting_budget_decision",
-      "exit_receipt_present": true,
-      "exit_code": 4,
-      "inner_exit_code": 124,
-      "failure_time": "2026-10-17T00:14:21+08:00",
-      "observation": "7200s drafting budget exhausted; pipeline stopped before investigation. Task container removed, other service healthy, both A40s idle. Approved design 53737 bytes, candidate 21207 bytes, evaluator 101555 bytes, requirements and capture preserved. final_evaluate.py and task_contract.json absent. No qualification or scientific results.",
-      "repair_applied": false,
-      "restart_performed": false,
-      "checked_at": "2026-10-17T07:00:01.402021+08:00",
-      "latest_check": "Unchanged at 06:59:56: exit 4; task process/container absent; no result files modified in past 10 minutes; authorized A40s idle. No new progress/error/repair/restart; additional budget authorization pending."
-    }
-  },
-  "recovery": {
-    "source_draft": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7/task_drafting",
-    "overall_timeout_seconds": null,
-    "scope": "Continue latest saved code with all robust validation gates",
-    "runtime_cache_handoff": true,
-    "training_started": false
-  },
   "budget_authorization": {
     "updated_at": "2026-10-17T07:37:37.163586+08:00",
     "user_instruction": "无预算上限",
@@ -109,6 +12,158 @@
     "scientific_protocol_unchanged": true,
     "existing_process_timeout_seconds": null,
     "existing_process_policy": "Current recovery has no outer/shared drafting timeout; scientific per-evaluation ceilings are unchanged"
+  },
+  "automation_control": {
+    "updated_at": "2026-10-17T14:26:13.227758+08:00",
+    "requested_by": "human user",
+    "request": "把所有定时任务就直接关闭了，你来操作",
+    "total": 15,
+    "active_count": 0,
+    "all_paused": true,
+    "tasks": [
+      {
+        "id": "2-1-0",
+        "name": "桥梁模型2.1.0发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2-1-1",
+        "name": "桥梁模型2.1.1发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2025",
+        "name": "2025年度绩效申报核验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai",
+        "name": "生成式AI逐字稿处理",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai-scientist",
+        "name": "检查并修复 AI-Scientist 医学遗忘实验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation",
+        "name": "表格加粗同步检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation-2",
+        "name": "第二周实践手册完成检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "follow-up-monitor",
+        "name": "Follow-up monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "media-03558r1-gmail-decision-monitor",
+        "name": "MedIA 03558R1 Gmail decision monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "orca-256k",
+        "name": "Orca Router 与压缩验证收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "peft",
+        "name": "桥梁裂缝全量PEFT训练监控",
+        "status": "PAUSED"
+      },
+      {
+        "id": "pga-dps",
+        "name": "PGA-DPS 原论文完整复现跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ppt",
+        "name": "循环神经网络分章教学PPT进度",
+        "status": "PAUSED"
+      },
+      {
+        "id": "qwen",
+        "name": "Qwen 思考档位适配收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "t1-r3-c04-gpu0-admission-wait",
+        "name": "T1-R3 C04 GPU0 admission wait",
+        "status": "PAUSED"
+      }
+    ],
+    "research_process_stopped": false,
+    "automatic_reenable_authorized": false
+  },
+  "qualified_source_task": {
+    "path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task",
+    "source_job": "20261017_085117_652b0da2",
+    "verified_at": "2026-10-17T10:20:58.218066+08:00",
+    "ready": true,
+    "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
+    "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+    "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb"
+  },
+  "boundary_f1_repair": {
+    "status": "fixed_and_fully_validated",
+    "canonical_task_sha256": "dc20313a1e211954ecd13aac507c0a3e310c37d02bb68ff468d98b7a4a1909cc",
+    "expected_metric_ast_sha256": "c89a26dbe119c5704f9bbd47a1be141a6bbb0195d4c2b49b8f2188ce7c29ed95",
+    "files": {
+      "evaluate.py": {
+        "before": "d5dfff955d3d3e0ac8198ba0f21b39876bfc70daa9b3cb48d491094bc26c2f54",
+        "after": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15"
+      },
+      "evaluate_final.py": {
+        "before": "4543ffdea8884502190b8e929085528521ff3c579a94aedd4f766d7e1ee755b4",
+        "after": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0"
+      }
+    },
+    "semantic_change": "Separate precision-side and recall-side tolerance matches; preserve metric weight, boundary extractor, tolerance and class/patient pooling",
+    "reference": "https://github.com/davisvideochallenge/davis2017-evaluation/blob/master/davis2017/metrics.py",
+    "required_next": "Keep corrected metric AST and all scientific gates intact during downstream research",
+    "receipt_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7/boundary_f1_repair/receipt.json",
+    "validation_receipt_job": "20261017_085117_652b0da2"
+  },
+  "runtime_snapshot_repair": {
+    "failed_job": "20261017_095922_f607f42f",
+    "exit_code": 2,
+    "error": "DataIntegrityError resource_root_missing",
+    "cause": "Fresh run snapshot applied agent-copy ignore rules and removed resources, contract, final evaluator and gate receipts",
+    "research_workspace": "investigation/events.jsonl only; host explicitly reported no usable investigation checkpoint",
+    "fix": "Only a cryptographically validated published task uses full private runtime copy rules; agent ignore file remains unchanged and its filtered view remains sealed",
+    "verification": "95 publication/pipeline snapshot/recovery checks passed on server40 Linux; full private runtime copy and filtered sealed agent view both verified, corrupted publication rejected",
+    "scientific_task_source_changed": false,
+    "status": "live_verified_fixed",
+    "current_job": "20261017_102054_544b6a4c",
+    "private_inputs_present": [
+      "task_contract.json",
+      "resources/search",
+      "resources/final",
+      "evaluate_final.py",
+      ".agentic_task_qualification.json"
+    ],
+    "new_tooling_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
+    "baseline_revalidation": "passed_current_tooling",
+    "runtime_manifest": {
+      "baseline_combined_score": 0.8177455611478867,
+      "baseline_correct": true,
+      "baseline_feasible": null,
+      "cuda_visible_devices": null,
+      "evaluator_sha256": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+      "evaluator_tree_sha256": "26247fdefa2c5a36e1d0ea38465d642d3c8f1d0d45b1182cbc2cdfe755cf744d",
+      "gpu_evaluation": true,
+      "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+      "requirements_sha256": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
+      "sandbox_gpus": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\"",
+      "schema_version": 1,
+      "tooling_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a"
+    },
+    "scope": "Historical first-campaign snapshot repair; current runtime tooling is recorded separately"
   },
   "runtime_repairs": {
     "verified_at": "2026-10-17T07:46:55.152517+08:00",
@@ -286,9 +341,71 @@
       "purpose": "Report every utility/distance comparison independently of the framework scalar-score rubric; does not alter evaluator metrics or claim confirmatory success",
       "tests": "Included in98 passing Linux targeted tests",
       "missing_equal_time_in_search": true
+    },
+    "model_reasoning": {
+      "status": "verified_low_effort_and_auth_copy_fix_deployed_awaiting_checkpoint_resume",
+      "reasoning_effort": "low",
+      "wire_proof": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/engineering_restart_20261017/low_effort_transport_verification.json",
+      "live_provider_probe": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/engineering_restart_20261017/real_provider_low_effort.json",
+      "new_agent_profile_restart": {
+        "updated_at": "2026-10-17T14:57:22.120086+08:00",
+        "job_id": "20261017_144456_83ff4bef",
+        "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/attempts/reasoning_profile_20261017_145722",
+        "configuration_changes": {
+          "configs/opencode-qwen.json": {
+            "before_sha256": "9b7fc919b9ce24369683abe5883e371d014a8b0b41bdd80786a79207dba1ede7",
+            "after_sha256": "97d2405d2b91ae7ae8577953465962f24615b9ed1fc12a6f61d555f973ae425b"
+          },
+          "auth/.config/opencode/opencode.json": {
+            "before_sha256": "9b7fc919b9ce24369683abe5883e371d014a8b0b41bdd80786a79207dba1ede7",
+            "after_sha256": "97d2405d2b91ae7ae8577953465962f24615b9ed1fc12a6f61d555f973ae425b"
+          }
+        },
+        "reason": "Observed11906 reasoning tokens for one follow-up file-read decision; switch to verified low reasoning effort",
+        "completed_cycles_before": 0,
+        "scientific_evaluations_before": 0,
+        "baseline_preserved": true,
+        "only_model_agent_restarted": true,
+        "docker_stop_returncode": 0
+      },
+      "auth_copy_repair": {
+        "checked_at": "2026-10-17T15:02:11.910103+08:00",
+        "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/attempts/auth_seed_repair_20261017_150211",
+        "deployed_sha256": "619bb5884aaeb8c91f1c7a36a0a3b744b73924fca68eb1b56ac0af4b0c39f976",
+        "stopped_only_unaccepted_idea_agents": [
+          {
+            "id": "c8d84d1a16ac",
+            "returncode": 0
+          }
+        ],
+        "preserved_cycle": 0,
+        "ideas_history_unchanged": true,
+        "baseline_will_be_reused": true
+      },
+      "validation": {
+        "checked_at": "2026-10-17T15:04:13.518648+08:00",
+        "linux_targeted_tests": {
+          "passed": 125,
+          "failed": 0
+        },
+        "mac_targeted_tests": {
+          "passed": 53,
+          "failed": 0
+        },
+        "actual_mock_request_body_low_effort": true,
+        "actual_mock_transport_cases_passed": 5,
+        "actual_provider_http_status": 200,
+        "actual_provider_health_elapsed_seconds": 1.3542117211036384,
+        "source_of_slowdown": {
+          "observed_reasoning_tokens": 11906,
+          "observed_request_purpose": "Follow-up file-reading decision",
+          "configuration_reseeding_bug_confirmed_live": true
+        },
+        "benchmark_changed": false,
+        "used_scientific_evaluations_reset": false
+      }
     }
   },
-  "monitor_hint": "All15 scheduled tasks are paused at the human user request. Check manually; do not reenable automation without a new user request. A live process or pending model stream does not establish research progress.",
   "verification_gate": {
     "enabled": true,
     "required_before_downstream": [
@@ -311,1228 +428,263 @@
     "continuation_launch": "python3 scripts/research/continue_medical_experiment.py --run",
     "launch_checks": "Latest job must be stopped with exit0; framework verifies publication plan, alignment bound to current scaffold and correct/feasible baseline qualification receipt; qualified image ID pinned"
   },
-  "blocking_findings": [
-    "final_tradeoff_not_demonstrated",
-    "variant_agent_private_task_source_exposure"
+  "updated_at": "2026-10-17T14:51:16.794042+08:00",
+  "job_id": "20261017_144456_83ff4bef",
+  "status": "stopped_for_verified_model_profile_recovery",
+  "phase": "investigation",
+  "substage": "cycle1_idea_generation",
+  "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/run.log",
+  "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_144456_83ff4bef",
+  "phases": [
+    "investigation"
   ],
-  "boundary_metric_finding": {
-    "status": "fixed_and_independently_validated",
-    "counterexample": {
-      "A_rectangle": [
-        2,
-        9,
-        2,
-        9
-      ],
-      "B_rectangle": [
-        1,
-        2,
-        3,
-        8
-      ],
-      "old_F_A_B": 0.45161290322580644,
-      "old_F_B_A": 0.37037037037037035,
-      "correct_both": 0.45161290322580644
-    },
-    "cause": "Tolerance precision/recall reused one directional match count",
-    "reference": "https://github.com/davisvideochallenge/davis2017-evaluation/blob/master/davis2017/metrics.py",
-    "validation": "7 independent geometric tests passed on scientific Python;17 launcher/gate tests passed",
-    "scope": "Fix score implementation; preserve boundary extractor, tolerance, class/patient/slice pooling, metric weights, all data and training budgets",
-    "verification": {
-      "actual_server_search_evaluator": "7 geometry tests passed",
-      "actual_server_final_evaluator": "7 geometry tests passed",
-      "runtime": {
-        "numpy": "2.2.6",
-        "scipy": "1.16.2"
-      },
-      "network": "none",
-      "gpu_access": false,
-      "restart_scope": "Only the owned task timeout process was terminated; container cleanup verified"
-    }
-  },
-  "execution_history": [
-    {
-      "job_id": "20261017_070528_ba5c6c51",
-      "status": "stopped_for_verified_metric_repair",
-      "phase": "task_drafting",
-      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_070528_ba5c6c51/run.log",
-      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_070528_ba5c6c51",
-      "last_monitor_check": {
-        "checked_at": "2026-10-17T08:45:16.107205+08:00",
-        "status": "owned_validation_stopped_for_metric_repair",
-        "exit_code": 130,
-        "process_ids": [],
-        "container_ids": [],
-        "scientific_results_available": false,
-        "repair_applied": false
-      }
-    },
-    {
-      "job_id": "20261017_084517_1b64cdd7",
-      "status": "stopped_for_package_mirror_repair",
-      "phase": "task_drafting",
-      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_084517_1b64cdd7/run.log",
-      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7",
-      "last_monitor_check": {
-        "checked_at": "2026-10-17T08:51:10.910150+08:00",
-        "status": "owned_install_stopped_after_measured_download_stall",
-        "exit_code": 130,
-        "process_ids": [],
-        "container_ids": [],
-        "scientific_results_available": false
-      }
-    },
-    {
-      "job_id": "20261017_085117_652b0da2",
-      "status": "task_drafting_completed_after_publication_recovery",
-      "phase": "task_drafting",
-      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/run.log",
-      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2",
-      "last_monitor_check": {
-        "checked_at": "2026-10-17T09:28:24.601051+08:00",
-        "status": "full_baseline_preflight_passed_independent_alignment_running",
-        "scientific_results_available": true,
-        "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results",
-        "gpu_training_observed": true,
-        "investigation_started": false,
-        "repair_applied": false,
-        "restart_performed": false,
-        "latest_effective_activity": "Independent judge checked serialized production payload size and accepted method claim at09:27:51; report pending"
-      }
-    },
-    {
-      "job_id": "20261017_095210_4a83c897",
-      "status": "failed_investigation_initialization",
-      "phase": "investigation",
-      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_095210_4a83c897/run.log",
-      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_095210_4a83c897",
-      "last_monitor_check": {
-        "checked_at": "2026-10-17T09:52:13.294105+08:00",
-        "status": "submitted_qualified_investigation",
-        "restart_performed": false,
-        "repair_applied": false,
-        "scientific_results_available": false
-      },
-      "observed_exit_code": 1,
-      "reason": "Residual internal task snapshot marker; backed up without changing publication identity"
-    },
-    {
-      "job_id": "20261017_095922_f607f42f",
-      "status": "failed_starting_candidate_resource_handoff",
-      "phase": "investigation",
-      "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_095922_f607f42f/run.log",
-      "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_095922_f607f42f",
-      "last_monitor_check": {
-        "checked_at": "2026-10-17T10:20:11.326675+08:00",
-        "status": "failed_starting_candidate_resource_handoff",
-        "exit_code": 2,
-        "new_method_training_started": false,
-        "scientific_results_available": true,
-        "scientific_results_scope": "Earlier full development-search baseline qualification only",
-        "repair_applied": false,
-        "restart_performed": false
-      }
-    }
-  ],
-  "boundary_f1_repair": {
-    "status": "fixed_and_fully_validated",
-    "canonical_task_sha256": "dc20313a1e211954ecd13aac507c0a3e310c37d02bb68ff468d98b7a4a1909cc",
-    "expected_metric_ast_sha256": "c89a26dbe119c5704f9bbd47a1be141a6bbb0195d4c2b49b8f2188ce7c29ed95",
-    "files": {
-      "evaluate.py": {
-        "before": "d5dfff955d3d3e0ac8198ba0f21b39876bfc70daa9b3cb48d491094bc26c2f54",
-        "after": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15"
-      },
-      "evaluate_final.py": {
-        "before": "4543ffdea8884502190b8e929085528521ff3c579a94aedd4f766d7e1ee755b4",
-        "after": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0"
-      }
-    },
-    "semantic_change": "Separate precision-side and recall-side tolerance matches; preserve metric weight, boundary extractor, tolerance and class/patient pooling",
-    "reference": "https://github.com/davisvideochallenge/davis2017-evaluation/blob/master/davis2017/metrics.py",
-    "required_next": "Keep corrected metric AST and all scientific gates intact during downstream research",
-    "receipt_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_084517_1b64cdd7/boundary_f1_repair/receipt.json",
-    "validation_receipt_job": "20261017_085117_652b0da2"
-  },
-  "runtime_package_mirror_repair": {
-    "finding": "Runtime Docker pip commands did not inherit the selected package index; 887.9MB torch wheel downloaded 524288 bytes in 23.45s",
-    "fix": "Pass an explicitly configured public HTTPS package index only to writable installation containers; scientific evaluation containers do not receive it",
-    "index": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "requirements_changed": false,
-    "current_job_stopped_before_gpu_training": true,
-    "validation": "99 targeted tests passed on server40 Linux;1 platform skip. Changed mirror tests pass on Mac; broader Mac run exposed unrelated Bash3 and broker-root portability failures.",
-    "live_verification": {
-      "torch_wheel_downloaded_bytes": 887913624,
-      "reported_small_wheel_speeds_mb_s": [
-        53.8,
-        95.0
-      ],
-      "isolated_acceptance_smoke_seconds_including_install": 225,
-      "status": "pass"
-    }
-  },
-  "baseline_preflight": {
-    "pid": 2404543,
-    "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/baseline_preflight",
-    "source_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task_drafting/task",
-    "install_cache": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/cache/agentic-task-runtime-cache-071907f7d15a79276d2afcb8cef35224f3d4f8aa4ef2a91692b02b43c90e4171",
-    "scientific_protocol_unchanged": true,
-    "purpose": "Independent full production baseline diagnostic; not a substitute for main publication gates",
-    "started_at": "2026-10-17T09:02:30.062741+08:00",
-    "status": "passed",
-    "used_as_release_receipt": false,
-    "finished_observed_at": "2026-10-17T09:06:26.038348+08:00",
-    "receipt": {
-      "accelerator_model": "NVIDIA A40",
-      "baseline_combined_score": 0.8177455611478867,
-      "baseline_correct": true,
-      "baseline_feasible": true,
-      "candidate_gpu_count": 1,
-      "evaluator_gpu_count": 1,
-      "evaluator_tree_sha256": "26247fdefa2c5a36e1d0ea38465d642d3c8f1d0d45b1182cbc2cdfe755cf744d",
-      "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
-      "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
-      "requirements_sha256": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
-      "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb",
-      "schema_version": 2,
-      "tooling_sha256": "f280b40fae21e60e74ebc909b89a290b0678783acf9a3d5e2f5bee543ca231b5",
-      "validation_profile": "production_search_v2"
-    },
-    "report": {
-      "category": "qualification_passed",
-      "compute_usage": {
-        "elapsed_seconds": 35.66258652880788,
-        "max_rpc_calls": 160,
-        "objective_counts": "advisory",
-        "outcome": "completed",
-        "rpc_calls": 113,
-        "wall_clock_limit_seconds": 1800
-      },
-      "diagnostic": "",
-      "elapsed_seconds": 60.85846066195518,
-      "failure_evidence": null,
-      "output_evidence": null,
-      "receipt_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/baseline_preflight/qualification_receipt.json",
-      "stage": "production-search",
-      "status": "pass",
-      "task_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793"
-    },
-    "metrics": {
-      "combined_score": 0.8177455611478867,
-      "forget_retrain_probability_mae": 0.049480793669757335,
-      "heldout_macro_dice": 0.673407057602781,
-      "heldout_boundary_f1": 0.7023192035096555,
-      "forget_macro_dice": 0.8006942913485029,
-      "original_heldout_macro_dice": 0.6599504164335419,
-      "retrain_heldout_macro_dice": 0.645816920026032,
-      "original_forget_retrain_probability_mae": 0.05264527168735085,
-      "finetune_forget_retrain_probability_mae": 0.04909991689013499,
-      "neggrad_forget_retrain_probability_mae": 0.0466722630855789,
-      "original_forget_macro_dice": 0.7984798709176861,
-      "finetune_forget_macro_dice": 0.8238830039119035,
-      "neggrad_forget_macro_dice": 0.8100910903177567,
-      "finetune_heldout_macro_dice": 0.6816650963090747,
-      "neggrad_heldout_macro_dice": 0.6783178042941398,
-      "original_train_seconds": 5.938354247016832,
-      "retrain_train_seconds": 4.805704317986965,
-      "finetune_seconds": 0.9589315420016646,
-      "neggrad_seconds": 1.6585187029559165,
-      "candidate_deletion_seconds": 6.171933631179854,
-      "heldout_gt_absence_count": 0.0,
-      "forget_gt_absence_count": 0.0
-    },
-    "production_reference_updates": 400,
-    "production_baseline_updates": 80,
-    "local_evidence_directory": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_085117_652b0da2/baseline_preflight"
-  },
-  "scientific_results_scope": "Two development candidates and one negative sealed final completed before the variants exposure; four subsequent native variant executions retained as exploratory due to exposed authoring views. Three unused baseline budgets now resume with verified sealed agent views. Entire campaign and paper remain unqualified.",
-  "formal_experiment_results_available": true,
-  "review_provider_health": {
-    "checked_at": "2026-10-17T09:21:16.729512+08:00",
-    "status": 200,
-    "elapsed_seconds": 1.86,
-    "completion_tokens": 23,
-    "purpose": "Tiny endpoint diagnostic without scientific data; not experiment progress",
-    "interpretation": "The endpoint responded and the actual review produced new tool actions; no observed connection failure"
-  },
-  "substage": "executing_three_unused_baseline_budgets",
-  "publication_recovery": {
-    "original_exit_code": 1,
-    "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092",
-    "started_at": "2026-10-17T09:49:17.509991+08:00",
-    "status": "pass",
-    "source": "Genuine matching main alignment and production qualification receipts; resource ownership handoff only",
-    "receipt": {
-      "status": "pass",
-      "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
-      "baseline_correct": true,
-      "baseline_feasible": true,
-      "resource_sha256": "b96100e4e37f34d4f3fa1014f3ca8ba9cd9bb6d4f60b353bb88fb56ffb76db53",
-      "prior_resources": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092/prior_resources",
-      "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb",
-      "runtime_activated": true,
-      "scientific_protocol_changed": false,
-      "scientific_gates_rerun": false,
-      "reason": "Complete publication with existing matching, genuine gate receipts"
-    }
-  },
-  "qualified_source_task": {
-    "path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task",
-    "source_job": "20261017_085117_652b0da2",
-    "verified_at": "2026-10-17T10:20:58.218066+08:00",
-    "ready": true,
-    "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
-    "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
-    "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb"
-  },
-  "runtime_snapshot_repair": {
-    "failed_job": "20261017_095922_f607f42f",
-    "exit_code": 2,
-    "error": "DataIntegrityError resource_root_missing",
-    "cause": "Fresh run snapshot applied agent-copy ignore rules and removed resources, contract, final evaluator and gate receipts",
-    "research_workspace": "investigation/events.jsonl only; host explicitly reported no usable investigation checkpoint",
-    "fix": "Only a cryptographically validated published task uses full private runtime copy rules; agent ignore file remains unchanged and its filtered view remains sealed",
-    "verification": "95 publication/pipeline snapshot/recovery checks passed on server40 Linux; full private runtime copy and filtered sealed agent view both verified, corrupted publication rejected",
-    "scientific_task_source_changed": false,
-    "status": "live_verified_fixed",
-    "current_job": "20261017_102054_544b6a4c",
-    "private_inputs_present": [
-      "task_contract.json",
-      "resources/search",
-      "resources/final",
-      "evaluate_final.py",
-      ".agentic_task_qualification.json"
-    ],
-    "new_tooling_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
-    "baseline_revalidation": "passed_current_tooling",
-    "runtime_manifest": {
-      "baseline_combined_score": 0.8177455611478867,
-      "baseline_correct": true,
-      "baseline_feasible": null,
-      "cuda_visible_devices": null,
-      "evaluator_sha256": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
-      "evaluator_tree_sha256": "26247fdefa2c5a36e1d0ea38465d642d3c8f1d0d45b1182cbc2cdfe755cf744d",
-      "gpu_evaluation": true,
-      "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
-      "requirements_sha256": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
-      "sandbox_gpus": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\"",
-      "schema_version": 1,
-      "tooling_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a"
-    }
-  },
-  "initialization_retries": [
-    {
-      "job": "20261017_095210_4a83c897",
-      "exit_code": 1,
-      "reason": "Residual internal snapshot marker; source publication hash unchanged after backup removal",
-      "research_started": false
-    },
-    {
-      "job": "20261017_095922_f607f42f",
-      "exit_code": 2,
-      "reason": "Agent-copy ignore rules were incorrectly used for private runtime snapshot",
-      "research_started": false,
-      "retained_outputs": "events only; CLI confirmed no usable checkpoint"
-    }
-  ],
-  "current_investigation_progress": {
-    "cycle": 2,
-    "max_cycles": 2,
-    "starting_candidate_evaluation_seconds": 44.6,
-    "starting_candidate_correct": true,
-    "starting_candidate_score": 0.8177455611478867,
-    "regular_search_feasibility_field": null,
-    "feasibility_note": "Regular search does not emit qualification feasibility; source production qualification was feasible=true and current entry completed in44.6s within1800s",
-    "idea_agent_latest_observed_tool": {
-      "timestamp": 1792210326934,
-      "tool": "bash",
-      "status": "completed",
-      "title": "printf 'p0 parens: '; tr -cd '(' < program_0/src/program.py | wc -c; tr -cd ')' < program_0/src/program.py | wc -c; printf 'p0 brackets: '; tr -cd '[' < program_0/src/program.py | wc -c; tr -cd ']' < program_0/src/program.py | wc -c; printf 'p1 code-only parens: '; sed -n '240,699p' program_1/src/program.py | tr -cd '(' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd ')' | wc -c; printf 'p1 code-only brackets: '; sed -n '240,699p' program_1/src/program.py | tr -cd '[' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd ']' | wc -c; printf 'p1 code-only braces: '; sed -n '240,699p' program_1/src/program.py | tr -cd '{' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd '}' | wc -c",
-      "log": "investigation/ideas/02_memorization_selective_forget_ascent_with_anytime_boundary_anchored_retain_optimization_for_acdc_patient_unlearning/agent_opencode_20261017_120452.log"
-    },
-    "agent_container_job_label": "20261017_102054_544b6a4c",
-    "new_method_results_available": true,
-    "final_results_available": true,
-    "proposal_draft_available": true,
-    "accepted_idea_available": true,
-    "proposal_draft_bytes": 33438,
-    "accepted_idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
-    "accepted_idea_title": "Memorization-Selective Forget Ascent with Anytime Boundary-Anchored Retain Optimization for ACDC Patient Unlearning",
-    "accepted_idea_at": "2026-10-17T12:04:52.676+08:00",
-    "target_rubrics_count": 7,
-    "idea_generation_output_tokens_display": "19.3k",
-    "candidate_implementation_available": true,
-    "candidate_implementation_code": {
-      "bytes": 29769,
-      "sha256": "1044c83f0b877ad91469d3f755f92af0f1968698d31122ae8afa09542d0a3491",
-      "modified": "2026-10-17T12:11:25.116661",
-      "different_from_seed": true,
-      "syntax": "valid",
-      "spec_identical": true
-    },
-    "method_attempt_in_progress": false,
-    "method_attempts_completed": 2,
-    "new_method_training_observed": true,
-    "best_candidate_score": 0.8194708063004026,
-    "proposal_draft_cycle": 2,
-    "accepted_idea_cycle": 2,
-    "current_cycle_proposal_draft": {
-      "path": "investigation/ideas/02_memorization_selective_forget_ascent_with_anytime_boundary_anchored_retain_optimization_for_acdc_patient_unlearning/idea_bundle.json",
-      "bytes": 33438,
-      "modified": "2026-10-17T12:04:52.148088",
-      "summary": {
-        "idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
-        "title": "Memorization-Selective Forget Ascent with Anytime Boundary-Anchored Retain Optimization for ACDC Patient Unlearning"
-      },
-      "accepted_by_framework": true
-    },
-    "current_cycle_method_implementation_started": true,
-    "idea_generation_duration_display": "34m56s",
-    "current_cycle_gpu_training_observed": true,
-    "candidate_implementation_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/investigation/ideas/02_memorization_selective_forget_ascent_with_anytime_boundary_anchored_retain_optimization_for_acdc_patient_unlearning/program_1/src/program.py",
-    "prior_cycle_idea_generation_elapsed_seconds": 1215.666,
-    "status": "completed_original_two_cycles",
-    "final_results_qualified": false,
-    "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
-  },
-  "investigation_recoveries": [
-    {
-      "attempt_id": "20261017_105634_32f1e7b4",
-      "job_id": "20261017_102054_544b6a4c",
-      "prior_exit_code": 2,
-      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/20261017_105634_32f1e7b4",
-      "resumed_at": "2026-10-17T10:56:36.442453+08:00",
-      "checkpoint": {
-        "errors": [],
-        "cycle_budget": 2,
-        "current_cycle": 0,
-        "last_phase_event": {
-          "event": "phase_end",
-          "elapsed": "2038.4s",
-          "label": "Investigation",
-          "phase_name": "investigation",
-          "return_code": 2,
-          "status": "failed"
-        },
-        "later_outputs": []
-      },
-      "model_watchdog_seconds": 7200,
-      "scientific_protocol_changed": false,
-      "framework_code_replaced": false
-    }
-  ],
-  "gpu_sampling": {
-    "pid": 2970322,
-    "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.py",
-    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv",
-    "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.json",
-    "state_receipt": {
-      "pid": 2970322,
-      "status": "sampling",
-      "updated_at_unix": 1792217498.1015427,
-      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv"
-    },
-    "running": true,
-    "duration_samples": null,
-    "verified_at": "2026-10-17T14:25:31.966378+08:00",
-    "purpose": "Only the original two GPUs during checkpoint recovery of the three unused baseline budgets",
-    "last_rows": [
-      "2026/10/17 14:25:31.707, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-      "2026/10/17 14:25:31.708, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-    ],
-    "peaks_since_sampler_start": {
-      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-        "memory_mib": 0,
-        "utilization_percent": 0,
-        "active_samples": 0,
-        "last_active": null
-      },
-      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-        "memory_mib": 0,
-        "utilization_percent": 0,
-        "active_samples": 0,
-        "last_active": null
-      }
-    },
-    "bytes": 115056
-  },
-  "formal_experiment_results_scope": "Two development candidates and one negative sealed final completed before the variants exposure; four subsequent native variant executions retained as exploratory due to exposed authoring views. Three unused baseline budgets now resume with verified sealed agent views. Entire campaign and paper remain unqualified.",
-  "first_candidate_result": {
-    "cycle": 1,
-    "seed": 1701,
-    "evaluation_plane": "search",
-    "correct": true,
-    "rubrics_passed": 7,
-    "combined_score": 0.8194708063004026,
-    "starting_candidate_score": 0.8177455611478867,
-    "evaluation_seconds": 63.58950621797703,
-    "candidate_deletion_seconds": 7.787821281002834,
-    "heldout_macro_dice": 0.6779066380165859,
-    "heldout_boundary_f1": 0.7073893711036301,
-    "forget_retrain_probability_mae": 0.0507581186505983,
-    "same_data_and_initialization_as_starting_candidate": true,
-    "comparison": {
-      "combined_score": {
-        "starting_candidate": 0.8177455611478867,
-        "cycle1_candidate": 0.8194708063004026,
-        "difference": 0.0017252451525159307
-      },
-      "forget_retrain_probability_mae": {
-        "starting_candidate": 0.049480793669757335,
-        "cycle1_candidate": 0.0507581186505983,
-        "difference": 0.0012773249808409673
-      },
-      "heldout_macro_dice": {
-        "starting_candidate": 0.673407057602781,
-        "cycle1_candidate": 0.6779066380165859,
-        "difference": 0.004499580413804938
-      },
-      "heldout_boundary_f1": {
-        "starting_candidate": 0.7023192035096555,
-        "cycle1_candidate": 0.7073893711036301,
-        "difference": 0.005070167593974606
-      }
-    },
-    "evidence_directory": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/cycle_1",
-    "gpu_trace_during_host_evaluation": {
-      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-        "peak_memory_mib": 592.0,
-        "peak_utilization_percent": 29.0,
-        "productive_samples": 42,
-        "first_activity": "2026/10/17 11:29:10.759",
-        "last_activity": "2026/10/17 11:29:53.597"
-      },
-      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-        "peak_memory_mib": 404.0,
-        "peak_utilization_percent": 9.0,
-        "productive_samples": 39,
-        "first_activity": "2026/10/17 11:29:13.893",
-        "last_activity": "2026/10/17 11:29:53.598"
-      }
-    },
-    "result_scope": "One development episode only; no multi-seed, ablation or sealed final evidence"
-  },
-  "gpu_sampling_history": [
-    {
-      "pid": 2615843,
-      "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_resume_20261017_110416.py",
-      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_resume_20261017_110416.csv",
-      "duration_samples": 3600,
-      "purpose": "Restore1Hz observation after checkpoint resume; preserve previous CSV",
-      "verified_at": "2026-10-17T12:04:08.152814+08:00",
-      "last_rows": [
-        "2026/10/17 12:04:07.992, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-        "2026/10/17 12:04:07.993, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-      ],
-      "old_trace_preserved": true,
-      "renewal_policy": "When helper stops or its one-hour sample budget expires, first check for existing sampler processes/lock; start one new named CSV only for the same two GPUs and current live job",
-      "peaks_since_sampler_start": {
-        "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-          "memory_mib": 592.0,
-          "utilization_percent": 29.0,
-          "active_samples": 49,
-          "last_active": "2026/10/17 11:29:53.597"
-        },
-        "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-          "memory_mib": 404.0,
-          "utilization_percent": 9.0,
-          "active_samples": 41,
-          "last_active": "2026/10/17 11:29:53.598"
-        }
-      }
-    },
-    {
-      "pid": 2729096,
-      "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py",
-      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
-      "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.json",
-      "duration_samples": null,
-      "purpose": "Wait for the existing sampler lock, then sample the same two GPUs while the current job identity is alive; no fixed overall duration",
-      "verified_at": "2026-10-17T12:12:25.445176+08:00",
-      "last_rows": [
-        "2026/10/17 12:12:25.341, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-        "2026/10/17 12:12:25.342, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-      ],
-      "old_trace_preserved": true,
-      "handoff_verification": {
-        "checked_at": "2026-10-17T12:12:25.002326+08:00",
-        "state": {
-          "pid": 2729096,
-          "status": "sampling",
-          "updated_at_unix": 1792210019.3870232,
-          "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv"
-        },
-        "new_process_alive": true,
-        "old_process_alive": false,
-        "old_csv_bytes": 518579,
-        "new_csv_exists": true,
-        "new_csv_bytes": 44928,
-        "new_csv_last_rows": [
-          "2026/10/17 12:12:24.294, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-          "2026/10/17 12:12:24.295, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-        ],
-        "observed_gpu_uuids": [
-          "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113",
-          "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f"
-        ],
-        "lock_owned": true,
-        "watcher_processes": [
-          "2729096 python3 /home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py"
-        ],
-        "helper_stderr": ""
-      },
-      "renewal_policy": "Continuous only while the same current job PID identity is alive; no scheduled expiry",
-      "peaks_since_sampler_start": {
-        "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-          "memory_mib": 0,
-          "utilization_percent": 0,
-          "active_samples": 0,
-          "last_active": null
-        },
-        "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-          "memory_mib": 0,
-          "utilization_percent": 0,
-          "active_samples": 0,
-          "last_active": null
-        }
-      }
-    },
-    {
-      "pid": 2799652,
-      "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.py",
-      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
-      "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.json",
-      "duration_samples": null,
-      "purpose": "Same two GPUs during scoped ablation recovery; stop when this job PID identity stops",
-      "old_trace_preserved": true,
-      "verified_at": "2026-10-17T13:41:50.498478+08:00",
-      "last_rows": [
-        "2026/10/17 13:41:50.199, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-        "2026/10/17 13:41:50.200, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-      ],
-      "peaks_since_sampler_start": {
-        "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-          "memory_mib": 592.0,
-          "utilization_percent": 34.0,
-          "active_samples": 150,
-          "last_active": "2026/10/17 13:40:06.661"
-        },
-        "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-          "memory_mib": 404.0,
-          "utilization_percent": 18.0,
-          "active_samples": 139,
-          "last_active": "2026/10/17 13:40:07.705"
-        }
-      },
-      "running": false,
-      "bytes": 562372,
-      "stopped_at": "2026-10-17T13:54:17.667862+08:00",
-      "final_trace_bytes": 665332,
-      "local_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/gpu_samples_123355_135418.csv",
-      "sha256": "c16c0ab2908b9724991f2da76115f1f476528468a7a960407e70fccccd864e5a"
-    }
-  ],
-  "sealed_final_result": {
-    "status": "completed_not_qualified",
-    "correct": false,
-    "source_job": "20261017_102054_544b6a4c",
-    "manifest": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/final_evaluation/final_manifest.json",
-    "invocations_completed": 1,
-    "seeds": [
-      2701,
-      2702
-    ],
-    "repeat_authorized": false,
-    "result_directory_immutable": true,
-    "failure_reason": "Candidate final heldout Dice lower than fine-tuning, NegGrad+ and equal-time controls under the preregistered tradeoff predicate",
-    "local_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/final_evaluation/verification.json",
-    "metrics": {
-      "candidate_deletion_seconds": 7.097962428932078,
-      "combined_score": 0.8329061847288837,
-      "equaltime_forget_macro_dice": 0.8525419710728782,
-      "equaltime_forget_retrain_probability_mae": 0.056953611187991623,
-      "equaltime_heldout_macro_dice": 0.7334341010220415,
-      "equaltime_seconds": 7.106148804072291,
-      "finetune_forget_macro_dice": 0.8447738233523197,
-      "finetune_forget_retrain_probability_mae": 0.05481023091308654,
-      "finetune_heldout_macro_dice": 0.7341014831238788,
-      "finetune_seconds": 1.4940700039733201,
-      "forget_gt_absence_count": 0.0,
-      "forget_macro_dice": 0.8432603584227054,
-      "forget_retrain_probability_mae": 0.052683547015948774,
-      "heldout_boundary_f1": 0.7223209219011344,
-      "heldout_gt_absence_count": 0.0,
-      "heldout_macro_dice": 0.7159459128554371,
-      "neggrad_forget_macro_dice": 0.8338455274659249,
-      "neggrad_forget_retrain_probability_mae": 0.055505629897771094,
-      "neggrad_heldout_macro_dice": 0.7366187920888181,
-      "neggrad_seconds": 2.492134199012071,
-      "original_forget_macro_dice": 0.8237515395280777,
-      "original_forget_retrain_probability_mae": 0.05433649341076484,
-      "original_heldout_macro_dice": 0.6846754472570247,
-      "original_train_seconds": 8.199569855583832,
-      "retrain_heldout_macro_dice": 0.6845037378983923,
-      "retrain_train_seconds": 7.39758819853887
-    },
-    "pre_registered_comparisons": {
-      "original": {
-        "candidate_forget_mae": 0.052683547015948774,
-        "comparison_forget_mae": 0.05433649341076484,
-        "forget_distance_lower": true,
-        "candidate_heldout_dice": 0.7159459128554371,
-        "comparison_heldout_dice": 0.6846754472570247,
-        "heldout_utility_at_least_equal": true
-      },
-      "finetune": {
-        "candidate_forget_mae": 0.052683547015948774,
-        "comparison_forget_mae": 0.05481023091308654,
-        "forget_distance_lower": true,
-        "candidate_heldout_dice": 0.7159459128554371,
-        "comparison_heldout_dice": 0.7341014831238788,
-        "heldout_utility_at_least_equal": false
-      },
-      "neggrad": {
-        "candidate_forget_mae": 0.052683547015948774,
-        "comparison_forget_mae": 0.055505629897771094,
-        "forget_distance_lower": true,
-        "candidate_heldout_dice": 0.7159459128554371,
-        "comparison_heldout_dice": 0.7366187920888181,
-        "heldout_utility_at_least_equal": false
-      },
-      "equaltime": {
-        "candidate_forget_mae": 0.052683547015948774,
-        "comparison_forget_mae": 0.056953611187991623,
-        "forget_distance_lower": true,
-        "candidate_heldout_dice": 0.7159459128554371,
-        "comparison_heldout_dice": 0.7334341010220415,
-        "heldout_utility_at_least_equal": false
-      }
-    },
-    "reference_quality_pass": true,
-    "per_episode_execution_validity": [
-      true,
-      true
-    ],
-    "scientific_claim_qualified": false,
-    "files_reverified_unchanged_at": "2026-10-17T14:23:31.589483+08:00"
-  },
-  "ablation_recoveries": [
-    {
-      "attempt_id": "20261017_123203_f2e71b3f",
-      "job_id": "20261017_102054_544b6a4c",
-      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/ablations_20261017_123203_f2e71b3f",
-      "output_dir": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
-      "started_at": "2026-10-17T12:32:06.526865+08:00",
-      "command": [
-        "env",
-        "VARIANT_EVAL_SANDBOX_GPUS=\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\"",
-        "/home/sunguanqun/AI-Scientist-v3/.venv/bin/python",
-        "-m",
-        "src.variants_pipeline.cli",
-        "paths.task_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task'",
-        "paths.task_name='task'",
-        "paths.results_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/investigation'",
-        "paths.output_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f'",
-        "agent.name='opencode'",
-        "agent.model='qwen-plan/qwen3.8-max'",
-        "execution.max_ablations=2",
-        "execution.max_evals_per_variant=1",
-        "execution.variant_timeout_seconds=2400",
-        "execution.sandbox_image='sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c'",
-        "container.enabled=true",
-        "container.image='sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c'",
-        "container.network='host'",
-        "container.auth_root='/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/auth'",
-        "container.env_file='/home/sunguanqun/AI-Scientist-v3/.env'",
-        "logging.show_run_header=false"
-      ],
-      "wrapper_patch": {
-        "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/ablations_20261017_123203_f2e71b3f",
-        "wrapper_before_sha256": "2e56fe6d90bcbca100b734904e9462c5d24a07915c58e90892969e451226b9d2",
-        "wrapper_after_sha256": "fdaef7652012a2dd736055847f3b0acc4ac8ec6c86f7d4b195d5c0c407974b3f",
-        "tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a"
-      },
-      "final_hashes": {
-        "final_evaluation/final_manifest.json": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
-        "final_evaluation/invocation.json": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
-        "final_evaluation/results/metrics.json": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
-        "final_evaluation/results/correct.json": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
-        "final_evaluation/results/evaluation_evidence.json": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a"
-      },
-      "scientific_protocol_changed": false,
-      "sealed_final_repeated": false,
-      "progress": {
-        "checked_at": "2026-10-17T14:16:34.899834+08:00",
-        "completed_stage": "select_variants_and_materialize_workspaces",
-        "current_stage": "execute_unused_variant_checkpoint",
-        "proposed_candidates": 8,
-        "accepted_candidates": 5,
-        "accepted_counts": {
-          "ablation": 2,
-          "baseline": 3
-        },
-        "fixed_controls": 2,
-        "total_variant_workspaces": 7,
-        "variant_ids": [
-          "ablation_no_boundary_anchor",
-          "ablation_no_orthogonalization",
-          "baseline_boundary_retain_only",
-          "baseline_gradient_ascent",
-          "baseline_joint_neggrad",
-          "baseline_reference",
-          "control_best"
-        ],
-        "host_scoring_started": true,
-        "control_host_evaluation": {
-          "correct": true,
-          "score": 0.8194708063004026,
-          "elapsed_seconds": 41.965879891999066,
-          "finished_at": "2026-10-17T04:45:06.339212+00:00",
-          "returncode": 0,
-          "execution_boundary": "brokered_search",
-          "status": "completed_host_evaluation_and_native_rubric_pass",
-          "rubric_passed": 9,
-          "rubric_total": 9,
-          "native_completed_at": "2026-10-17T04:58:48.212803+00:00",
-          "source_isolation_qualified": false
-        },
-        "latest_agent_activity": "2026-10-17T14:16:04.298000+08:00",
-        "completed_variant_receipts": 4,
-        "rubric_aggregate": "Control, reference baseline and boundary-term ablation each passed9/9 native verification; orthogonalization ablation pending",
-        "current_variant": "baseline_gradient_ascent",
-        "current_variant_index": 5,
-        "current_variant_host_evaluation_available": false,
-        "reference_baseline_host_evaluation": {
-          "correct": true,
-          "score": 0.8177455611478867,
-          "heldout_macro_dice": 0.673407057602781,
-          "forget_retrain_probability_mae": 0.049480793669757335,
-          "elapsed_seconds": 41.95416694809683,
-          "started_at": "2026-10-17T05:10:25.835255+00:00",
-          "finished_at": "2026-10-17T05:11:07.787683+00:00",
-          "returncode": 0,
-          "execution_boundary": "brokered_search",
-          "program_id": "program_1",
-          "status": "completed_host_evaluation_and_native_rubric_pass",
-          "rubric_passed": 9,
-          "rubric_total": 9,
-          "native_completed_at": "2026-10-17T05:19:26.261587+00:00",
-          "source_isolation_qualified": false
-        },
-        "first_ablation_host_evaluation": {
-          "correct": true,
-          "score": 0.8198481998044542,
-          "elapsed_seconds": 43.628322278149426,
-          "started_at": "2026-10-17T05:25:23.485105+00:00",
-          "finished_at": "2026-10-17T05:26:07.111950+00:00",
-          "returncode": 0,
-          "execution_boundary": "brokered_search",
-          "program_id": "program_1",
-          "status": "completed_host_evaluation_and_native_rubric_pass",
-          "rubric_passed": 9,
-          "rubric_total": 9,
-          "native_completed_at": "2026-10-17T05:31:22.275252+00:00",
-          "source_isolation_qualified": false
-        },
-        "second_ablation_host_evaluation": {
-          "status": "completed_host_evaluation_and_native_rubric_pass",
-          "correct": true,
-          "score": 0.819450948044027,
-          "control_score": 0.8194708063004026,
-          "seed": 1701,
-          "deltas_variant_minus_control": {
-            "combined_score": -1.985825637562666e-05,
-            "heldout_macro_dice": -3.9123098996451944e-05,
-            "heldout_boundary_f1": -6.0184750385938734e-05,
-            "forget_retrain_probability_mae": -7.831246800892033e-06
-          },
-          "elapsed_seconds": 42.672777886968106,
-          "started_at": "2026-10-17T05:39:25.548319+00:00",
-          "finished_at": "2026-10-17T05:40:08.219811+00:00",
-          "returncode": 0,
-          "execution_boundary": "brokered_search",
-          "program_id": "program_1",
-          "interpretation": "Native verification passed9/9. The single development-seed score difference is tiny and does not establish a stable contribution; the earlier authoring source view remains uncertified.",
-          "rubric_passed": 9,
-          "rubric_total": 9,
-          "native_completed_at": "2026-10-17T05:50:03.433951+00:00",
-          "source_isolation_qualified": false
-        },
-        "source_isolation_qualified": false,
-        "source_isolation_scope": "Earlier four native executions retained as exploratory; original generation/selection also preceded the isolation fix. New execution views independently verified sealed.",
-        "unused_variant_evaluations": 3
-      }
-    }
-  ],
-  "phase_output_overrides": {
-    "ablations": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f"
-  },
-  "second_candidate_result": {
-    "status": "development_evaluation_completed_not_promoted",
-    "candidate_correct": true,
-    "score": 0.8067816335890312,
-    "rubric_passed": 6,
-    "rubric_total": 7,
-    "failed_rubrics": [
-      "incumbent_score_improvement"
-    ],
-    "host_evaluation_started_at": "2026-10-17T04:16:47.889510+00:00",
-    "host_evaluation_finished_at": "2026-10-17T04:17:37.146098+00:00",
-    "compute_usage": {
-      "elapsed_seconds": 49.257203286048025,
-      "max_rpc_calls": 160,
-      "objective_counts": "advisory",
-      "outcome": "completed",
-      "rpc_calls": 113,
-      "wall_clock_limit_seconds": 1800
-    },
-    "data_and_initialization_match_first_candidate": true,
-    "gpu_trace_window": {
-      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-        "memory_mib": 592.0,
-        "utilization_percent": 31.0,
-        "active_samples": 44
-      },
-      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-        "memory_mib": 408.0,
-        "utilization_percent": 17.0,
-        "active_samples": 40
-      }
-    },
-    "copied_artifact_hashes": {
-      "gpu_samples_120659_121926.csv": "3c6f73bc6275afffa5a9cc4dd069b69f50c02b2b073d86e275f1d1d89df61b69",
-      "ablation_failure/original_pipeline.log": "7be51aa60eb580d5fb5856f84f92c0ff63d4e763ce26dbe7d29a4335b34c7cf8"
-    },
-    "scope": "One search episode, seed1701. Lower search score than cycle1; retain original winner. No final-data-driven tuning."
-  },
+  "scientific_results_available": false,
+  "formal_experiment_results_available": false,
+  "paper_available": false,
+  "submission_authorized": false,
   "full_study_complete": false,
-  "ablation_result_summaries": {
-    "ablation_no_boundary_anchor": {
-      "status": "completed_valid_single_seed_ablation",
-      "variant_id": "ablation_no_boundary_anchor",
-      "seed": 1701,
-      "correct": true,
-      "score": 0.8198481998044542,
-      "control_score": 0.8194708063004026,
-      "deltas_variant_minus_control": {
-        "combined_score": 0.0003773935040516374,
-        "heldout_macro_dice": 0.0011539903832896714,
-        "heldout_boundary_f1": 0.0006703553810056828,
-        "forget_retrain_probability_mae": 0.00020574937427311757
-      },
-      "reference_candidate_unchanged": true,
-      "interpretation": "On development seed1701, removing the boundary term slightly increased total score, Dice and boundary F1 while worsening forget-distance MAE. This observation does not support a total-score benefit from the boundary term; no multi-seed inference or candidate promotion is authorized.",
-      "hypothesis_supported_by_primary_score": false,
-      "native_rubric_passed": 9,
-      "native_rubric_total": 9,
-      "source_isolation_qualified": false,
-      "evidence_scope": "Exploratory single-seed observation; authoring source view was exposed"
-    },
-    "ablation_no_orthogonalization": {
-      "status": "exploratory_native_execution_completed",
-      "seed": 1701,
-      "score": 0.819450948044027,
-      "control_score": 0.8194708063004026,
-      "deltas_variant_minus_control": {
-        "combined_score": -1.985825637562666e-05,
-        "heldout_macro_dice": -3.9123098996451944e-05,
-        "heldout_boundary_f1": -6.0184750385938734e-05,
-        "forget_retrain_probability_mae": -7.831246800892033e-06
-      },
-      "native_rubric_passed": 9,
-      "native_rubric_total": 9,
-      "source_isolation_qualified": false,
-      "interpretation": "Native verification passed9/9. The single development-seed score difference is tiny and does not establish a stable contribution; the earlier authoring source view remains uncertified."
-    }
-  },
-  "variant_agent_isolation_finding": {
-    "status": "fixed_live_for_new_agents_prior_artifacts_exposed",
-    "confirmed_at": "2026-10-17T13:53:08.257900+08:00",
-    "stop": {
-      "checked_at": "2026-10-17T13:54:17.667862+08:00",
-      "reason": "Credential-bearing variants agent can read sealed evaluator and final data through unmasked /task-source; stop before more work",
-      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/isolation_stop_20261017_135417",
-      "signals": [
-        {
-          "pid": 2796329,
-          "signal": "SIGTERM"
-        },
-        {
-          "process_group": 2935414,
-          "signal": "SIGTERM"
-        }
-      ],
-      "copied_logs": [
-        "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/isolation_stop_20261017_135417/agent_logs/agentic-variant-cost-Os5zJ0/agent_opencode.jsonl"
-      ],
-      "identities": [
-        {
-          "pid": 2796329,
-          "starttime": "163176743"
-        },
-        {
-          "pid": 2935414,
-          "starttime": "163644400"
-        }
-      ],
-      "remaining_native_process": null,
-      "remaining_agent_group_leader": null,
-      "exit_code": "143",
-      "job_containers": "",
-      "other_service_status": "bridge-defect-model Up 2 weeks (healthy)"
-    },
-    "probe": {
-      "checked_at": "2026-10-17T13:53:08.257900+08:00",
-      "containers": [
-        {
-          "id": "d6e1fca224ba",
-          "configured_user": "1000:1000",
-          "mounts": [
-            {
-              "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task",
-              "destination": "/task-source",
-              "RW": false
-            },
-            {
-              "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/baseline_gradient_ascent/task_bundle",
-              "destination": "/workspace",
-              "RW": true
-            },
-            {
-              "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/variant-agent.c39GnXDW/home",
-              "destination": "/home/agent-home",
-              "RW": true
-            },
-            {
-              "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/containers/run-e2d316ed4f8f4414a45054c33def8af2/agent-tmp-et97kqr1",
-              "destination": "/agent-tmp",
-              "RW": true
-            }
-          ],
-          "checks": "uid=1000(agent) gid=1000(agent) groups=1000(agent)\n/task-source/evaluate_final.py=readable\n/task-source/evaluate.py=readable\n/task-source/task_contract.json=readable\n/task-source/resources/final=readable\n/task-source/resources/search=readable\n/workspace/evaluate_final.py=not_readable\n/workspace/task_contract.json=not_readable\n/workspace/resources=not_readable\n664 agent agent 802101\n664 agent agent 720242\n664 agent agent 808181\n664 agent agent 682530\n664 agent agent 981523\n664 agent agent 837464\n664 agent agent 873463\n664 agent agent 542851\n",
-          "returncode": 0
-        }
-      ]
-    },
-    "cause": "Standalone variant_agent.sh mounted full task source and did not configure contract final-artifact seals",
-    "affected_scope": "All agents of this standalone ablations recovery used the same unmasked task-source wrapper; four completed executions are retained but do not certify source isolation",
-    "completed_native_variants": 4,
-    "sealed_final_predates_exposure": true,
-    "sealed_final_must_not_be_repeated": true,
-    "successful_agent_log_gap": "Earlier successful bounded streams were removed by wrapper cleanup; their complete access history cannot be reconstructed",
-    "repair_scope": "Use a public task shadow with only the managed venv mounted separately; validate in actual Docker before any continuation",
-    "repair": {
-      "real_container_canary_pass": true,
-      "tested_at": "2026-10-17T14:08:54.472756+08:00",
-      "wrapper_sha256": "f12e0c4dbc3cdad6e691027a73f9f713837e63814d6add6436a29b4fff7e40fa",
-      "helper_sha256": "70d825d12e16176e63cb2b2f038279743bfcffb93340515a3e6c288f2a5995c4",
-      "deployment_linux_tests": "30 passed",
-      "local_new_repair_and_checkpoint_tests": "19 passed",
-      "local_broader_initial_auth_tests": "12 passed;2 pre-existing Mac Bash3 local -n failures; deployment Linux full target30 passed",
-      "private_audit_log_retention_verified": true,
-      "canary_purpose": "Actual updated wrapper, real Docker, no model/network/GPU or scientific evaluation",
-      "code_commit": "356057c",
-      "live_qualified_image_seals_pass": true
-    },
-    "live_repair_verification": [
-      {
-        "id": "e2832bb59431",
-        "image": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
-        "qualified_image_matches": true,
-        "mounts": [
-          {
-            "source": "/dev/null",
-            "destination": "/task-source/manual_validation.json",
-            "read_only": true
-          },
-          {
-            "source": "/dev/null",
-            "destination": "/task-source/task_contract.json",
-            "read_only": true
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task/.venv",
-            "destination": "/task-source/.venv",
-            "read_only": true
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/baseline_gradient_ascent/task_bundle",
-            "destination": "/workspace",
-            "read_only": false
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/home",
-            "destination": "/home/agent-home",
-            "read_only": false
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/public-task",
-            "destination": "/task-source",
-            "read_only": true
-          },
-          {
-            "source": "/dev/null",
-            "destination": "/task-source/evaluate_final.py",
-            "read_only": true
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/containers/run-1728f885e85c4bb5a6ce9e972f0ed669/agent-tmp-v_q11uy2",
-            "destination": "/agent-tmp",
-            "read_only": false
-          },
-          {
-            "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/sealed-empty",
-            "destination": "/task-source/resources/final",
-            "read_only": true
-          },
-          {
-            "source": "/dev/null",
-            "destination": "/task-source/.agentic_task_validation.json",
-            "read_only": true
-          }
-        ],
-        "qwen_key_present": true,
-        "check_returncode": 0,
-        "check": {
-          "final_evaluator_bytes": 0,
-          "contract_bytes": 0,
-          "final_files": 0,
-          "workspace_final_absent": true,
-          "workspace_contract_absent": true,
-          "docker_socket_absent": true
-        }
-      }
-    ],
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/isolation_repair_20261017_135417",
-    "retained_artifact_hashes_unchanged": 63
-  },
-  "variant_checkpoint_recoveries": [
-    {
-      "attempt_id": "20261017_141026_812d1661",
-      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661",
-      "started_at": "2026-10-17T14:10:26.957095+08:00",
-      "deployed": {
-        "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661",
-        "tooling_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
-        "patch_sha256": {
-          "src/scripts/variant_agent.sh": "f12e0c4dbc3cdad6e691027a73f9f713837e63814d6add6436a29b4fff7e40fa",
-          "src/scripts/lib/variant_task_shadow.py": "70d825d12e16176e63cb2b2f038279743bfcffb93340515a3e6c288f2a5995c4"
-        }
-      },
-      "completed_retained": [
-        "ablation_no_boundary_anchor",
-        "ablation_no_orthogonalization",
-        "baseline_reference",
-        "control_best"
-      ],
-      "remaining": [
-        "baseline_gradient_ascent",
-        "baseline_joint_neggrad",
-        "baseline_boundary_retain_only"
-      ],
-      "original_variant_budgets_preserved": true,
-      "sealed_final_repeated": false
-    }
+  "blocking_findings": [
+    "independent_confirmatory_evidence_not_available"
   ],
-  "variant_agent_audit": {
-    "root": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661/agent_audit",
-    "private": true
-  },
-  "blocking_finding_scopes": {
-    "final_tradeoff_not_demonstrated": "paper and superiority claim",
-    "variant_agent_private_task_source_exposure": "qualification of earlier ablation generation/authoring views and paper; repaired new execution views independently verified"
-  },
-  "automation_control": {
-    "updated_at": "2026-10-17T14:26:13.227758+08:00",
-    "requested_by": "human user",
-    "request": "把所有定时任务就直接关闭了，你来操作",
-    "total": 15,
-    "active_count": 0,
-    "all_paused": true,
-    "tasks": [
-      {
-        "id": "2-1-0",
-        "name": "桥梁模型2.1.0发布跟进",
-        "status": "PAUSED"
-      },
-      {
-        "id": "2-1-1",
-        "name": "桥梁模型2.1.1发布跟进",
-        "status": "PAUSED"
-      },
-      {
-        "id": "2025",
-        "name": "2025年度绩效申报核验",
-        "status": "PAUSED"
-      },
-      {
-        "id": "ai",
-        "name": "生成式AI逐字稿处理",
-        "status": "PAUSED"
-      },
-      {
-        "id": "ai-scientist",
-        "name": "检查并修复 AI-Scientist 医学遗忘实验",
-        "status": "PAUSED"
-      },
-      {
-        "id": "automation",
-        "name": "表格加粗同步检查",
-        "status": "PAUSED"
-      },
-      {
-        "id": "automation-2",
-        "name": "第二周实践手册完成检查",
-        "status": "PAUSED"
-      },
-      {
-        "id": "follow-up-monitor",
-        "name": "Follow-up monitor",
-        "status": "PAUSED"
-      },
-      {
-        "id": "media-03558r1-gmail-decision-monitor",
-        "name": "MedIA 03558R1 Gmail decision monitor",
-        "status": "PAUSED"
-      },
-      {
-        "id": "orca-256k",
-        "name": "Orca Router 与压缩验证收尾",
-        "status": "PAUSED"
-      },
-      {
-        "id": "peft",
-        "name": "桥梁裂缝全量PEFT训练监控",
-        "status": "PAUSED"
-      },
-      {
-        "id": "pga-dps",
-        "name": "PGA-DPS 原论文完整复现跟进",
-        "status": "PAUSED"
-      },
-      {
-        "id": "ppt",
-        "name": "循环神经网络分章教学PPT进度",
-        "status": "PAUSED"
-      },
-      {
-        "id": "qwen",
-        "name": "Qwen 思考档位适配收尾",
-        "status": "PAUSED"
-      },
-      {
-        "id": "t1-r3-c04-gpu0-admission-wait",
-        "name": "T1-R3 C04 GPU0 admission wait",
-        "status": "PAUSED"
-      }
-    ],
-    "research_process_stopped": false,
-    "automatic_reenable_authorized": false
+  "previous_study": {
+    "job_id": "20261017_102054_544b6a4c",
+    "record": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/studies/20261017_102054_544b6a4c/execution.json",
+    "sealed_final_correct": false,
+    "source_isolation_of_earlier_ablations_qualified": false,
+    "results_retained": true,
+    "sealed_final_repeat_authorized": false
   },
   "research_restart_authorization": {
     "human_authorized": true,
     "authorized_at": "2026-10-17T14:38:54.370502+08:00",
     "user_instruction": "你解决一下问题啊，重新用这个工具来进行研究。",
     "scope": "New AI-Scientist v3 development campaign after engineering fixes; retain old results; no old final-data reuse; scheduled tasks remain paused"
+  },
+  "development_campaign": {
+    "version": 2,
+    "started_at": "2026-10-17T14:44:59.245418+08:00",
+    "scope": "Adaptive development on the previously observed SEARCH benchmark",
+    "research_question": "Improve forget/retrain agreement while preserving fine-tuning utility",
+    "max_idea_cycles": 4,
+    "evaluation_calls_per_attempt": 1,
+    "old_final_quarantined": true,
+    "final_evaluation_enabled": false,
+    "confirmatory_claims_authorized": false,
+    "startup_proof": {
+      "old_state": {
+        "job_id": "20261017_102054_544b6a4c",
+        "running": false,
+        "process_ids": [],
+        "container_ids": [],
+        "exit_code": 143,
+        "source_draft": null,
+        "published_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task",
+        "has_qualification_receipt": true
+      },
+      "source_gates": {
+        "ready": true,
+        "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
+        "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+        "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb"
+      },
+      "sealed_final_hashes": {
+        "final_evaluation/final_manifest.json": {
+          "expected": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+          "actual": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+          "unchanged": true
+        },
+        "final_evaluation/invocation.json": {
+          "expected": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+          "actual": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+          "unchanged": true
+        },
+        "final_evaluation/results/metrics.json": {
+          "expected": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+          "actual": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+          "unchanged": true
+        },
+        "final_evaluation/results/correct.json": {
+          "expected": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+          "actual": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+          "unchanged": true
+        },
+        "final_evaluation/results/evaluation_evidence.json": {
+          "expected": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+          "actual": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+          "unchanged": true
+        }
+      },
+      "transport": {
+        "passed": true,
+        "image_id": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+        "checks": [
+          {
+            "mode": "success",
+            "passed": true,
+            "elapsed_seconds": 3.344994893996045,
+            "request_count": 2,
+            "return_code": 0,
+            "timeout_message_observed": false,
+            "timeout_signal_observed": false,
+            "server_disconnect_seconds": [],
+            "identical_request_max_count": 1,
+            "mock_body_delay_seconds": 0,
+            "stopped_after_expected_timeout": false,
+            "network": "local mock only",
+            "credentials": "dummy only",
+            "gpu": "none",
+            "medical_data_mounted": false
+          },
+          {
+            "mode": "stream_control",
+            "passed": true,
+            "elapsed_seconds": 6.051629255991429,
+            "request_count": 2,
+            "return_code": 0,
+            "timeout_message_observed": false,
+            "timeout_signal_observed": false,
+            "server_disconnect_seconds": [],
+            "identical_request_max_count": 1,
+            "mock_body_delay_seconds": 2.5,
+            "stopped_after_expected_timeout": false,
+            "network": "local mock only",
+            "credentials": "dummy only",
+            "gpu": "none",
+            "medical_data_mounted": false
+          },
+          {
+            "mode": "headers",
+            "passed": true,
+            "elapsed_seconds": 4.875467875041068,
+            "request_count": 2,
+            "return_code": 137,
+            "timeout_message_observed": true,
+            "timeout_signal_observed": true,
+            "server_disconnect_seconds": [],
+            "identical_request_max_count": 1,
+            "mock_body_delay_seconds": 0,
+            "stopped_after_expected_timeout": true,
+            "network": "local mock only",
+            "credentials": "dummy only",
+            "gpu": "none",
+            "medical_data_mounted": false
+          },
+          {
+            "mode": "chunks",
+            "passed": true,
+            "elapsed_seconds": 7.534899671096355,
+            "request_count": 3,
+            "return_code": 137,
+            "timeout_message_observed": false,
+            "timeout_signal_observed": true,
+            "server_disconnect_seconds": [],
+            "identical_request_max_count": 2,
+            "mock_body_delay_seconds": 2.5,
+            "stopped_after_expected_timeout": true,
+            "network": "local mock only",
+            "credentials": "dummy only",
+            "gpu": "none",
+            "medical_data_mounted": false
+          },
+          {
+            "mode": "total",
+            "passed": true,
+            "elapsed_seconds": 4.318638863041997,
+            "request_count": 2,
+            "return_code": 1,
+            "timeout_message_observed": true,
+            "timeout_signal_observed": true,
+            "server_disconnect_seconds": [],
+            "identical_request_max_count": 1,
+            "mock_body_delay_seconds": 2.5,
+            "stopped_after_expected_timeout": false,
+            "network": "local mock only",
+            "credentials": "dummy only",
+            "gpu": "none",
+            "medical_data_mounted": false
+          }
+        ]
+      },
+      "prompt_overrides": {
+        "prompt_sha256": {
+          "src/prompts/idea.md": "36cfc217be2d92934d3a736474a8dd2b6bd3722b1ffd966c954564080453b0ab",
+          "src/prompts/harness_edit.md": "f4c2d79bfeb8a28ba7b9c0d7639046646656fae4fcdb1906495b00a6d13988fc"
+        },
+        "context_sha256": "236f0ee08e3aecfe91af8720485214a947210559ff371e1651dac6d0313c73f8"
+      },
+      "configuration_sha256": "9b7fc919b9ce24369683abe5883e371d014a8b0b41bdd80786a79207dba1ede7"
+    }
+  },
+  "final_evaluation_policy": {
+    "enabled": false,
+    "reason": "The old sealed packet has already been observed; do not reuse it for adaptive selection",
+    "previous_final_unchanged": true
+  },
+  "last_monitor_check": {
+    "checked_at": "2026-10-17T14:51:16.794042+08:00",
+    "status": "ready_to_resume_existing_four_cycle_checkpoint",
+    "check_mode": "manual",
+    "gpu_training_observed": true,
+    "source_gates_valid": true,
+    "exit_code": 2,
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_144456_83ff4bef/runtime_start_proof.json",
+    "gpu_currently_idle": true,
+    "latest_effective_activity": "2026-10-17T14:49:35.252000+08:00",
+    "new_wrapper_errors": [],
+    "source_validation_rechecked": true,
+    "repair_applied": true
+  },
+  "next_action": {
+    "requires_user_decision": false,
+    "action": "Directly verify the new baseline, model transport and isolated agents; inspect each native development evaluation. Keep old final and all scheduled tasks closed. Independently compare utility and forgetting before expanded experiments."
+  },
+  "gpu_sampling": {
+    "pid": 3027721,
+    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/gpu_samples.csv",
+    "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/gpu_watch.json",
+    "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_144456_83ff4bef/scripts/research/watch_research_gpus.py",
+    "target_pid": 3027607,
+    "running": true,
+    "verified_at": "2026-10-17T14:51:16.794042+08:00",
+    "bytes": 57240,
+    "peaks_since_sampler_start": {
+      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+        "memory_mib": 592.0,
+        "utilization_percent": 31.0,
+        "active_samples": 37,
+        "last_active": "2026-10-17T14:48:36.714967+08:00"
+      },
+      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+        "memory_mib": 398.0,
+        "utilization_percent": 10.0,
+        "active_samples": 33,
+        "last_active": "2026-10-17T14:48:36.714967+08:00"
+      }
+    }
+  },
+  "current_investigation_progress": {
+    "cycle": 1,
+    "max_cycles": 4,
+    "status": "generating_first_new_idea",
+    "new_method_results_available": false,
+    "source_task_qualification_valid": true,
+    "current_runtime_baseline_revalidation_complete": true,
+    "starting_candidate_correct": true,
+    "starting_candidate_score": 0.8177455611478867,
+    "starting_candidate_evaluation_seconds": 40.5,
+    "entry_gpu_training_observed": true
+  },
+  "current_runtime_tooling": {
+    "sha256": "766724435338c2ba9cb584e23ce97b67bc34fe493a9e0b3c7d10210963727cc1",
+    "previous_run_sha256": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
+    "changed_files": {
+      "src/pipeline/cli.py": {
+        "old": "6a93de8467ab51bb6b4c2113e14d92f8d0c56a2be9ce989bc9f98c6203c67173",
+        "new": "1803f25c916532b3c204c0df9fb3e5ed7b42669959921298722e9cf04d296954"
+      }
+    },
+    "reason": "Current pipeline includes the previously verified explicit GPU allocation forwarding fix; evaluator bytes unchanged",
+    "entry_revalidated": true,
+    "source_qualification_uses_original_receipt": true
   }
 }

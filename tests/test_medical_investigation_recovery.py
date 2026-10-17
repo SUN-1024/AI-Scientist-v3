@@ -26,6 +26,32 @@ def test_stopped_failure_keeps_original_unfinished_checkpoint():
     assert (record,state,witness,validation)==original
 
 
+def test_development_resume_preserves_four_cycles_and_keeps_the_old_final_disabled():
+    record,state,witness,validation=valid_case()
+    record.update(development_campaign={'version':2,'max_idea_cycles':4,'final_evaluation_enabled':False},
+                  research_restart_authorization={'human_authorized':True},
+                  blocking_findings=['independent_confirmatory_evidence_not_available'])
+    record['current_investigation_progress']['max_cycles']=4
+    witness['cycle_budget']=4
+    M['require_resumable'](record,state,witness,validation)
+    overrides=M['recovery_overrides'](record,'/source','image')
+    assert 'execution.phases=investigation' in overrides
+    assert 'investigation.execution.max_idea_cycles=4' in overrides
+    assert not any('final_evaluation' in x for x in overrides)
+    record['blocking_findings'].append('metric_changed')
+    with pytest.raises(ValueError):M['require_resumable'](record,state,witness,validation)
+
+
+@pytest.mark.parametrize('change',['final_enabled','no_authorization'])
+def test_development_resume_does_not_relax_the_final_data_boundary(change):
+    record,state,witness,validation=valid_case()
+    record.update(development_campaign={'version':2,'max_idea_cycles':4,'final_evaluation_enabled':False},
+                  research_restart_authorization={'human_authorized':True})
+    if change=='final_enabled':record['development_campaign']['final_evaluation_enabled']=True
+    if change=='no_authorization':record['research_restart_authorization']={}
+    with pytest.raises(ValueError):M['require_resumable'](record,state,witness,validation)
+
+
 @pytest.mark.parametrize('change',[
     'active','success','unknown_exit','wrong_phase','no_authorization','time_cap','call_cap',
     'invalid_source','scientific_blocker','incomplete_phase','other_failed_phase','completed_phase',

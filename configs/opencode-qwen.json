@@ -17,7 +17,8 @@
       "models": {
         "qwen3.8-max": {
           "name": "Qwen3.8 Max",
-          "limit": {"context": 983616, "output": 32768}
+          "limit": {"context": 983616, "output": 32768},
+          "options": {"reasoningEffort": "low"}
         }
       }
     }

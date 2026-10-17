@@ -21,6 +21,8 @@ import uuid
 def check_transport(image: str, mode: str, scratch: Path) -> dict:
     requests: list[float] = []
     request_hashes: list[str] = []
+    requested_efforts: list[str | None] = []
+    conflicting_budgets: list[bool] = []
     disconnects: list[float] = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -31,6 +33,9 @@ def check_transport(image: str, mode: str, scratch: Path) -> dict:
             body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
             requests.append(time.monotonic())
             request_hashes.append(hashlib.sha256(body).hexdigest())
+            payload = json.loads(body)
+            requested_efforts.append(payload.get("reasoning_effort"))
+            conflicting_budgets.append("thinking_budget" in payload)
             try:
                 if mode == "headers":
                     time.sleep(2.5)
@@ -39,7 +44,7 @@ def check_transport(image: str, mode: str, scratch: Path) -> dict:
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 chunk = {"id":"canary", "object":"chat.completion.chunk",
-                         "created":1, "model":"fixture",
+                         "created":1, "model":"qwen3.8-max",
                          "choices":[{"index":0,"delta":{"role":"assistant",
                              "content":"CANARY_OK"},"finish_reason":None}]}
                 self.wfile.write(("data: " + json.dumps(chunk) + "\n\n").encode())
@@ -71,15 +76,16 @@ def check_transport(image: str, mode: str, scratch: Path) -> dict:
     config_dir.mkdir(parents=True)
     config = {
         "$schema":"https://opencode.ai/config.json",
-        "model":"fixture/fixture", "small_model":"fixture/fixture",
-        "enabled_providers":["fixture"],
-        "provider":{"fixture":{"npm":"@ai-sdk/openai-compatible",
+        "model":"qwen-plan/qwen3.8-max", "small_model":"qwen-plan/qwen3.8-max",
+        "enabled_providers":["qwen-plan"],
+        "provider":{"qwen-plan":{"npm":"@ai-sdk/openai-compatible",
             "options":{"baseURL":f"http://127.0.0.1:{server.server_port}/v1",
                 "apiKey":"dummy-canary", "timeout":750 if mode == "total" else 6000,
                 "headerTimeout":750,
                 "chunkTimeout":5000 if mode in ("stream_control","total") else 750},
-            "models":{"fixture":{"name":"fixture",
-                "limit":{"context":32768,"output":256}}}}},
+            "models":{"qwen3.8-max":{"name":"fixture",
+                "limit":{"context":32768,"output":256},
+                "options":{"reasoningEffort":"low"}}}}},
     }
     (config_dir / "opencode.json").write_text(json.dumps(config))
     name = "agsci-transport-" + uuid.uuid4().hex[:12]
@@ -87,7 +93,7 @@ def check_transport(image: str, mode: str, scratch: Path) -> dict:
                "--network","host","--user","1000:1000",
                "-e","HOME=/canary","-v",f"{directory}:/canary","-w","/canary",
                "--entrypoint","opencode",image,"run","--format","json",
-               "--model","fixture/fixture","Reply only CANARY_OK. Do not use tools."]
+               "--model","qwen-plan/qwen3.8-max","Reply only CANARY_OK. Do not use tools."]
     start = time.monotonic()
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                text=True)
@@ -140,12 +146,18 @@ def check_transport(image: str, mode: str, scratch: Path) -> dict:
         passed = bool(requests) and process.returncode == 0 and "CANARY_OK" in output
     else:
         passed = bool(requests) and timeout_signal
+    effort_verified = bool(requested_efforts) and all(x == "low" for x in requested_efforts)
+    no_conflicting_budget = not any(conflicting_budgets)
+    passed = passed and effort_verified and no_conflicting_budget
     receipt = {"mode":mode,"passed":passed,"elapsed_seconds":elapsed,
                "request_count":len(requests),"return_code":process.returncode,
                "timeout_message_observed":timeout_message,
                "timeout_signal_observed":timeout_signal,
                "server_disconnect_seconds":disconnects,
                "identical_request_max_count":max(Counter(request_hashes).values(), default=0),
+               "reasoning_effort_on_wire":requested_efforts,
+               "low_effort_verified":effort_verified,
+               "no_conflicting_thinking_budget":no_conflicting_budget,
                "mock_body_delay_seconds":2.5 if mode in ("chunks","stream_control","total") else 0,
                "stopped_after_expected_timeout":stopped_after_assertion,
                "network":"local mock only","credentials":"dummy only",
