@@ -1,0 +1,58 @@
+{
+  "attempt_id": "baseline_reference_attempt_01",
+  "idea_id": "baseline_reference",
+  "metrics": {
+    "combined_score": 0.8177455611478867,
+    "correct": true
+  },
+  "next_recommendation": "No code change needed: all 9 rubrics pass for the unchanged baseline seed (combined_score=0.8177455611478867, correct=true). Single-attempt cap reached; keep program_1 frozen as the verified anchor and compare any improved program against these host-produced metrics.",
+  "overall_pass": true,
+  "rubrics": [
+    {
+      "evidence": "program_1/analysis/ contains run_summary.csv, metric_values.csv, and timeseries.csv; all three required analysis files exist.",
+      "id": "analysis_files_present",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv header carries all 12 required columns (evaluation_id, variant_id, variant_kind, base_program, agent_name, correct, combined_score, overall_pass, primary_metric_name, primary_metric_value, program_dir, results_dir) with one data row for baseline_reference_eval_1; overall_pass left empty as host-owned.",
+      "id": "run_summary_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "metric_values.csv header carries all 5 required columns (evaluation_id, variant_id, metric_name, metric_value, is_primary_metric) and 22 data rows covering exactly the 22 metrics.json keys, with combined_score flagged is_primary_metric=True.",
+      "id": "metric_values_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "timeseries.csv header carries all 5 required columns (evaluation_id, variant_id, series_name, step, value); the file is header-only, which the rubric explicitly accepts as valid.",
+      "id": "timeseries_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv combined_score=0.8177455611478867 and primary_metric_value=0.8177455611478867 (primary_metric_name=combined_score) equal metrics.json exactly; all 22 metric_values.csv values match metrics.json bit-for-bit; declared formula 0.5*(1-forget_retrain_probability_mae)+0.3*heldout_macro_dice+0.2*heldout_boundary_f1 recomputes to the same score.",
+      "id": "metrics_consistent_with_metrics_json",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv correct=True matches correct.json {\"correct\": true} and host-reported correctness True; evaluation_evidence.json seed-1701 episode records correct=true with status completed.",
+      "id": "correctness_recorded",
+      "pass": true
+    },
+    {
+      "evidence": "Declared intent (active_idea.json/task.md variant spec; kind=baseline, base_program=reference) is to clone program_0 into program_1 unchanged; program_1/src/program.py is byte-identical to program_0/src/program.py (sha256 91374ed05e9b25d8e1ce0bc5008bd250f720eea5b938b20fdf6d8e6e3dfda48e) and program_spec.toml is identical (sha256 a48b9b611bd9c1404b766f8fca65f0e2b2882b8b1ef410903f7e712fcfca4f1d); source remains the seed split-step NegGrad+ starter (FORGET_WEIGHT=0.1, one Adam step per update RPC).",
+      "id": "variant_intent_preserved",
+      "pass": true
+    },
+    {
+      "evidence": "kind=baseline requires zero change relative to the control seed; diff program_0/src/program.py program_1/src/program.py is empty and sha256 hashes match, so no axis beyond the declared unchanged-clone baseline was modified.",
+      "id": "single_change_scope",
+      "pass": true
+    },
+    {
+      "evidence": "Available: all 22 declared evaluator metrics in metric_values.csv (combined_score primary; forget/heldout Dice, pixel-space boundary F1, forget-Retrain probability MAE, Original/Retrain/finetune/NegGrad+/candidate comparisons, per-method runtimes, GT-absence counts), correctness correct=True, and variant identity baseline_reference/baseline/reference in both CSVs; per-seed observations for the single declared search seed 1701 with per-patient Dice/MAE/boundary-F1, controls (all-background pass, non-identity permutation), and RPC/hash/timing receipts in evaluation_evidence.json; geometry evidence is the declared 1px-tolerance pixel-space boundary F1 (aggregate 0.7023). Missing: timeseries.csv is header-only (no per-step series; valid per rubric), no multi-seed rows (search plane declares one seed), no geometry diagnostics beyond the declared boundary F1, overall_pass column empty (host-owned). Do not extend deletion/utility trade-off claims beyond this single-seed pilot evidence.",
+      "id": "paper_analysis_ready",
+      "pass": true
+    }
+  ],
+  "variant_id": "baseline_reference"
+}
