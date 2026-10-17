@@ -1,0 +1,38 @@
+{
+  "status": "development_evaluation_completed_not_promoted",
+  "candidate_correct": true,
+  "score": 0.8067816335890312,
+  "rubric_passed": 6,
+  "rubric_total": 7,
+  "failed_rubrics": [
+    "incumbent_score_improvement"
+  ],
+  "host_evaluation_started_at": "2026-10-17T04:16:47.889510+00:00",
+  "host_evaluation_finished_at": "2026-10-17T04:17:37.146098+00:00",
+  "compute_usage": {
+    "elapsed_seconds": 49.257203286048025,
+    "max_rpc_calls": 160,
+    "objective_counts": "advisory",
+    "outcome": "completed",
+    "rpc_calls": 113,
+    "wall_clock_limit_seconds": 1800
+  },
+  "data_and_initialization_match_first_candidate": true,
+  "gpu_trace_window": {
+    "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+      "memory_mib": 592.0,
+      "utilization_percent": 31.0,
+      "active_samples": 44
+    },
+    "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+      "memory_mib": 408.0,
+      "utilization_percent": 17.0,
+      "active_samples": 40
+    }
+  },
+  "copied_artifact_hashes": {
+    "gpu_samples_120659_121926.csv": "3c6f73bc6275afffa5a9cc4dd069b69f50c02b2b073d86e275f1d1d89df61b69",
+    "ablation_failure/original_pipeline.log": "7be51aa60eb580d5fb5856f84f92c0ff63d4e763ce26dbe7d29a4335b34c7cf8"
+  },
+  "scope": "One search episode, seed1701. Lower search score than cycle1; retain original winner. No final-data-driven tuning."
+}

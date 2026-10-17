@@ -1,12 +1,12 @@
 {
-  "updated_at": "2026-10-17T12:12:25.445176+08:00",
+  "updated_at": "2026-10-17T12:36:32.683173+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
   "job_id": "20261017_102054_544b6a4c",
-  "status": "running_investigation",
-  "phase": "investigation",
+  "status": "running_ablations_recovery_final_not_qualified",
+  "phase": "ablations",
   "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/run.log",
   "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c",
   "phases": [
@@ -26,37 +26,39 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T12:12:25.445176+08:00",
-    "status": "cycle2_candidate_implementation_after_accepted_proposal",
+    "checked_at": "2026-10-17T12:36:32.683173+08:00",
+    "status": "ablations_recovery_running_original_final_not_qualified",
     "exit_code": null,
-    "restart_performed": false,
-    "repair_applied": false,
-    "monitoring_maintenance_verified": true,
+    "restart_performed": true,
+    "restart_scope": "failed ablations only",
+    "repair_applied": true,
     "gpu_training_observed": true,
-    "gpu_training_scope": "Previously verified cycle1 development evaluation, seed1701; cycle2 implementation only and no new GPU training since previous check",
+    "gpu_training_scope": "Both development candidates and one sealed final invocation completed; no GPU scoring in the recovered ablations phase yet",
     "gpu_currently_idle": true,
-    "new_method_training_started": true,
-    "new_method_results_available": true,
-    "latest_effective_activity": "2026-10-17T12:12:06.934000+08:00",
+    "latest_effective_activity": "2026-10-17T12:32:24.690000+08:00",
     "latest_effective_activity_detail": {
-      "timestamp": 1792210326934,
-      "tool": "bash",
+      "timestamp": 1792211544690,
+      "tool": "read",
       "status": "completed",
-      "title": "printf 'p0 parens: '; tr -cd '(' < program_0/src/program.py | wc -c; tr -cd ')' < program_0/src/program.py | wc -c; printf 'p0 brackets: '; tr -cd '[' < program_0/src/program.py | wc -c; tr -cd ']' < program_0/src/program.py | wc -c; printf 'p1 code-only parens: '; sed -n '240,699p' program_1/src/program.py | tr -cd '(' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd ')' | wc -c; printf 'p1 code-only brackets: '; sed -n '240,699p' program_1/src/program.py | tr -cd '[' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd ']' | wc -c; printf 'p1 code-only braces: '; sed -n '240,699p' program_1/src/program.py | tr -cd '{' | wc -c; sed -n '240,699p' program_1/src/program.py | tr -cd '}' | wc -c",
-      "log": "investigation/ideas/02_memorization_selective_forget_ascent_with_anytime_boundary_anchored_retain_optimization_for_acdc_patient_unlearning/agent_opencode_20261017_120452.log"
+      "title": "workspace/variant_generate_prompt.md",
+      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-Y423Mv/agent_opencode.jsonl"
     },
+    "source_validation_rechecked": true,
     "new_wrapper_errors": [],
     "new_agent_errors": [],
-    "source_validation_rechecked": true,
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_121225.json",
-    "past_ten_minutes_progress": "第二轮方案于12:04:52被框架接受并保存检查点，开始实施候选方法；代理已写入和修改新代码，最近有效工具活动12:12:06。独立只读检查确认语法有效、候选spec不变、最终评价数据不可见；第二轮尚无GPU训练或评价结果。",
+    "repaired_initial_errors": [
+      "Generation APIError401 No API-key provided",
+      "Variants infrastructure failure: gpu_allocation_invalid"
+    ],
+    "past_ten_minutes_progress": "第二轮GPU开发评价完成，得分0.8067816低于第一轮0.8194708，保留第一轮候选。封闭最终评价已完成两个种子但未通过预设优越性条件，原结果封存。消融阶段出现401凭据缺失和GPU选择器未交接，41项Linux检查通过后于12:32单独恢复；当前代理已成功读取消融任务，最新有效活动12:32:24，尚未进行消融GPU评分。",
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_123632.json",
     "accepted_ideas": 2,
-    "completed_method_evaluations": 1,
-    "no_new_experiment_result": true
+    "completed_method_evaluations": 2,
+    "sealed_final_qualified": false
   },
   "next_action": {
     "requires_user_decision": false,
-    "action": "Monitor cycle2 candidate implementation and host evaluation; continue original downstream phases after investigation completes. Preserve scientific budgets, data isolation and once-only sealed final evaluation; repair actual failures from valid checkpoints."
+    "action": "Monitor only the repaired ablations run. Keep original investigation, sealed final outputs and negative final claim result unchanged. Do not tune candidates or repeat final; report a separate scientific decision after engineering recovery."
   },
   "previous_execution": {
     "job_id": "20261016_221356_d7251131",
@@ -179,11 +181,52 @@
       "tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
       "status": "applied_and_live_verified",
       "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json"
+    },
+    "ablations_handoff": {
+      "status": "applied_authentication_live_verified_gpu_selector_verified_scoring_pending",
+      "initial_errors": [
+        "Generation APIError401 No API-key provided",
+        "Variants infrastructure failure: gpu_allocation_invalid"
+      ],
+      "fix": [
+        "Include the selected provider environment keys for ordinary variant agents as well as posthoc agents",
+        "Initialize the variant evaluator GPU selector for explicit allocations as well as discovered allocations"
+      ],
+      "tests": {
+        "server40_linux": "41 passed",
+        "local_pure_controller_and_gpu": "30 passed",
+        "local_initial_container_suite": "25 passed,4 failed; Mac Bash3/path portability; acceptance executed on deployment Linux",
+        "shell_syntax": "pass"
+      },
+      "code_commit": "01f38bd",
+      "current_attempt": "20261017_123203_f2e71b3f",
+      "live_authentication": {
+        "key_present_without_disclosure": true,
+        "completed_agent_tool_actions": 4,
+        "latest_tool": {
+          "timestamp": 1792211544690,
+          "tool": "read",
+          "status": "completed",
+          "title": "workspace/variant_generate_prompt.md",
+          "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-Y423Mv/agent_opencode.jsonl"
+        }
+      },
+      "actual_selector_handoff": [
+        {
+          "pid": 2796329,
+          "AGENT_CONTAINER_GPUS": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\"",
+          "VARIANT_EVAL_SANDBOX_GPUS": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\""
+        }
+      ],
+      "host_scoring_live_validation": "pending planned stage5; do not count generation as GPU scoring",
+      "frozen_tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
+      "scientific_evaluators_changed": false,
+      "sealed_final_repeated": false
     }
   },
   "monitor_hint": {
-    "interpretation": "Current job includes read1 bounded-log fix; read current job and gate logs directly, then inspect only scoped provider tool events if progress stalls. Do not print provider secrets or count provider heartbeats as scientific progress.",
-    "gpu_sampling": "Use gpu_sampling.csv for current live activity. The continuous sampler completed exclusive-lock handoff from the earlier one-hour sampler. Earlier traces are retained in gpu_sampling_history; do not launch a duplicate sampler."
+    "interpretation": "Current phase is a standalone ablations recovery. Inspect phase_output_overrides.ablations and live bounded variant streams via owned process fds; successful variant logs may live in task-scoped temp storage until exit. Main pipeline exit0 was completed_degraded/not_qualified, not scientific success. Sealed final may not be rerun or used for candidate tuning.",
+    "gpu_sampling": "Use current gpu_sampling.csv for ablation recovery; older traces in gpu_sampling_history contain development/final GPU activity. Current helper stops when this recovery PID exits. Do not start duplicate samplers."
   },
   "verification_gate": {
     "enabled": true,
@@ -207,7 +250,9 @@
     "continuation_launch": "python3 scripts/research/continue_medical_experiment.py --run",
     "launch_checks": "Latest job must be stopped with exit0; framework verifies publication plan, alignment bound to current scaffold and correct/feasible baseline qualification receipt; qualified image ID pinned"
   },
-  "blocking_findings": [],
+  "blocking_findings": [
+    "final_tradeoff_not_demonstrated"
+  ],
   "boundary_metric_finding": {
     "status": "fixed_and_independently_validated",
     "counterexample": {
@@ -438,7 +483,7 @@
     "production_baseline_updates": 80,
     "local_evidence_directory": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_085117_652b0da2/baseline_preflight"
   },
-  "scientific_results_scope": "Source baseline qualification and entry baseline plus first new-method investigation evaluation (search plane, seed1701); no ablation, sealed final or paper results",
+  "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
   "formal_experiment_results_available": true,
   "review_provider_health": {
     "checked_at": "2026-10-17T09:21:16.729512+08:00",
@@ -448,7 +493,7 @@
     "purpose": "Tiny endpoint diagnostic without scientific data; not experiment progress",
     "interpretation": "The endpoint responded and the actual review produced new tool actions; no observed connection failure"
   },
-  "substage": "candidate_implementation_cycle_2",
+  "substage": "regenerating_ablation_candidates",
   "publication_recovery": {
     "original_exit_code": 1,
     "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092",
@@ -545,7 +590,7 @@
     },
     "agent_container_job_label": "20261017_102054_544b6a4c",
     "new_method_results_available": true,
-    "final_results_available": false,
+    "final_results_available": true,
     "proposal_draft_available": true,
     "accepted_idea_available": true,
     "proposal_draft_bytes": 33438,
@@ -563,8 +608,8 @@
       "syntax": "valid",
       "spec_identical": true
     },
-    "method_attempt_in_progress": true,
-    "method_attempts_completed": 1,
+    "method_attempt_in_progress": false,
+    "method_attempts_completed": 2,
     "new_method_training_observed": true,
     "best_candidate_score": 0.8194708063004026,
     "proposal_draft_cycle": 2,
@@ -581,9 +626,12 @@
     },
     "current_cycle_method_implementation_started": true,
     "idea_generation_duration_display": "34m56s",
-    "current_cycle_gpu_training_observed": false,
+    "current_cycle_gpu_training_observed": true,
     "candidate_implementation_path": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/investigation/ideas/02_memorization_selective_forget_ascent_with_anytime_boundary_anchored_retain_optimization_for_acdc_patient_unlearning/program_1/src/program.py",
-    "prior_cycle_idea_generation_elapsed_seconds": 1215.666
+    "prior_cycle_idea_generation_elapsed_seconds": 1215.666,
+    "status": "completed_original_two_cycles",
+    "final_results_qualified": false,
+    "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
   },
   "investigation_recoveries": [
     {
@@ -612,46 +660,18 @@
     }
   ],
   "gpu_sampling": {
-    "pid": 2729096,
-    "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py",
-    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
-    "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.json",
+    "pid": 2799652,
+    "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.py",
+    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
+    "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.json",
     "duration_samples": null,
-    "purpose": "Wait for the existing sampler lock, then sample the same two GPUs while the current job identity is alive; no fixed overall duration",
-    "verified_at": "2026-10-17T12:12:25.445176+08:00",
-    "last_rows": [
-      "2026/10/17 12:12:25.341, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-      "2026/10/17 12:12:25.342, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-    ],
+    "purpose": "Same two GPUs during scoped ablation recovery; stop when this job PID identity stops",
     "old_trace_preserved": true,
-    "handoff_verification": {
-      "checked_at": "2026-10-17T12:12:25.002326+08:00",
-      "state": {
-        "pid": 2729096,
-        "status": "sampling",
-        "updated_at_unix": 1792210019.3870232,
-        "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv"
-      },
-      "new_process_alive": true,
-      "old_process_alive": false,
-      "old_csv_bytes": 518579,
-      "new_csv_exists": true,
-      "new_csv_bytes": 44928,
-      "new_csv_last_rows": [
-        "2026/10/17 12:12:24.294, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-        "2026/10/17 12:12:24.295, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-      ],
-      "observed_gpu_uuids": [
-        "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113",
-        "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f"
-      ],
-      "lock_owned": true,
-      "watcher_processes": [
-        "2729096 python3 /home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py"
-      ],
-      "helper_stderr": ""
-    },
-    "renewal_policy": "Continuous only while the same current job PID identity is alive; no scheduled expiry",
+    "verified_at": "2026-10-17T12:36:32.683173+08:00",
+    "last_rows": [
+      "2026/10/17 12:36:31.937, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+      "2026/10/17 12:36:31.938, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+    ],
     "peaks_since_sampler_start": {
       "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
         "memory_mib": 0,
@@ -665,9 +685,10 @@
         "active_samples": 0,
         "last_active": null
       }
-    }
+    },
+    "running": true
   },
-  "formal_experiment_results_scope": "First investigation development-search episode, seed1701; full-study and sealed final results not available",
+  "formal_experiment_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
   "first_candidate_result": {
     "cycle": 1,
     "seed": 1701,
@@ -751,6 +772,235 @@
           "last_active": "2026/10/17 11:29:53.598"
         }
       }
+    },
+    {
+      "pid": 2729096,
+      "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py",
+      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
+      "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.json",
+      "duration_samples": null,
+      "purpose": "Wait for the existing sampler lock, then sample the same two GPUs while the current job identity is alive; no fixed overall duration",
+      "verified_at": "2026-10-17T12:12:25.445176+08:00",
+      "last_rows": [
+        "2026/10/17 12:12:25.341, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+        "2026/10/17 12:12:25.342, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+      ],
+      "old_trace_preserved": true,
+      "handoff_verification": {
+        "checked_at": "2026-10-17T12:12:25.002326+08:00",
+        "state": {
+          "pid": 2729096,
+          "status": "sampling",
+          "updated_at_unix": 1792210019.3870232,
+          "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv"
+        },
+        "new_process_alive": true,
+        "old_process_alive": false,
+        "old_csv_bytes": 518579,
+        "new_csv_exists": true,
+        "new_csv_bytes": 44928,
+        "new_csv_last_rows": [
+          "2026/10/17 12:12:24.294, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+          "2026/10/17 12:12:24.295, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+        ],
+        "observed_gpu_uuids": [
+          "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113",
+          "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f"
+        ],
+        "lock_owned": true,
+        "watcher_processes": [
+          "2729096 python3 /home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py"
+        ],
+        "helper_stderr": ""
+      },
+      "renewal_policy": "Continuous only while the same current job PID identity is alive; no scheduled expiry",
+      "peaks_since_sampler_start": {
+        "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+          "memory_mib": 0,
+          "utilization_percent": 0,
+          "active_samples": 0,
+          "last_active": null
+        },
+        "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+          "memory_mib": 0,
+          "utilization_percent": 0,
+          "active_samples": 0,
+          "last_active": null
+        }
+      }
     }
-  ]
+  ],
+  "sealed_final_result": {
+    "status": "completed_not_qualified",
+    "correct": false,
+    "source_job": "20261017_102054_544b6a4c",
+    "manifest": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/final_evaluation/final_manifest.json",
+    "invocations_completed": 1,
+    "seeds": [
+      2701,
+      2702
+    ],
+    "repeat_authorized": false,
+    "result_directory_immutable": true,
+    "failure_reason": "Candidate final heldout Dice lower than fine-tuning, NegGrad+ and equal-time controls under the preregistered tradeoff predicate",
+    "local_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/final_evaluation/verification.json",
+    "metrics": {
+      "candidate_deletion_seconds": 7.097962428932078,
+      "combined_score": 0.8329061847288837,
+      "equaltime_forget_macro_dice": 0.8525419710728782,
+      "equaltime_forget_retrain_probability_mae": 0.056953611187991623,
+      "equaltime_heldout_macro_dice": 0.7334341010220415,
+      "equaltime_seconds": 7.106148804072291,
+      "finetune_forget_macro_dice": 0.8447738233523197,
+      "finetune_forget_retrain_probability_mae": 0.05481023091308654,
+      "finetune_heldout_macro_dice": 0.7341014831238788,
+      "finetune_seconds": 1.4940700039733201,
+      "forget_gt_absence_count": 0.0,
+      "forget_macro_dice": 0.8432603584227054,
+      "forget_retrain_probability_mae": 0.052683547015948774,
+      "heldout_boundary_f1": 0.7223209219011344,
+      "heldout_gt_absence_count": 0.0,
+      "heldout_macro_dice": 0.7159459128554371,
+      "neggrad_forget_macro_dice": 0.8338455274659249,
+      "neggrad_forget_retrain_probability_mae": 0.055505629897771094,
+      "neggrad_heldout_macro_dice": 0.7366187920888181,
+      "neggrad_seconds": 2.492134199012071,
+      "original_forget_macro_dice": 0.8237515395280777,
+      "original_forget_retrain_probability_mae": 0.05433649341076484,
+      "original_heldout_macro_dice": 0.6846754472570247,
+      "original_train_seconds": 8.199569855583832,
+      "retrain_heldout_macro_dice": 0.6845037378983923,
+      "retrain_train_seconds": 7.39758819853887
+    },
+    "pre_registered_comparisons": {
+      "original": {
+        "candidate_forget_mae": 0.052683547015948774,
+        "comparison_forget_mae": 0.05433649341076484,
+        "forget_distance_lower": true,
+        "candidate_heldout_dice": 0.7159459128554371,
+        "comparison_heldout_dice": 0.6846754472570247,
+        "heldout_utility_at_least_equal": true
+      },
+      "finetune": {
+        "candidate_forget_mae": 0.052683547015948774,
+        "comparison_forget_mae": 0.05481023091308654,
+        "forget_distance_lower": true,
+        "candidate_heldout_dice": 0.7159459128554371,
+        "comparison_heldout_dice": 0.7341014831238788,
+        "heldout_utility_at_least_equal": false
+      },
+      "neggrad": {
+        "candidate_forget_mae": 0.052683547015948774,
+        "comparison_forget_mae": 0.055505629897771094,
+        "forget_distance_lower": true,
+        "candidate_heldout_dice": 0.7159459128554371,
+        "comparison_heldout_dice": 0.7366187920888181,
+        "heldout_utility_at_least_equal": false
+      },
+      "equaltime": {
+        "candidate_forget_mae": 0.052683547015948774,
+        "comparison_forget_mae": 0.056953611187991623,
+        "forget_distance_lower": true,
+        "candidate_heldout_dice": 0.7159459128554371,
+        "comparison_heldout_dice": 0.7334341010220415,
+        "heldout_utility_at_least_equal": false
+      }
+    },
+    "reference_quality_pass": true,
+    "per_episode_execution_validity": [
+      true,
+      true
+    ],
+    "scientific_claim_qualified": false,
+    "files_reverified_unchanged_at": "2026-10-17T12:34:15.948696+08:00"
+  },
+  "ablation_recoveries": [
+    {
+      "attempt_id": "20261017_123203_f2e71b3f",
+      "job_id": "20261017_102054_544b6a4c",
+      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/ablations_20261017_123203_f2e71b3f",
+      "output_dir": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
+      "started_at": "2026-10-17T12:32:06.526865+08:00",
+      "command": [
+        "env",
+        "VARIANT_EVAL_SANDBOX_GPUS=\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\"",
+        "/home/sunguanqun/AI-Scientist-v3/.venv/bin/python",
+        "-m",
+        "src.variants_pipeline.cli",
+        "paths.task_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task'",
+        "paths.task_name='task'",
+        "paths.results_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/investigation'",
+        "paths.output_dir='/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f'",
+        "agent.name='opencode'",
+        "agent.model='qwen-plan/qwen3.8-max'",
+        "execution.max_ablations=2",
+        "execution.max_evals_per_variant=1",
+        "execution.variant_timeout_seconds=2400",
+        "execution.sandbox_image='sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c'",
+        "container.enabled=true",
+        "container.image='sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c'",
+        "container.network='host'",
+        "container.auth_root='/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/auth'",
+        "container.env_file='/home/sunguanqun/AI-Scientist-v3/.env'",
+        "logging.show_run_header=false"
+      ],
+      "wrapper_patch": {
+        "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/ablations_20261017_123203_f2e71b3f",
+        "wrapper_before_sha256": "2e56fe6d90bcbca100b734904e9462c5d24a07915c58e90892969e451226b9d2",
+        "wrapper_after_sha256": "fdaef7652012a2dd736055847f3b0acc4ac8ec6c86f7d4b195d5c0c407974b3f",
+        "tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a"
+      },
+      "final_hashes": {
+        "final_evaluation/final_manifest.json": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+        "final_evaluation/invocation.json": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+        "final_evaluation/results/metrics.json": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+        "final_evaluation/results/correct.json": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+        "final_evaluation/results/evaluation_evidence.json": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a"
+      },
+      "scientific_protocol_changed": false,
+      "sealed_final_repeated": false
+    }
+  ],
+  "phase_output_overrides": {
+    "ablations": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f"
+  },
+  "second_candidate_result": {
+    "status": "development_evaluation_completed_not_promoted",
+    "candidate_correct": true,
+    "score": 0.8067816335890312,
+    "rubric_passed": 6,
+    "rubric_total": 7,
+    "failed_rubrics": [
+      "incumbent_score_improvement"
+    ],
+    "host_evaluation_started_at": "2026-10-17T04:16:47.889510+00:00",
+    "host_evaluation_finished_at": "2026-10-17T04:17:37.146098+00:00",
+    "compute_usage": {
+      "elapsed_seconds": 49.257203286048025,
+      "max_rpc_calls": 160,
+      "objective_counts": "advisory",
+      "outcome": "completed",
+      "rpc_calls": 113,
+      "wall_clock_limit_seconds": 1800
+    },
+    "data_and_initialization_match_first_candidate": true,
+    "gpu_trace_window": {
+      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+        "memory_mib": 592.0,
+        "utilization_percent": 31.0,
+        "active_samples": 44
+      },
+      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+        "memory_mib": 408.0,
+        "utilization_percent": 17.0,
+        "active_samples": 40
+      }
+    },
+    "copied_artifact_hashes": {
+      "gpu_samples_120659_121926.csv": "3c6f73bc6275afffa5a9cc4dd069b69f50c02b2b073d86e275f1d1d89df61b69",
+      "ablation_failure/original_pipeline.log": "7be51aa60eb580d5fb5856f84f92c0ff63d4e763ce26dbe7d29a4335b34c7cf8"
+    },
+    "scope": "One search episode, seed1701. Lower search score than cycle1; retain original winner. No final-data-driven tuning."
+  },
+  "full_study_complete": false
 }

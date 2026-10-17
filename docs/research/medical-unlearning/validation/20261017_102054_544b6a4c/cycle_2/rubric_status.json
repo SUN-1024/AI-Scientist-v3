@@ -1,0 +1,75 @@
+{
+  "attempt_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain_attempt_01",
+  "idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
+  "metrics": {
+    "candidate_deletion_seconds": 14.771017332095653,
+    "combined_score": 0.8067816335890312,
+    "correct": true,
+    "finetune_forget_macro_dice": 0.8238830039119035,
+    "finetune_forget_retrain_probability_mae": 0.04909991689013499,
+    "finetune_heldout_macro_dice": 0.6816650963090747,
+    "finetune_seconds": 1.483518332010135,
+    "forget_gt_absence_count": 0.0,
+    "forget_macro_dice": 0.7926307645710923,
+    "forget_retrain_probability_mae": 0.05105711610364215,
+    "heldout_boundary_f1": 0.677827646044187,
+    "heldout_gt_absence_count": 0.0,
+    "heldout_macro_dice": 0.6558155414400495,
+    "neggrad_forget_macro_dice": 0.8100910903177567,
+    "neggrad_forget_retrain_probability_mae": 0.0466722630855789,
+    "neggrad_heldout_macro_dice": 0.6783178042941398,
+    "neggrad_seconds": 2.6544327749870718,
+    "original_forget_macro_dice": 0.7984798709176861,
+    "original_forget_retrain_probability_mae": 0.05264527168735085,
+    "original_heldout_macro_dice": 0.6599504164335419,
+    "original_train_seconds": 7.927958384156227,
+    "retrain_heldout_macro_dice": 0.645816920026032,
+    "retrain_train_seconds": 6.3299938819836825
+  },
+  "next_recommendation": "generate a new idea",
+  "overall_pass": false,
+  "rubrics": [
+    {
+      "assessment": "failed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; combined_score=0.806782 > 0.819471",
+      "id": "incumbent_score_improvement",
+      "pass": false
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=7 patterns",
+      "id": "boundary_anchored_retain_objective",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=5 patterns",
+      "id": "memorization_selective_forget_ascent",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=5 patterns",
+      "id": "norm_clamped_ascent_composition",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=7 patterns",
+      "id": "anytime_internal_step_budget",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=5 patterns",
+      "id": "pinned_contract_preserved",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.8067816335890312; source_contains=7 patterns",
+      "id": "single_anchor_and_safe_degradation",
+      "pass": true
+    }
+  ]
+}

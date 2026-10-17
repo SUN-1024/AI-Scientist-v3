@@ -1,0 +1,1416 @@
+{
+ "schema_version": 1,
+ "episodes": [
+  {
+   "seed": 2701,
+   "score": 0.8240075068103773,
+   "correct": true,
+   "duration_seconds": 40.759768676012754,
+   "solution": {
+    "status": "completed",
+    "failure": null,
+    "combined_score": 0.8240075068103773,
+    "metrics": {
+     "forget_retrain_probability_mae": 0.06442779616919157,
+     "heldout_macro_dice": 0.7098212164390421,
+     "heldout_boundary_f1": 0.7163751998163022,
+     "forget_macro_dice": 0.8418520576671102,
+     "original_heldout_macro_dice": 0.6544705419868656,
+     "retrain_heldout_macro_dice": 0.6330595518796971,
+     "original_forget_retrain_probability_mae": 0.06347496304243869,
+     "finetune_forget_retrain_probability_mae": 0.06683438249581639,
+     "neggrad_forget_retrain_probability_mae": 0.06654279826335713,
+     "equaltime_forget_retrain_probability_mae": 0.06958432965111246,
+     "original_forget_macro_dice": 0.8240504841695733,
+     "finetune_forget_macro_dice": 0.8425142364169927,
+     "neggrad_forget_macro_dice": 0.8315042013604346,
+     "equaltime_forget_macro_dice": 0.8509203725139018,
+     "finetune_heldout_macro_dice": 0.7182964634635548,
+     "neggrad_heldout_macro_dice": 0.7202271026512113,
+     "equaltime_heldout_macro_dice": 0.7221288192278738,
+     "original_train_seconds": 8.617936284048483,
+     "retrain_train_seconds": 7.634743998060003,
+     "finetune_seconds": 1.4137364020571113,
+     "neggrad_seconds": 2.2144666789099574,
+     "equaltime_seconds": 7.228018220048398,
+     "candidate_deletion_seconds": 7.216519891982898,
+     "heldout_gt_absence_count": 0.0,
+     "forget_gt_absence_count": 0.0,
+     "combined_score": 0.8240075068103773
+    },
+    "controls": {
+     "all_background_zero_foreground_dice": true,
+     "permutation": {
+      "non_identity": true,
+      "executed": true,
+      "patient_index_a": 0,
+      "patient_index_b": 1,
+      "dice_a_on_labels_b": 0.06627285080084769,
+      "dice_b_on_labels_a": 0.06666652451875889,
+      "dice_a_on_labels_a": 0.5101077155138382,
+      "dice_b_on_labels_b": 0.7028948978488049
+     }
+    },
+    "per_patient": {
+     "candidate": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.0402437041792446
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.0834943754168994
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.06625139754314001
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.03686043711201921
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.09528906659465469
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5101077155138382
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7028948978488049
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7492966457860447
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7387788036268234
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6330389186602289
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7243476257866809
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7941338644686798
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7928677765409541
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6654859284348085
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7872599877235574
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.876383072416384
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8259102883089376
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8364014135249538
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8348724988901886
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8356930151950874
+       }
+      ],
+      "heldout_boundary_f1": [
+       {
+        "patient_index": 0,
+        "f1": 0.5343666262557579
+       },
+       {
+        "patient_index": 1,
+        "f1": 0.6594153679438634
+       },
+       {
+        "patient_index": 2,
+        "f1": 0.7761239343706512
+       },
+       {
+        "patient_index": 3,
+        "f1": 0.6870029774084233
+       },
+       {
+        "patient_index": 4,
+        "f1": 0.5938301923228703
+       },
+       {
+        "patient_index": 5,
+        "f1": 0.731480331449334
+       },
+       {
+        "patient_index": 6,
+        "f1": 0.8384572162830756
+       },
+       {
+        "patient_index": 7,
+        "f1": 0.8659316140598788
+       },
+       {
+        "patient_index": 8,
+        "f1": 0.6808394634852366
+       },
+       {
+        "patient_index": 9,
+        "f1": 0.7963042745839305
+       }
+      ]
+     },
+     "original": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.039969458492846874
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07545072676499803
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.06694335942826857
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.040465887781969516
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.09454538274411041
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.47260420936522834
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.6474024019318891
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.6952516300759766
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.6849522366252968
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.5176544733475592
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6661625356271079
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7713924877827244
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7519734732439249
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.5797535844775034
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7575583873914451
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8592607531227238
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8064046681697027
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8160309943362737
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8259462120009221
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8126097932182444
+       }
+      ]
+     },
+     "finetune": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.04202457924861325
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.08541409862259071
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.06840948663024102
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.038575922619697084
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.09974782535793984
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5622746991724511
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7055753908172062
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7643080805537436
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.73953827666449
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6247919594475895
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7262889047453207
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7914195743879975
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.784136331842865
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6841005890366397
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8005308279672446
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8757105823097193
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8277072203720138
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8387881185048247
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8310766668329391
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8392885940654672
+       }
+      ]
+     },
+     "neggrad": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.04063813647649843
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.08121572403447136
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.07043464395075873
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.0384562029978163
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.10196928385724083
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5630489077466362
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7173701643782211
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7701090795214798
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.744281444701209
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6394416800801407
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7290494901616241
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7888736537182716
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7869594842142861
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6630691929857101
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8000679290045339
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8654007397660092
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8061478022577669
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8277492681549005
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8228763188065235
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8353468778169729
+       }
+      ]
+     },
+     "equaltime": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.045469568079492095
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.08549187932685376
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.07241819254169918
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.0405577466749131
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.10398426163260412
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5577061244478453
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7244549882730228
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7904926585455333
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7289784646137915
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.629567743498809
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7308126361315592
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.8069521251173989
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7862633932162288
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6568899873828524
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8091700710516957
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8899247990533518
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8222341166761825
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8438157659374895
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8469036056880549
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8517235752144309
+       }
+      ]
+     },
+     "retrain": {
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5219559683154228
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.649654103361521
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.6920827458235476
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.6216733818115879
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.553565953831916
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6789313455846463
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.753315215388067
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7559620684468475
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.4267626814772103
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.6766920547562041
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8005237405371711
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.5587055494352595
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7130167562415411
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8077589493958636
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.5881325641286393
+       }
+      ]
+     }
+    },
+    "receipts": {
+     "profile": "production",
+     "rpc_calls_total": 112,
+     "rpc_budget": 320,
+     "reset_transcript_declared": [
+      2701,
+      2702
+     ],
+     "reset_transcript_sent": [
+      2701
+     ],
+     "predict_blocks": 24,
+     "deletion_seconds": 7.216519891982898,
+     "equaltime_target_seconds": 7.216519891982898,
+     "equaltime_seconds": 7.228018220048398,
+     "equaltime_steps": 383,
+     "equaltime_step_cap": 60000,
+     "reference_updates": 400,
+     "baseline_updates": 80,
+     "reference_init_identity_sha256": "66214b936dd775faed92ea20a5f43baceca6fb1c9cfd2f0f78743a7590bf0dd4",
+     "data_identity_sha256": "2664eaf056374de61bbe6e699082e108016e0e9a32d3afe558e11fed3d755f5c",
+     "manifest_sha256": "6ba15441cbb41a13a6643ded314870558807c48c179ec68417e55854eccc5711",
+     "upstream_snapshot_sha256": {
+      "models.py": "d76eeeb998be5596f3e8f52244b6bf078018f059d80ee2d75568bd4ed7c56d0f",
+      "losses.py": "615ff113aca6c0155ef0b1045e87e851c3d06f82160b9f9130a3e7461b7105d1",
+      "unlearning.py": "37a8b9bc23803eb2ec0791aff298285715eb5156b452661a4a645274f201a37c"
+     },
+     "model_config": {
+      "channels": [
+       16,
+       32,
+       64,
+       128
+      ],
+      "num_res_units": 1
+     },
+     "device": "cuda:0",
+     "evaluator_visible_cuda_devices": 1,
+     "productive_baseline_seconds": 27.108901583123952,
+     "enforced_limits": [
+      "offered_update_rpcs<=80",
+      "deletion_window<=180s",
+      "equaltime_wall_match<=deletion_time",
+      "per_call_deadlines",
+      "wire_limit<64MiB",
+      "rpc_budget<=320"
+     ],
+     "advisory_limits": [
+      "candidate_internal_optimizer_steps_not_counted",
+      "equaltime_step_cap_is_safety_ceiling_not_bound"
+     ],
+     "episode_seconds": {
+      "original_train": 8.617936284048483,
+      "retrain_train": 7.634743998060003,
+      "finetune": 1.4137364020571113,
+      "neggrad": 2.2144666789099574,
+      "equaltime": 7.228018220048398,
+      "candidate_deletion": 7.216519891982898
+     }
+    },
+    "invocation_receipts": {
+     "profile": "production",
+     "rpc_budget_table": {
+      "per_episode": {
+       "reset": 1,
+       "weights_begin": 1,
+       "weights_chunk": 8,
+       "weights_commit": 1,
+       "update": 80,
+       "finalize": 1,
+       "predict": 24
+      },
+      "episodes": 2,
+      "total": 232,
+      "declared_max": 320,
+      "transfer_model": {
+       "export_start": 0,
+       "export_chunk": 0,
+       "import_start": 1,
+       "import_chunk": 8,
+       "import_commit": 1
+      }
+     },
+     "message_preflight_bytes": {
+      "update_request": 874024,
+      "predict_request": 1398255,
+      "predict_response": 5592509,
+      "weights_begin_request": 2115,
+      "weights_chunk_request": 349577,
+      "reset_request": 24,
+      "weights_commit_response": 88,
+      "max_message_bytes": 5592509,
+      "weight_buffer_bytes": 824836,
+      "weight_chunk_count_actual": 4
+     },
+     "reset_transcript_sent": [
+      2701,
+      2702
+     ],
+     "reset_transcript_ok": true,
+     "episodes_complete": true,
+     "run_failures": []
+    }
+   }
+  },
+  {
+   "seed": 2702,
+   "score": 0.8418048626473901,
+   "correct": true,
+   "duration_seconds": 39.3357787579298,
+   "solution": {
+    "status": "completed",
+    "failure": null,
+    "combined_score": 0.8418048626473901,
+    "metrics": {
+     "forget_retrain_probability_mae": 0.040939297862705976,
+     "heldout_macro_dice": 0.7220706092718321,
+     "heldout_boundary_f1": 0.7282666439859667,
+     "forget_macro_dice": 0.8446686591783005,
+     "original_heldout_macro_dice": 0.7148803525271837,
+     "retrain_heldout_macro_dice": 0.7359479239170873,
+     "original_forget_retrain_probability_mae": 0.04519802377909098,
+     "finetune_forget_retrain_probability_mae": 0.042786079330356684,
+     "neggrad_forget_retrain_probability_mae": 0.044468461532185054,
+     "equaltime_forget_retrain_probability_mae": 0.0443228927248708,
+     "original_forget_macro_dice": 0.8234525948865821,
+     "finetune_forget_macro_dice": 0.8470334102876464,
+     "neggrad_forget_macro_dice": 0.8361868535714152,
+     "equaltime_forget_macro_dice": 0.8541635696318546,
+     "finetune_heldout_macro_dice": 0.7499065027842029,
+     "neggrad_heldout_macro_dice": 0.7530104815264249,
+     "equaltime_heldout_macro_dice": 0.7447393828162092,
+     "original_train_seconds": 7.781203427119181,
+     "retrain_train_seconds": 7.160432399017736,
+     "finetune_seconds": 1.574403605889529,
+     "neggrad_seconds": 2.7698017191141844,
+     "equaltime_seconds": 6.9842793880961835,
+     "candidate_deletion_seconds": 6.979404965881258,
+     "heldout_gt_absence_count": 0.0,
+     "forget_gt_absence_count": 0.0,
+     "combined_score": 0.8418048626473901
+    },
+    "controls": {
+     "all_background_zero_foreground_dice": true,
+     "permutation": {
+      "non_identity": true,
+      "executed": true,
+      "patient_index_a": 0,
+      "patient_index_b": 1,
+      "dice_a_on_labels_b": 0.07294619583449082,
+      "dice_b_on_labels_a": 0.06917048173303104,
+      "dice_a_on_labels_a": 0.5970110685815136,
+      "dice_b_on_labels_b": 0.7126740131896345
+     }
+    },
+    "per_patient": {
+     "candidate": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.02911280162894606
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.06876754928439549
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.042157293341410614
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.02822044184278243
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.036438403215995285
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.5970110685815136
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7126740131896345
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.780425941814476
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.731023443191908
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6409699899972924
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7587923936822857
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.8078855699848124
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7843889791209898
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6270190023991228
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7805156907562866
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8754382231397481
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8483115819807634
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8291119602707727
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8447503889926763
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.825731141507542
+       }
+      ],
+      "heldout_boundary_f1": [
+       {
+        "patient_index": 0,
+        "f1": 0.5919689140252836
+       },
+       {
+        "patient_index": 1,
+        "f1": 0.6732529604907377
+       },
+       {
+        "patient_index": 2,
+        "f1": 0.805318966952374
+       },
+       {
+        "patient_index": 3,
+        "f1": 0.680575553853554
+       },
+       {
+        "patient_index": 4,
+        "f1": 0.5951944098132433
+       },
+       {
+        "patient_index": 5,
+        "f1": 0.8056011647259069
+       },
+       {
+        "patient_index": 6,
+        "f1": 0.8581160690265778
+       },
+       {
+        "patient_index": 7,
+        "f1": 0.8455963333773672
+       },
+       {
+        "patient_index": 8,
+        "f1": 0.6371068356181263
+       },
+       {
+        "patient_index": 9,
+        "f1": 0.7899352319764978
+       }
+      ]
+     },
+     "original": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.031158407129195848
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.0751328529979453
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.04609842268244895
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.03317550388074322
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.04042493220512161
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.6514511377637958
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7095495312213682
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7760831119115427
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7000565857002226
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6377017774240566
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7759381297884657
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7826881942732458
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.7792525303117294
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.585501237942612
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7505812889347988
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8587943931726829
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.819291622937064
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8117164503685336
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8236056740671596
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8038548338874701
+       }
+      ]
+     },
+     "finetune": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.029908624188685926
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07615166802469489
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.04207617929229394
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.026927916078437076
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.03886600906767161
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.6400409241609056
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7597920097800106
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7998783140634761
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7632716108130563
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.693871984594801
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7848033849595127
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7894371539443149
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.819330095383064
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6369139868016487
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8117255633412398
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8819262981568669
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8451138650821591
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8253456056091585
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8423621493160085
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8404191332740392
+       }
+      ]
+     },
+     "neggrad": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.030517230876815158
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.08038000075962619
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.043637012233734784
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.02781249317146918
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.03999557061927998
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.646356504893144
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7677170806272112
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7922442034804345
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7674271728229702
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6956009837703867
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7895175282754171
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7767715534732827
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.8146456393892315
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6672438676060569
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8125802809261131
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8703835074774232
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8400601720034128
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8204943474185654
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8262748377299042
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8237214032277703
+       }
+      ]
+     },
+     "equaltime": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.033635091304438446
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07215128647203475
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.044934275366236745
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.028714778327586447
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.0421790321540576
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.6339708974016764
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7410279304220845
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7996265259948441
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7639168694673324
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6808636497249471
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.7723951932424303
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7972602513016579
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.8082597983571073
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6454075376879108
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8046651745621028
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8880079828121193
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8536065159487886
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8332612149154475
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.8520670689565316
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8438750655263857
+       }
+      ]
+     },
+     "retrain": {
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.6774161694422326
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.735246690244436
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7622965123843711
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7346314334909313
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6541059099167145
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.757502808024532
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7628892922845836
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.8008503448647821
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.6914120800431321
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7831279984751568
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8138390011897948
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.6493995479459665
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7543309107087696
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7975689178324757
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.745229264129147
+       }
+      ]
+     }
+    },
+    "receipts": {
+     "profile": "production",
+     "rpc_calls_total": 224,
+     "rpc_budget": 320,
+     "reset_transcript_declared": [
+      2701,
+      2702
+     ],
+     "reset_transcript_sent": [
+      2701,
+      2702
+     ],
+     "predict_blocks": 24,
+     "deletion_seconds": 6.979404965881258,
+     "equaltime_target_seconds": 6.979404965881258,
+     "equaltime_seconds": 6.9842793880961835,
+     "equaltime_steps": 384,
+     "equaltime_step_cap": 60000,
+     "reference_updates": 400,
+     "baseline_updates": 80,
+     "reference_init_identity_sha256": "c40adffde946403172dd07cc5c2c3a887b29b6f40844eb6e23d45f26a19449cb",
+     "data_identity_sha256": "2664eaf056374de61bbe6e699082e108016e0e9a32d3afe558e11fed3d755f5c",
+     "manifest_sha256": "6ba15441cbb41a13a6643ded314870558807c48c179ec68417e55854eccc5711",
+     "upstream_snapshot_sha256": {
+      "models.py": "d76eeeb998be5596f3e8f52244b6bf078018f059d80ee2d75568bd4ed7c56d0f",
+      "losses.py": "615ff113aca6c0155ef0b1045e87e851c3d06f82160b9f9130a3e7461b7105d1",
+      "unlearning.py": "37a8b9bc23803eb2ec0791aff298285715eb5156b452661a4a645274f201a37c"
+     },
+     "model_config": {
+      "channels": [
+       16,
+       32,
+       64,
+       128
+      ],
+      "num_res_units": 1
+     },
+     "device": "cuda:0",
+     "evaluator_visible_cuda_devices": 1,
+     "productive_baseline_seconds": 26.270120539236814,
+     "enforced_limits": [
+      "offered_update_rpcs<=80",
+      "deletion_window<=180s",
+      "equaltime_wall_match<=deletion_time",
+      "per_call_deadlines",
+      "wire_limit<64MiB",
+      "rpc_budget<=320"
+     ],
+     "advisory_limits": [
+      "candidate_internal_optimizer_steps_not_counted",
+      "equaltime_step_cap_is_safety_ceiling_not_bound"
+     ],
+     "episode_seconds": {
+      "original_train": 7.781203427119181,
+      "retrain_train": 7.160432399017736,
+      "finetune": 1.574403605889529,
+      "neggrad": 2.7698017191141844,
+      "equaltime": 6.9842793880961835,
+      "candidate_deletion": 6.979404965881258
+     }
+    },
+    "invocation_receipts": {
+     "profile": "production",
+     "rpc_budget_table": {
+      "per_episode": {
+       "reset": 1,
+       "weights_begin": 1,
+       "weights_chunk": 8,
+       "weights_commit": 1,
+       "update": 80,
+       "finalize": 1,
+       "predict": 24
+      },
+      "episodes": 2,
+      "total": 232,
+      "declared_max": 320,
+      "transfer_model": {
+       "export_start": 0,
+       "export_chunk": 0,
+       "import_start": 1,
+       "import_chunk": 8,
+       "import_commit": 1
+      }
+     },
+     "message_preflight_bytes": {
+      "update_request": 874024,
+      "predict_request": 1398255,
+      "predict_response": 5592509,
+      "weights_begin_request": 2115,
+      "weights_chunk_request": 349577,
+      "reset_request": 24,
+      "weights_commit_response": 88,
+      "max_message_bytes": 5592509,
+      "weight_buffer_bytes": 824836,
+      "weight_chunk_count_actual": 4
+     },
+     "reset_transcript_sent": [
+      2701,
+      2702
+     ],
+     "reset_transcript_ok": true,
+     "episodes_complete": true,
+     "run_failures": []
+    }
+   }
+  }
+ ]
+}

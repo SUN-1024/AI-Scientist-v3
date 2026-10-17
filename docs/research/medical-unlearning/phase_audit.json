@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T12:12:25.445176+08:00",
+  "checked_at": "2026-10-17T12:36:32.683173+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -47,7 +47,7 @@
       "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
     },
     "investigation": {
-      "status": "cycle_2_candidate_implementation_first_evaluation_completed",
+      "status": "completed_two_cycles_winner_cycle1",
       "logs_exist": true,
       "job_id": "20261017_102054_544b6a4c",
       "private_inputs_present": true,
@@ -65,32 +65,56 @@
       "accepted_idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
       "target_rubrics_count": 7,
       "candidate_implementation_available": true,
-      "method_attempt_in_progress": true,
+      "method_attempt_in_progress": false,
       "cycle": 2,
-      "method_attempts_completed": 1,
+      "method_attempts_completed": 2,
       "first_candidate_correct": true,
       "first_candidate_score": 0.8194708063004026,
       "proposal_draft_cycle": 2,
       "current_cycle_proposal_accepted": true,
       "current_cycle_method_implementation_started": true,
       "accepted_ideas": 2,
-      "current_cycle_gpu_training_observed": false
+      "current_cycle_gpu_training_observed": true,
+      "second_candidate_correct": true,
+      "second_candidate_score": 0.8067816335890312,
+      "second_candidate_rubric_passed": 6,
+      "second_candidate_rubric_total": 7,
+      "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "not_started",
-      "logs_exist": false
+      "status": "running_recovery_generation",
+      "logs_exist": true,
+      "original_status": "degraded_infrastructure_failure",
+      "original_exit_code": 4,
+      "original_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations",
+      "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
+      "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
+      "host_scoring_started": false,
+      "latest_agent_activity": "2026-10-17T12:32:24.690000+08:00"
     },
     "final_evaluation": {
-      "status": "not_started",
-      "logs_exist": false
+      "status": "completed_not_qualified",
+      "logs_exist": true,
+      "process_exit_code": 0,
+      "correct": false,
+      "episode_seeds": [
+        2701,
+        2702
+      ],
+      "reference_quality_pass": true,
+      "failure_reason": "Heldout Dice below fine-tuning, NegGrad+ and equal-time controls under preregistered condition",
+      "one_time_result_preserved": true,
+      "local_proof": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/final_evaluation/verification.json"
     },
     "posthoc": {
-      "status": "not_started",
-      "logs_exist": false
+      "status": "skipped_due_to_failed_ablations",
+      "logs_exist": false,
+      "started": false
     },
     "paper": {
-      "status": "not_started",
-      "logs_exist": false
+      "status": "blocked_by_not_qualified_final",
+      "logs_exist": false,
+      "started": false
     }
   },
   "observed_errors": [
@@ -168,73 +192,44 @@
       "error": "Two idea-generation attempts exceeded900s pilot model watchdog",
       "status": "fixed_and_checkpoint_resume_live_verified",
       "evidence": "63 checks pass on local/server; original research files and failed exits retained; actual resumed config model7200s, hostscoring2100s, resume=true, original2cycles"
+    },
+    {
+      "error": "Generation APIError401 No API-key provided",
+      "status": "fixed_and_verified_at_configuration_boundary",
+      "evidence": "41 Linux checks; actual selected provider key present and agent tools completed; actual native evaluator process has the same two-GPU selector"
+    },
+    {
+      "error": "Variants infrastructure failure: gpu_allocation_invalid",
+      "status": "fixed_and_verified_at_configuration_boundary",
+      "evidence": "41 Linux checks; actual selected provider key present and agent tools completed; actual native evaluator process has the same two-GPU selector"
     }
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "cycle2_candidate_implementation_gpu_idle",
-  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
+  "gpu_stage": "ablations_candidate_generation_after_sealed_final",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "First new-method development evaluation completed; currently cycle2 candidate implementation, no cycle2 GPU training yet",
+    "current_purpose": "Development cycle2 and sealed final completed; recovered ablations is generating plans and both assigned GPUs are currently idle",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
     "new_method_training_started": true,
-    "first_method_evaluation_finished": "2026-10-17T11:29:54.923+08:00"
+    "first_method_evaluation_finished": "2026-10-17T11:29:54.923+08:00",
+    "second_method_evaluation_finished": "2026-10-17T04:17:37.146098+00:00",
+    "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
-  "scientific_results_scope": "Source baseline qualification and entry baseline plus first new-method investigation evaluation (search plane, seed1701); no ablation, sealed final or paper results",
-  "last_effective_activity": "2026-10-17T12:12:06.934000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_121225.json",
+  "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
+  "last_effective_activity": "2026-10-17T12:32:24.690000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_123632.json",
   "new_error_events": [],
   "sampling_maintenance": {
-    "status": "continuous_sampler_handoff_live_verified",
-    "old_trace_ended": "2026-10-17T10:55:02+08:00",
-    "new_sampler_pid": 2729096,
+    "status": "scoped_sampler_restarted_after_ablation_recovery",
+    "new_sampler_pid": 2799652,
     "old_trace_preserved": true,
-    "duplicate_prevention": "process check plus exclusive sampler flock",
     "same_two_assigned_gpus_only": true,
-    "successor": {
-      "pid": 2729096,
-      "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py",
-      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
-      "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.json",
-      "existing_sampler_pid": 2615843,
-      "purpose": "Wait for the existing sampler lock, then sample the same two GPUs while the current job identity is alive; no fixed overall duration",
-      "verification": {
-        "checked_at": "2026-10-17T12:12:25.002326+08:00",
-        "state": {
-          "pid": 2729096,
-          "status": "sampling",
-          "updated_at_unix": 1792210019.3870232,
-          "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv"
-        },
-        "new_process_alive": true,
-        "old_process_alive": false,
-        "old_csv_bytes": 518579,
-        "new_csv_exists": true,
-        "new_csv_bytes": 44928,
-        "new_csv_last_rows": [
-          "2026/10/17 12:12:24.294, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-          "2026/10/17 12:12:24.295, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
-        ],
-        "observed_gpu_uuids": [
-          "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113",
-          "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f"
-        ],
-        "lock_owned": true,
-        "watcher_processes": [
-          "2729096 python3 /home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py"
-        ],
-        "helper_stderr": ""
-      },
-      "preparation_attempt_error": {
-        "error": "SyntaxError in an initial remote helper preparation command",
-        "impact": "Rejected before any helper or scientific job was modified",
-        "status": "Resolved by passing helper source as JSON data; successor launch and waiting state verified"
-      }
-    },
-    "sampling_protocol_changed": false
+    "duplicate_prevention": "No existing watcher plus exclusive lock in helper",
+    "scientific_protocol_changed": false
   },
   "recovered_tool_errors": [
     {
@@ -247,5 +242,9 @@
       "blocking": false,
       "resolution": "Agent successfully read /workspace/task/task.md at11:30:23 and histories at11:30:24"
     }
-  ]
+  ],
+  "scientific_outcomes": {
+    "second_candidate_not_promoted": "Lower score; original winner retained",
+    "sealed_final_not_qualified": "Scientifically valid execution; pre-registered tradeoff demonstration failed; preserve result and do not retune"
+  }
 }

@@ -1,0 +1,145 @@
+{
+  "status": "completed_not_qualified",
+  "correct": false,
+  "episode_seeds": [
+    2701,
+    2702
+  ],
+  "per_episode_validity": [
+    true,
+    true
+  ],
+  "reference_quality_pass": true,
+  "pre_registered_comparisons": {
+    "original": {
+      "candidate_forget_mae": 0.052683547015948774,
+      "comparison_forget_mae": 0.05433649341076484,
+      "forget_distance_lower": true,
+      "candidate_heldout_dice": 0.7159459128554371,
+      "comparison_heldout_dice": 0.6846754472570247,
+      "heldout_utility_at_least_equal": true
+    },
+    "finetune": {
+      "candidate_forget_mae": 0.052683547015948774,
+      "comparison_forget_mae": 0.05481023091308654,
+      "forget_distance_lower": true,
+      "candidate_heldout_dice": 0.7159459128554371,
+      "comparison_heldout_dice": 0.7341014831238788,
+      "heldout_utility_at_least_equal": false
+    },
+    "neggrad": {
+      "candidate_forget_mae": 0.052683547015948774,
+      "comparison_forget_mae": 0.055505629897771094,
+      "forget_distance_lower": true,
+      "candidate_heldout_dice": 0.7159459128554371,
+      "comparison_heldout_dice": 0.7366187920888181,
+      "heldout_utility_at_least_equal": false
+    },
+    "equaltime": {
+      "candidate_forget_mae": 0.052683547015948774,
+      "comparison_forget_mae": 0.056953611187991623,
+      "forget_distance_lower": true,
+      "candidate_heldout_dice": 0.7159459128554371,
+      "comparison_heldout_dice": 0.7334341010220415,
+      "heldout_utility_at_least_equal": false
+    }
+  },
+  "result_scope": "One sealed final invocation, seeds2701/2702, selected cycle1 candidate. Scientifically valid execution does not imply final superiority qualification. Final outputs must never be overwritten or used for automatic candidate tuning.",
+  "artifact_sha256": {
+    "cycle_2/metrics.json": "f144ac0bb6a08ae4e69bb1790f4a4090ab1705a5f7a48bf7703b5503a7323b75",
+    "cycle_2/correct.json": "7c0d29a11468b859de53d45a2d29c869036d98a0a5abd894d143aa3683b49f01",
+    "cycle_2/evaluation_manifest.json": "9cb78913319141efb7d8ce20a1ee308578559ec169985d5bc2db04406f5f1a7c",
+    "cycle_2/evaluation_evidence.json": "413f96935dfdb8cfb95fecf8eafe77db7a489b9afaa006d7b0b626faff4d8e30",
+    "cycle_2/rubric_status.json": "84125256ca0e0c543d40149bb7d17ba573d144e6463db1c1d3e3ccd9077a3c44",
+    "final_evaluation/final_manifest.json": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+    "final_evaluation/invocation.json": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+    "final_evaluation/results/metrics.json": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+    "final_evaluation/results/correct.json": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+    "final_evaluation/results/evaluation_evidence.json": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+    "ablation_failure/events.jsonl": "093a0f75c693f4c508695c8821605f9dab4dc43f2f08944e01d0acac7c7438d8",
+    "ablation_failure/generation/variant_agent_failure.jsonl": "3803467ff8cfa29da42d7a36e082d77f66b16a931b46975b2dbf2050ccff0f27",
+    "ablation_failure/variants/control_best/run_manifest.json": "6f75fd231f73345c81435ed9e663dca01c14725359ddd8db34e167fc9eddc9df"
+  },
+  "manifest": {
+    "completed_at": "2026-10-17T04:19:23.248801+00:00",
+    "compute_usage": {
+      "elapsed_seconds": 96.70943716610782,
+      "max_rpc_calls": 320,
+      "objective_counts": "advisory",
+      "outcome": "completed",
+      "rpc_calls": 224,
+      "wall_clock_limit_seconds": 3600
+    },
+    "correct": false,
+    "declared_final_metrics": [
+      "combined_score",
+      "forget_retrain_probability_mae",
+      "heldout_macro_dice",
+      "heldout_boundary_f1",
+      "forget_macro_dice",
+      "original_heldout_macro_dice",
+      "retrain_heldout_macro_dice",
+      "original_forget_retrain_probability_mae",
+      "finetune_forget_retrain_probability_mae",
+      "neggrad_forget_retrain_probability_mae",
+      "equaltime_forget_retrain_probability_mae",
+      "original_forget_macro_dice",
+      "finetune_forget_macro_dice",
+      "neggrad_forget_macro_dice",
+      "equaltime_forget_macro_dice",
+      "finetune_heldout_macro_dice",
+      "neggrad_heldout_macro_dice",
+      "equaltime_heldout_macro_dice",
+      "original_train_seconds",
+      "retrain_train_seconds",
+      "finetune_seconds",
+      "neggrad_seconds",
+      "equaltime_seconds",
+      "candidate_deletion_seconds",
+      "heldout_gt_absence_count",
+      "forget_gt_absence_count"
+    ],
+    "evaluation_evidence": {
+      "candidate_diagnostics_trust": "unverified",
+      "episode_count": 2,
+      "sha256": "sha256:492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+      "status": "available"
+    },
+    "evaluator_sha256": "sha256:d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0",
+    "metrics": {
+      "candidate_deletion_seconds": 7.097962428932078,
+      "combined_score": 0.8329061847288837,
+      "equaltime_forget_macro_dice": 0.8525419710728782,
+      "equaltime_forget_retrain_probability_mae": 0.056953611187991623,
+      "equaltime_heldout_macro_dice": 0.7334341010220415,
+      "equaltime_seconds": 7.106148804072291,
+      "finetune_forget_macro_dice": 0.8447738233523197,
+      "finetune_forget_retrain_probability_mae": 0.05481023091308654,
+      "finetune_heldout_macro_dice": 0.7341014831238788,
+      "finetune_seconds": 1.4940700039733201,
+      "forget_gt_absence_count": 0.0,
+      "forget_macro_dice": 0.8432603584227054,
+      "forget_retrain_probability_mae": 0.052683547015948774,
+      "heldout_boundary_f1": 0.7223209219011344,
+      "heldout_gt_absence_count": 0.0,
+      "heldout_macro_dice": 0.7159459128554371,
+      "neggrad_forget_macro_dice": 0.8338455274659249,
+      "neggrad_forget_retrain_probability_mae": 0.055505629897771094,
+      "neggrad_heldout_macro_dice": 0.7366187920888181,
+      "neggrad_seconds": 2.492134199012071,
+      "original_forget_macro_dice": 0.8237515395280777,
+      "original_forget_retrain_probability_mae": 0.05433649341076484,
+      "original_heldout_macro_dice": 0.6846754472570247,
+      "original_train_seconds": 8.199569855583832,
+      "retrain_heldout_macro_dice": 0.6845037378983923,
+      "retrain_train_seconds": 7.39758819853887
+    },
+    "outcome": "not_qualified",
+    "program_tree_sha256": "sha256:886a3520d796c38188e692373115444e5eab9f466a4a1b7776ce0cd71bb66688",
+    "results_tree_sha256": "sha256:9201916539d5afaa6dd5994305c9b341784df08d119dd6493dbf4e7f50d162a3",
+    "schema_version": 3,
+    "started_at": "2026-10-17T04:17:46.552442+00:00",
+    "status": "completed",
+    "task_tree_sha256": "sha256:4e6ff2759b26ca522abb8a7407b68608269baed345161cc641858370a11408c4"
+  }
+}
