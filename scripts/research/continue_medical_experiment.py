@@ -7,6 +7,7 @@ import fcntl
 import json
 from pathlib import Path
 import runpy
+import re
 import shlex
 import uuid
 
@@ -59,9 +60,28 @@ def overrides(source: str, image: str) -> list[str]:
             'container.image=' + image]
 
 
+def require_initialization_retry(record: dict, state: dict, inventory: dict) -> None:
+    """Only a stopped startup failure with no usable research work can restart."""
+    entries=set(inventory['entries'])
+    empty_startup=inventory.get('startup_failure') and not entries-{'pipeline_events.jsonl'}
+    runtime_bookkeeping={'pipeline_events.jsonl','task','investigation','.task.runtime-build.lock',
+                         '.agentic_resume_policy.json','.investigation_completion.json'}
+    runtime_startup=(inventory.get('no_usable_checkpoint')
+                     and not set(inventory.get('investigation_entries',[]))-{'events.jsonl'}
+                     and all(entry in runtime_bookkeeping or re.fullmatch(r'\.task\.agentic_task_ready\.[0-9a-f]{64}',entry)
+                             for entry in entries))
+    if (record.get('phase') != 'investigation' or state['running']
+            or state['exit_code'] in (None, 0)
+            or not record.get('qualified_source_task', {}).get('path')
+            or not (empty_startup or runtime_startup)):
+        raise ValueError('Initialization retry would overlap or discard existing research work')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true', help='Submit if all verification gates pass')
+    parser.add_argument('--retry-initialization', action='store_true',
+                        help='Retry only a failed initialization with no research checkpoint')
     args = parser.parse_args()
     launcher = runpy.run_path(str(ROOT / 'scripts/remote-agsci'))
     recovery = runpy.run_path(str(ROOT / 'scripts/research/resume_medical_drafting.py'))
@@ -71,17 +91,39 @@ def main() -> None:
     with (ROOT / 'scratch/medical-recovery-submit.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         record = json.loads(record_path.read_text()); old = record['job_id']
-        if record['phase'] != 'task_drafting':
+        if record['phase'] != 'task_drafting' and not args.retry_initialization:
             raise ValueError('Current job is already a downstream phase; inspect it instead')
         probe = (ROOT / 'scripts/research/medical_job_state.py').read_text()
-        def inspect():
-            result = remote('python3 - ' + shlex.join([base, old]) + " <<'PY'\n" + probe + '\nPY\n', capture=True)
+        def inspect(identity=old):
+            result = remote('python3 - ' + shlex.join([base, identity]) + " <<'PY'\n" + probe + '\nPY\n', capture=True)
+            return json.loads(result.stdout)
+        def initialization_inventory():
+            code = '''from pathlib import Path
+import json,sys
+base,job=Path(sys.argv[1]),sys.argv[2]
+root=base/'results'/job;log=(base/'jobs'/job/'run.log').read_text()
+print(json.dumps({'entries':[p.name for p in root.iterdir()],
+'investigation_entries':[p.name for p in (root/'investigation').iterdir()] if (root/'investigation').is_dir() else [],
+'no_usable_checkpoint':'No usable investigation checkpoint was written; fix the original error and restart with a new run_id and a new paths.run_dir.' in log,
+'startup_failure':'Could not prepare run-local task or investigation workspace:' in log}))
+'''
+            result=remote('python3 - '+shlex.join([base,old])+" <<'PY'\n"+code+'\nPY\n',capture=True)
             return json.loads(result.stdout)
         state = inspect()
-        source = state['published_task']
-        directory = base + '/jobs/' + old
-        verification = {'ready': False, 'reason': 'Draft task is still active'}
-        if not state['running'] and state['exit_code'] == 0:
+        source_job = old
+        if args.retry_initialization:
+            require_initialization_retry(record,state,initialization_inventory())
+            source=record['qualified_source_task']['path']
+            source_job=Path(source).parent.name
+            if source != base+'/results/'+source_job+'/task':
+                raise ValueError('Qualified source is outside its recorded result directory')
+        else:
+            source = state['published_task']
+        source_state = inspect(source_job) if source_job != old else state
+        directory = base + '/jobs/' + source_job
+        verification = {'ready': False, 'reason': 'Qualified source is still active' if source_state['running']
+                        else 'Qualified source stopped with exit '+str(source_state['exit_code'])}
+        if not source_state['running'] and source_state['exit_code'] == 0:
             result = remote('cd ' + shlex.quote(directory) + '\n' + shlex.quote(base + '/.venv/bin/python')
                             + ' - ' + shlex.join([source,record.get('boundary_f1_repair',{}).get('expected_metric_ast_sha256','')])
                             + " <<'PY'\n" + VERIFY + '\nPY\n', capture=True)
@@ -91,7 +133,7 @@ def main() -> None:
         if not args.run:
             print(json.dumps({'job_id':old,'state':state,'verification':verification},indent=2))
             return
-        require_ready(state, verification)
+        require_ready(source_state, verification)
         job = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:8]
         directory, results = base + '/jobs/' + job, base + '/results/' + job
         launcher['sync'](directory); launcher['stage_auth'](directory)
@@ -99,15 +141,18 @@ def main() -> None:
         # Pin the exact image that passed qualification; no floating-tag switch.
         cmd = launcher['args_for']('run', overrides(source,verification['image_id']),directory)
         cmd += ['run_id='+job,'paths.run_dir='+results]
-        require_ready(inspect(), verification)
+        require_ready(inspect(source_job), verification)
+        if args.retry_initialization:
+            require_initialization_retry(record,inspect(),initialization_inventory())
         runner = recovery['runner_text'](launcher,directory,cmd)
         remote('printf %s ' + shlex.quote(runner) + ' > ' + shlex.quote(directory+'/run.sh') + '\n')
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat()
         record.setdefault('execution_history',[]).append({
             key:record.get(key) for key in ('job_id','status','phase','remote_log','remote_results','last_monitor_check')})
         record.update(updated_at=now,job_id=job,status='submitting_investigation',phase='investigation',
+                      substage='initializing_investigation',
                       remote_log=directory+'/run.log',remote_results=results)
-        record['qualified_source_task']={'path':source,'verified_at':now,**verification}
+        record['qualified_source_task']={'path':source,'source_job':source_job,'verified_at':now,**verification}
         record['verification_gate'].update(current_passed=record['verification_gate']['required_before_downstream'],current_pending=[])
         record['next_action']={'requires_user_decision':False,'action':'Monitor each downstream phase; diagnose and repair actual failures; preserve scientific protocol and the two assigned A40s'}
         recovery['atomic_record'](record_path,record)

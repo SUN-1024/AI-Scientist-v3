@@ -90,8 +90,17 @@ def main() -> None:
         directory, results = base + '/jobs/' + job, base + '/results/' + job
         sync(directory)
         stage_auth(directory)
-        remote('mkdir -p ' + shlex.quote(results) + '\ncp -a ' + shlex.quote(source + '/task')
-               + ' ' + shlex.quote(results + '/task') + '\ncp ' + shlex.quote(directory + '/src/prompts/draft_task.md')
+        staging = '''import sys,json
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+sys.path.insert(0,sys.argv[1]+'/scripts/research')
+from medical_task_recovery import stage_recovered_task
+print(json.dumps(stage_recovered_task(Path(sys.argv[2]),Path(sys.argv[3]))))
+'''
+        remote('mkdir -p ' + shlex.quote(results) + '\n' + shlex.join([
+            base + '/.venv/bin/python', '-', directory, source + '/task', results + '/task'])
+            + " <<'PY'\n" + staging + '\nPY\n')
+        remote('cp ' + shlex.quote(directory + '/src/prompts/draft_task.md')
                + ' ' + shlex.quote(directory + '/recovery_prompt.md') + '\nprintf %s '
                + shlex.quote(CONTINUATION) + ' >> ' + shlex.quote(directory + '/recovery_prompt.md') + '\n')
         # Preserve useful context outside the canonical task and without copying credentials.

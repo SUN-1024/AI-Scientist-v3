@@ -15,7 +15,7 @@ from typing import Callable
 import pytest
 
 from src.investigation.evaluator_tree import managed_evaluator_tree_digest
-from src.investigation.files import task_copy_ignore
+from src.investigation.files import load_task_copy_ignore_patterns, task_copy_ignore
 from src.pipeline import safe_fs, task_publication, task_snapshot, task_tree, task_tree_merge
 from src.pipeline.config import PipelineConfig
 from src.pipeline.glue import (
@@ -236,6 +236,52 @@ def test_prepare_run_task_copies_source_honors_ignore_file_and_persists_metadata
     preview_run_task(paths)
 
     assert not paths.investigation_results_dir.exists()
+
+
+@pytest.mark.skipif(not Path('/proc/self/fd').exists(), reason='Published resource fixture requires Linux')
+def test_verified_publication_keeps_private_runtime_inputs_but_agent_copy_stays_sealed(tmp_path):
+    from tests.task_drafting.test_task_drafting_publication import _make_fx
+    fx = _make_fx(tmp_path / 'published')
+    fx.publish(qualification_receipt_path=fx.write_receipt(fx.plan_sha256()))
+    source = fx.task_dir
+    original_ignore = (source / '.agentic_task_ignore').read_bytes()
+    # A source may itself have been a run-local snapshot; it is not copied as authority.
+    (source / METADATA).write_text('{"version":2,"task_name":"old","source_digest":"'+'0'*64+'","source_root_mode":448}')
+    paths = replace(_paths(tmp_path / 'run'), source_task_dir=source)
+    prepare_run_task(paths)
+    assert task_snapshot_is_complete(paths.task_dir)
+    for name in ('task_contract.json', 'evaluate_final.py', '.agentic_task_qualification.json'):
+        assert (paths.task_dir / name).read_bytes() == (source / name).read_bytes()
+    for resource in (source / 'resources').rglob('*'):
+        if resource.is_file():
+            assert (paths.task_dir / resource.relative_to(source)).read_bytes() == resource.read_bytes()
+    assert (paths.task_dir / '.agentic_task_ignore').read_bytes() == original_ignore
+    assert json.loads((paths.task_dir / METADATA).read_text())['task_name'] != 'old'
+    agent = tmp_path / 'agent-view'
+    shutil.copytree(paths.task_dir, agent,
+                    ignore=task_copy_ignore(paths.task_dir, load_task_copy_ignore_patterns(paths.task_dir)))
+    assert not (agent / 'resources').exists()
+    assert not (agent / 'task_contract.json').exists()
+    assert not (agent / 'evaluate_final.py').exists()
+
+
+@pytest.mark.parametrize('corrupt', ['resource', 'alignment', 'qualification'])
+@pytest.mark.skipif(not Path('/proc/self/fd').exists(), reason='Published resource fixture requires Linux')
+def test_published_runtime_handoff_rejects_corrupt_source_before_creating_snapshot(tmp_path, corrupt):
+    from tests.task_drafting.test_task_drafting_publication import _make_fx
+    fx = _make_fx(tmp_path / 'published')
+    fx.publish(qualification_receipt_path=fx.write_receipt(fx.plan_sha256()))
+    if corrupt == 'resource':
+        (fx.task_dir / 'resources/search/data.json').write_text('changed')
+    else:
+        name = '.agentic_task_validation.json' if corrupt == 'alignment' else '.agentic_task_qualification.json'
+        data = json.loads((fx.task_dir / name).read_text())
+        data['verdict' if corrupt == 'alignment' else 'publication_plan_sha256'] = 'fail' if corrupt == 'alignment' else '9'*64
+        (fx.task_dir / name).write_text(json.dumps(data))
+    paths = replace(_paths(tmp_path / 'run'), source_task_dir=fx.task_dir)
+    with pytest.raises(UnsafeGluePathError, match='handoff failed validation'):
+        prepare_run_task(paths)
+    assert not paths.task_dir.exists()
 
 
 def test_prepare_run_task_preserves_symlinks_and_modes_and_skips_ignored_external_links(tmp_path: Path) -> None:

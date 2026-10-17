@@ -29,6 +29,41 @@ def test_completed_verified_draft_can_continue_with_original_protocol():
     assert not any(v.startswith(('investigation.execution.','ablations.execution.','final.')) for v in values)
 
 
+@pytest.mark.parametrize('change', ['', 'active', 'success', 'unknown_exit', 'research_exists',
+                                   'other_phase', 'different_failure', 'missing_source'])
+def test_initialization_retry_preserves_research_and_requires_a_qualified_source(change):
+    record={'phase':'investigation','qualified_source_task':{'path':'/qualified/task'}}
+    state={'running':False,'exit_code':1}
+    inventory={'entries':['pipeline_events.jsonl'],'startup_failure':True}
+    if change=='active':state['running']=True
+    if change=='success':state['exit_code']=0
+    if change=='unknown_exit':state['exit_code']=None
+    if change=='research_exists':inventory['entries'].append('investigation')
+    if change=='other_phase':record['phase']='final_evaluation'
+    if change=='different_failure':inventory['startup_failure']=False
+    if change=='missing_source':record['qualified_source_task']={}
+    if change:
+        with pytest.raises(ValueError):M['require_initialization_retry'](record,state,inventory)
+    else:M['require_initialization_retry'](record,state,inventory)
+
+
+@pytest.mark.parametrize('extra', ['', 'idea_1', 'run_summary.csv'])
+def test_runtime_preflight_retry_requires_host_no_checkpoint_witness_and_no_research(extra):
+    record={'phase':'investigation','qualified_source_task':{'path':'/qualified/task'}}
+    state={'running':False,'exit_code':2}
+    inventory={'entries':['task','investigation','pipeline_events.jsonl','.task.runtime-build.lock',
+                          '.investigation_completion.json','.agentic_resume_policy.json',
+                          '.task.agentic_task_ready.'+'a'*64],
+               'startup_failure':False,'no_usable_checkpoint':True,
+               'investigation_entries':['events.jsonl']+([extra] if extra else [])}
+    if extra:
+        with pytest.raises(ValueError):M['require_initialization_retry'](record,state,inventory)
+    else:
+        M['require_initialization_retry'](record,state,inventory)
+        inventory['no_usable_checkpoint']=False
+        with pytest.raises(ValueError):M['require_initialization_retry'](record,state,inventory)
+
+
 @pytest.mark.parametrize('changed', [False, True])
 def test_release_checks_corrected_metric_before_remaining_gates(tmp_path, changed):
     root = Path(__file__).resolve().parents[1]

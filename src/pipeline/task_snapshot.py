@@ -66,7 +66,7 @@ def _prepare_run_task(paths: PipelinePaths) -> None:
     logger.info("task snapshot: copy %s -> %s", source, destination)
 
     with open_directory(source, role="task source") as source_fd:
-        ignore_patterns = _load_task_copy_ignore_patterns_at(source_fd)
+        ignore_patterns = _runtime_snapshot_ignore_patterns(source, source_fd)
         validate_tree_symlinks_fd(
             source_fd,
             relative_dir=Path(),
@@ -80,6 +80,7 @@ def _prepare_run_task(paths: PipelinePaths) -> None:
                 parent_fd,
                 ignore_patterns,
                 task_name=paths.task_name,
+                source_path=source,
             )
 
 
@@ -88,7 +89,7 @@ def preview_run_task(paths: PipelinePaths) -> None:
     source, destination = _validate_fresh_run_task(paths)
     try:
         with open_directory(source, role="task source") as source_fd:
-            ignore_patterns = _load_task_copy_ignore_patterns_at(source_fd)
+            ignore_patterns = _runtime_snapshot_ignore_patterns(source, source_fd)
             validate_tree_symlinks_fd(
                 source_fd,
                 relative_dir=Path(),
@@ -502,6 +503,57 @@ def _validate_fresh_run_task(paths: PipelinePaths) -> tuple[Path, Path]:
     return source, destination
 
 
+def _runtime_snapshot_ignore_patterns(source: Path, directory_fd: int) -> tuple[str, ...]:
+    """Keep approved private runtime inputs; retain the original agent ignore file.
+
+    Published scaffolds hide resources, contracts and final evaluators from agent
+    views. The pipeline's private snapshot still needs them for brokered execution.
+    Only a publication whose plan and alignment validate can use this handoff.
+    """
+    patterns = _load_task_copy_ignore_patterns_at(directory_fd)
+    # Pin validation to the same opened tree used by the copy on Linux.
+    if Path('/proc/self/fd').exists():
+        source = Path(f'/proc/self/fd/{directory_fd}').resolve(strict=True)
+    marker = source / '.agentic_task_publication.json'
+    if not marker.exists() and not marker.is_symlink():
+        return patterns
+    pinned = os.fstat(directory_fd)
+    visible = source.stat(follow_symlinks=False)
+    if (visible.st_dev, visible.st_ino) != (pinned.st_dev, pinned.st_ino):
+        raise UnsafeGluePathError('Published task source changed while validating')
+    from src.investigation.task_alignment import load_task_alignment_report
+    from src.investigation.task_contract import load_task_contract
+    from src.task_drafting.publication import validate_published_task_plan
+    from src.task_drafting.qualification import load_task_qualification_receipt
+
+    try:
+        plan = validate_published_task_plan(source)
+        alignment = load_task_alignment_report(source / '.agentic_task_validation.json',
+                                                scaffold_dir=source)
+        if alignment.verdict != 'pass':
+            raise ValueError('Published task alignment did not pass')
+        qualification = source / '.agentic_task_qualification.json'
+        if qualification.exists() or qualification.is_symlink():
+            load_task_qualification_receipt(qualification,
+                                             expected_publication_plan_sha256=plan)
+        contract = load_task_contract(source / 'task_contract.json')
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise UnsafeGluePathError('Published task handoff failed validation') from exc
+    visible = source.stat(follow_symlinks=False)
+    if (visible.st_dev, visible.st_ino) != (pinned.st_dev, pinned.st_ino):
+        raise UnsafeGluePathError('Published task source changed while validating')
+    agent_only = {
+        'resources/', f'/{contract.evaluators.final}',
+        f'/{contract.resources.final_root}/', '/task_contract.json',
+        '/.agentic_task_publication.json', '/.agentic_task_validation.json',
+        '/.agentic_task_qualification.json',
+    }
+    runtime_patterns = tuple(pattern for pattern in patterns if pattern not in agent_only)
+    # Each new run generates its own metadata and resolves its own managed runtime.
+    return runtime_patterns + ('.venv/', f'/{TASK_SNAPSHOT_METADATA_FILENAME}',
+                               '/.agentic_runtime.json')
+
+
 def _load_task_copy_ignore_patterns_at(directory_fd: int) -> tuple[str, ...]:
     try:
         ignore_fd = os.open(
@@ -555,6 +607,7 @@ def _publish_run_task_copy(
     ignore_patterns: tuple[str, ...],
     *,
     task_name: str,
+    source_path: Path,
 ) -> None:
     temporary_name = f".{destination.name}.{secrets.token_hex(8)}.tmp"
     source_root_stat = os.fstat(source_fd)
@@ -576,7 +629,7 @@ def _publish_run_task_copy(
                     relative_dir=Path(),
                     ignore_patterns=ignore_patterns,
                 )
-                if ignore_patterns != _load_task_copy_ignore_patterns_at(source_fd):
+                if ignore_patterns != _runtime_snapshot_ignore_patterns(source_path, source_fd):
                     raise UnsafeGluePathError("task copy ignore patterns changed while copying")
                 verify_copied_task_tree(
                     source_fd,
@@ -600,7 +653,7 @@ def _publish_run_task_copy(
                     STAGED_TASK_DIRECTORY_NAME,
                     role="staged run task",
                 )
-                if ignore_patterns != _load_task_copy_ignore_patterns_at(source_fd):
+                if ignore_patterns != _runtime_snapshot_ignore_patterns(source_path, source_fd):
                     raise UnsafeGluePathError("task copy ignore patterns changed while copying")
                 verify_copied_task_tree(
                     source_fd,
