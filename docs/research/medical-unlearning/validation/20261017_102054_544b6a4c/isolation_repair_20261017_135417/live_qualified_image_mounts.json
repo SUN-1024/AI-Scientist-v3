@@ -1,0 +1,97 @@
+{
+  "checked_at": "2026-10-17T14:11:38.053386+08:00",
+  "isolation": [
+    {
+      "id": "e2832bb59431",
+      "image": "sha256:ee40c6b89bcff7b1836713c224f5dc1767bf99e1fd6d3157b4046e08701c534c",
+      "qualified_image_matches": true,
+      "mounts": [
+        {
+          "source": "/dev/null",
+          "destination": "/task-source/manual_validation.json",
+          "read_only": true
+        },
+        {
+          "source": "/dev/null",
+          "destination": "/task-source/task_contract.json",
+          "read_only": true
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task/.venv",
+          "destination": "/task-source/.venv",
+          "read_only": true
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/baseline_gradient_ascent/task_bundle",
+          "destination": "/workspace",
+          "read_only": false
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/home",
+          "destination": "/home/agent-home",
+          "read_only": false
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/public-task",
+          "destination": "/task-source",
+          "read_only": true
+        },
+        {
+          "source": "/dev/null",
+          "destination": "/task-source/evaluate_final.py",
+          "read_only": true
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/containers/run-1728f885e85c4bb5a6ce9e972f0ed669/agent-tmp-v_q11uy2",
+          "destination": "/agent-tmp",
+          "read_only": false
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/variant-agent.V2mEsFJL/sealed-empty",
+          "destination": "/task-source/resources/final",
+          "read_only": true
+        },
+        {
+          "source": "/dev/null",
+          "destination": "/task-source/.agentic_task_validation.json",
+          "read_only": true
+        }
+      ],
+      "qwen_key_present": true,
+      "check_returncode": 0,
+      "check": {
+        "final_evaluator_bytes": 0,
+        "contract_bytes": 0,
+        "final_files": 0,
+        "workspace_final_absent": true,
+        "workspace_contract_absent": true,
+        "docker_socket_absent": true
+      }
+    }
+  ],
+  "sampler": {
+    "pid": 2970322,
+    "script": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.py",
+    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv",
+    "state": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.json",
+    "state_receipt": {
+      "pid": 2970322,
+      "status": "sampling",
+      "updated_at_unix": 1792217498.1015427,
+      "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv"
+    },
+    "running": true,
+    "stderr": "",
+    "duration_samples": null
+  },
+  "exit_code": null,
+  "log_tail": [
+    "INFO:src.variants_pipeline.materialize:custom_only mode: skipping control_best",
+    "INFO:src.variants_pipeline.materialize:custom_only mode: skipping baseline_reference",
+    "INFO:src.variants_pipeline.materialize:Materialized variant: baseline_gradient_ascent (baseline)",
+    "INFO:src.variants_pipeline.materialize:Materialized variant: baseline_joint_neggrad (baseline)",
+    "INFO:src.variants_pipeline.materialize:Materialized variant: baseline_boundary_retain_only (baseline)",
+    "INFO:src.variants_pipeline.materialize:Materialized 3 variant workspaces under /home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants",
+    "INFO:src.variants_pipeline.execute:Executing variant: baseline_gradient_ascent (baseline)"
+  ]
+}

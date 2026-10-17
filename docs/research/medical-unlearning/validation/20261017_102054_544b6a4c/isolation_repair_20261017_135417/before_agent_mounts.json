@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-17T13:53:08.257900+08:00",
+  "containers": [
+    {
+      "id": "d6e1fca224ba",
+      "configured_user": "1000:1000",
+      "mounts": [
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task",
+          "destination": "/task-source",
+          "RW": false
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/baseline_gradient_ascent/task_bundle",
+          "destination": "/workspace",
+          "RW": true
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/variant-agent.c39GnXDW/home",
+          "destination": "/home/agent-home",
+          "RW": true
+        },
+        {
+          "source": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/containers/run-e2d316ed4f8f4414a45054c33def8af2/agent-tmp-et97kqr1",
+          "destination": "/agent-tmp",
+          "RW": true
+        }
+      ],
+      "checks": "uid=1000(agent) gid=1000(agent) groups=1000(agent)\n/task-source/evaluate_final.py=readable\n/task-source/evaluate.py=readable\n/task-source/task_contract.json=readable\n/task-source/resources/final=readable\n/task-source/resources/search=readable\n/workspace/evaluate_final.py=not_readable\n/workspace/task_contract.json=not_readable\n/workspace/resources=not_readable\n664 agent agent 802101\n664 agent agent 720242\n664 agent agent 808181\n664 agent agent 682530\n664 agent agent 981523\n664 agent agent 837464\n664 agent agent 873463\n664 agent agent 542851\n",
+      "returncode": 0
+    }
+  ]
+}

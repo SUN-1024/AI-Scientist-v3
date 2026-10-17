@@ -1,0 +1,50 @@
+{
+  "checked_at": "2026-10-17T13:52:34.943216+08:00",
+  "program_comparison": {
+    "src/program.py": {
+      "seed_sha256": "67b2c84e86350c601dba292c90c3d9d6012fc3427c19b2d3ea1ca48db8170ad7",
+      "ablation_sha256": "92040b92c66477ec5bfdb728a225b6ed772a58a93b9d12593a946bb32977957e",
+      "identical": false,
+      "diff": "--- program_0/src/program.py\n+++ program_1/src/program.py\n@@ -183,13 +183,19 @@\n bounded per-call deadlines, plus a 64 MiB hard wire limit per complete\n message (planned payloads stay far below it).\n \n-Claimed method for this attempt (BAMOA, replaces the starter baseline)\n----------------------------------------------------------------------\n-\n-Boundary-Anchored Memorization-Gated Orthogonal Ascent for ACDC patient-level\n-unlearning. Exactly ONE joint Adam step (lr=``DELETION_LR``=1e-4) per offered\n-update RPC; there are no hidden internal optimizer epochs beyond that step, so\n-the <=80-RPC bound on OFFERED updates also bounds the candidate's steps.\n+Claimed method for this attempt (ablation_no_orthogonalization of BAMOA)\n+-----------------------------------------------------------------------\n+\n+Ablation of Boundary-Anchored Memorization-Gated Orthogonal Ascent (BAMOA) for\n+ACDC patient-level unlearning that REMOVES the PCGrad-style ascent/retain\n+orthogonalisation: the raw forget ascent gradient flows into the composed\n+update unmodified (no projection against the retain gradient). Every other\n+component (boundary anchor, memorization gate, sensitivity damping, ascent\n+norm clamp, retain caching, non-finite guard, predict normalisation) is\n+identical to the base BAMOA program. Exactly ONE joint Adam step\n+(lr=``DELETION_LR``=1e-4) per offered update RPC; there are no hidden internal\n+optimizer epochs beyond that step, so the <=80-RPC bound on OFFERED updates\n+also bounds the candidate's steps.\n \n * ``retain`` RPC: descend the copied ``segmentation_loss`` plus a\n   weight-normalised, differentiable 1-pixel boundary-band fidelity term\n@@ -198,9 +204,10 @@\n   buffered minibatch, ~512 KiB).\n * ``forget`` RPC: recompute the boundary-anchored retain gradient on the cached\n   anchor, take the ascent gradient from the copied ``segmentation_loss`` on the\n-  current forget batch via ``torch.autograd.grad``, PCGrad-orthogonalise it\n-  against the retain gradient when their inner product is positive, clamp its\n-  flat norm to ``ASCENT_NORM_RATIO`` times the retain norm, damp it per element\n+  current forget batch via ``torch.autograd.grad`` and use it RAW (this\n+  ablation omits the PCGrad orthogonalisation against the retain gradient),\n+  clamp its flat norm to ``ASCENT_NORM_RATIO`` times the retain norm, damp it\n+  per element\n   by ``1/(1 + SENSITIVITY_DAMP * relative_importance)`` from an EMA of\n   |retain gradient|, and scale it by the memorization gate\n   ``clamp((retain_loss_ema - forget_loss)/MEMORIZATION_GATE_SCALE, 0, 1)``\n@@ -602,7 +609,6 @@\n         ascent_grads = _parameter_grads(forget_seg, parameters)\n         update_importance(_STATE[\"importance\"], retain_grads)\n         update_retain_loss_ema(retain_seg)\n-        ascent_grads = orthogonalize(ascent_grads, retain_grads)\n         damping = sensitivity_damping(_STATE[\"importance\"])\n         gate = memorization_gate(float(forget_seg), _STATE[\"retain_loss_ema\"])\n         retain_norm = math.sqrt(max(flat_dot(retain_grads, retain_grads), 0.0))"
+    },
+    "program_spec.toml": {
+      "seed_sha256": "a48b9b611bd9c1404b766f8fca65f0e2b2882b8b1ef410903f7e712fcfca4f1d",
+      "ablation_sha256": "a48b9b611bd9c1404b766f8fca65f0e2b2882b8b1ef410903f7e712fcfca4f1d",
+      "identical": true,
+      "diff": ""
+    }
+  },
+  "private_evaluator_integrity": {
+    "evaluate.py": {
+      "actual_sha256": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+      "qualified_source_sha256": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+      "identical": true
+    },
+    "evaluate_final.py": {
+      "actual_sha256": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0",
+      "qualified_source_sha256": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0",
+      "identical": true
+    },
+    "task_contract.json": {
+      "actual_sha256": "ae507930dd2ce2d71553033c752255d01acea4e612d239b0889bd8663b4b1151",
+      "qualified_source_sha256": "ae507930dd2ce2d71553033c752255d01acea4e612d239b0889bd8663b4b1151",
+      "identical": true
+    }
+  },
+  "tool_probes": [
+    [
+      {
+        "timestamp": 1792216251032,
+        "exit": 2,
+        "command": "wc -l /workspace/program_0/src/program.py /workspace/original_task.md /workspace/active_idea.json /workspace/active_rubrics.json /workspace/rubric_contract.json /workspace/upstream/puseg/*.py; ls /workspace/memory.md /workspace/memory.jsonl /workspace/conclusions.md 2>&1",
+        "output": "  686 /workspace/program_0/src/program.py\n   51 /workspace/original_task.md\n   23 /workspace/active_idea.json\n   37 /workspace/active_rubrics.json\n   51 /workspace/rubric_contract.json\n   59 /workspace/upstream/puseg/losses.py\n    9 /workspace/upstream/puseg/models.py\n  283 /workspace/upstream/puseg/unlearning.py\n 1199 total\nls: cannot access '/workspace/memory.md': No such file or directory\nls: cannot access '/workspace/memory.jsonl': No such file or directory\nls: cannot access '/workspace/conclusions.md': No such file or directory\n"
+      },
+      {
+        "timestamp": 1792216276033,
+        "exit": 0,
+        "command": "find / -xdev -name \"program_clone.py\" -not -path \"/proc/*\" 2>/dev/null | head; echo \"--- investigation dirs:\"; find / -xdev -type d -name \"investigation\" -not -path \"/proc/*\" 2>/dev/null | head; echo \"--- opt:\"; ls /opt 2>/dev/null; ls /task-source/resources 2>/dev/null | head",
+        "output": "--- investigation dirs:\n--- opt:\nautoillustrate-venv\ndrawio\nheadless\nfinal\npreparation_receipt.json\nsearch\n"
+      }
+    ]
+  ]
+}

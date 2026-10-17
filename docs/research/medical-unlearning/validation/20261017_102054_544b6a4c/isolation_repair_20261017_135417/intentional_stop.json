@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-17T13:54:17.667862+08:00",
+  "reason": "Credential-bearing variants agent can read sealed evaluator and final data through unmasked /task-source; stop before more work",
+  "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/isolation_stop_20261017_135417",
+  "signals": [
+    {
+      "pid": 2796329,
+      "signal": "SIGTERM"
+    },
+    {
+      "process_group": 2935414,
+      "signal": "SIGTERM"
+    }
+  ],
+  "copied_logs": [
+    "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/isolation_stop_20261017_135417/agent_logs/agentic-variant-cost-Os5zJ0/agent_opencode.jsonl"
+  ],
+  "identities": [
+    {
+      "pid": 2796329,
+      "starttime": "163176743"
+    },
+    {
+      "pid": 2935414,
+      "starttime": "163644400"
+    }
+  ],
+  "remaining_native_process": null,
+  "remaining_agent_group_leader": null,
+  "exit_code": "143",
+  "job_containers": "",
+  "other_service_status": "bridge-defect-model Up 2 weeks (healthy)"
+}

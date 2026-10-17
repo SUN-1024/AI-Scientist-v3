@@ -1,0 +1,58 @@
+{
+  "attempt_id": "ablation_no_orthogonalization_attempt_01",
+  "idea_id": "ablation_no_orthogonalization",
+  "metrics": {
+    "combined_score": 0.819450948044027,
+    "correct": true
+  },
+  "next_recommendation": "All 9 rubrics pass; stop the attempt immediately (single-attempt cap program_1 reached). Carry the ablation evidence into the paper analysis: raw-ascent candidate sits slightly below finetune/NegGrad+ on heldout utility and above them on forget-Retrain MAE at seed 1701, direction-consistent with orthogonalisation contributing targeted forgetting; do not claim a score delta vs the base program since no control score artifact exists in this workspace.",
+  "overall_pass": true,
+  "rubrics": [
+    {
+      "evidence": "program_1/analysis/ contains run_summary.csv (1 data row), metric_values.csv (22 data rows), and timeseries.csv (header-only).",
+      "id": "analysis_files_present",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv header has all required columns (evaluation_id, variant_id, variant_kind, base_program, agent_name, correct, combined_score, overall_pass, primary_metric_name, primary_metric_value, program_dir, results_dir); aggregate overall_pass value left empty as host-owned.",
+      "id": "run_summary_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "metric_values.csv header has all required columns (evaluation_id, variant_id, metric_name, metric_value, is_primary_metric); 22 rows with combined_score flagged is_primary_metric=True.",
+      "id": "metric_values_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "timeseries.csv header has all required columns (evaluation_id, variant_id, series_name, step, value); file is header-only, which the rubric explicitly accepts.",
+      "id": "timeseries_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv combined_score=0.819450948044027 and primary_metric combined_score=0.819450948044027 match metrics.json exactly; all 22 metric_values.csv entries equal metrics.json with no missing or extra keys.",
+      "id": "metrics_consistent_with_metrics_json",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv correct=True matches correct.json {\"correct\": true} and host-reported correctness True; evaluation_evidence.json episode seed 1701 also records correct=true.",
+      "id": "correctness_recorded",
+      "pass": true
+    },
+    {
+      "evidence": "diff program_0/src/program.py program_1/src/program.py removes exactly the declared line 'ascent_grads = orthogonalize(ascent_grads, retain_grads)' from the _do_update forget branch so raw ascent grads flow unmodified; orthogonalize stays defined-but-unused (line 329), flat_dot still used for norm clamps (lines 614-615); anchor/gate/damping/clamp/non-finite-guard/EMAs/predict normalisation and all RPC response schemas unchanged; docstring declares the no-orthogonalisation ablation while keeping one-Adam-step-per-RPC and no-hidden-epochs statements, matching the variant intent in task.md/active_idea.json (no separate variant_spec.json in workspace).",
+      "id": "variant_intent_preserved",
+      "pass": true
+    },
+    {
+      "evidence": "Only the declared comparison axis changed vs control program_0 (best): the single orthogonalize() call removal plus docstring text declaring the ablation; no other code, hyperparameter, protocol, or spec change (program_spec.toml identical; diff shows no further hunks).",
+      "id": "single_change_scope",
+      "pass": true
+    },
+    {
+      "evidence": "Available: variant identity (variant_id=ablation_no_orthogonalization, kind=ablation, base_program=best) and correctness in run_summary.csv; all 22 declared evaluator metrics in metric_values.csv matching metrics.json (utility heldout_macro_dice=0.6779, geometry heldout_boundary_f1=0.7073 pixel-space pilot boundary F1, divergence forget_retrain_probability_mae=0.0508, baseline comparisons for original/retrain/finetune/neggrad, and runtimes original/retrain train, finetune, neggrad, candidate_deletion seconds); per-seed (seed 1701, single search-plane episode) and per-patient observations plus executed controls in evaluation_evidence.json. Missing: timeseries.csv is header-only (no per-step traces; valid per rubric), only one seed so no per-seed variance, and no control-program score artifact in this workspace, so score deltas vs the orthogonalised base cannot be quantified here.",
+      "id": "paper_analysis_ready",
+      "pass": true
+    }
+  ],
+  "variant_id": "ablation_no_orthogonalization"
+}

@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T13:41:59.057532+08:00",
+  "checked_at": "2026-10-17T14:16:34.899834+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -82,7 +82,7 @@
       "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "running_recovery_orthogonalization_ablation_verification",
+      "status": "running_unused_checkpoint_prior_source_isolation_unqualified",
       "logs_exist": true,
       "original_status": "degraded_infrastructure_failure",
       "original_exit_code": 4,
@@ -90,8 +90,8 @@
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
       "host_scoring_started": true,
-      "latest_agent_activity": "2026-10-17T13:41:39.507000+08:00",
-      "current_stage": "execute_variants",
+      "latest_agent_activity": "2026-10-17T14:16:04.298000+08:00",
+      "current_stage": "execute_unused_variant_checkpoint",
       "generation_completed": true,
       "proposed_candidates": 8,
       "proposed_counts": {
@@ -115,11 +115,12 @@
         "status": "completed_host_evaluation_and_native_rubric_pass",
         "rubric_passed": 9,
         "rubric_total": 9,
-        "native_completed_at": "2026-10-17T04:58:48.212803+00:00"
+        "native_completed_at": "2026-10-17T04:58:48.212803+00:00",
+        "source_isolation_qualified": false
       },
-      "completed_variant_receipts": 3,
-      "current_variant": "ablation_no_orthogonalization",
-      "current_variant_index": 4,
+      "completed_variant_receipts": 4,
+      "current_variant": "baseline_gradient_ascent",
+      "current_variant_index": 5,
       "reference_baseline_host_evaluation": {
         "correct": true,
         "score": 0.8177455611478867,
@@ -134,7 +135,8 @@
         "status": "completed_host_evaluation_and_native_rubric_pass",
         "rubric_passed": 9,
         "rubric_total": 9,
-        "native_completed_at": "2026-10-17T05:19:26.261587+00:00"
+        "native_completed_at": "2026-10-17T05:19:26.261587+00:00",
+        "source_isolation_qualified": false
       },
       "first_ablation_host_evaluation": {
         "correct": true,
@@ -148,10 +150,11 @@
         "status": "completed_host_evaluation_and_native_rubric_pass",
         "rubric_passed": 9,
         "rubric_total": 9,
-        "native_completed_at": "2026-10-17T05:31:22.275252+00:00"
+        "native_completed_at": "2026-10-17T05:31:22.275252+00:00",
+        "source_isolation_qualified": false
       },
       "second_ablation_host_evaluation": {
-        "status": "host_evaluation_completed_verifier_pending",
+        "status": "completed_host_evaluation_and_native_rubric_pass",
         "correct": true,
         "score": 0.819450948044027,
         "control_score": 0.8194708063004026,
@@ -168,8 +171,16 @@
         "returncode": 0,
         "execution_boundary": "brokered_search",
         "program_id": "program_1",
-        "interpretation": "Single development-seed observation; native rubric verification is still running. No stable contribution claim follows from this tiny score difference."
-      }
+        "interpretation": "Native verification passed9/9. The single development-seed score difference is tiny and does not establish a stable contribution; the earlier authoring source view remains uncertified.",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T05:50:03.433951+00:00",
+        "source_isolation_qualified": false
+      },
+      "isolation_qualified": false,
+      "new_agent_source_view_verified": true,
+      "prior_results_scope": "Four exploratory native executions; prior generation/authoring task-source view exposure cannot be retrospectively certified",
+      "checkpoint_recovery_started_at": "2026-10-17T14:10:26.957095+08:00"
     },
     "final_evaluation": {
       "status": "completed_not_qualified",
@@ -186,7 +197,7 @@
       "local_proof": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/final_evaluation/verification.json"
     },
     "posthoc": {
-      "status": "skipped_due_to_failed_ablations",
+      "status": "not_started_pending_valid_ablation_inputs",
       "logs_exist": false,
       "started": false
     },
@@ -281,15 +292,25 @@
       "error": "Variants infrastructure failure: gpu_allocation_invalid",
       "status": "fixed_and_live_execution_verified",
       "evidence": "Native generation and selection completed; control_best isolated host GPU evaluation exited0 correct=true in41.97s using approved two-GPU broker; score reproduced original winner"
+    },
+    {
+      "error": "Credential-bearing variants agent can read sealed task source/final data through /task-source",
+      "status": "fixed_for_new_views_prior_results_uncertified",
+      "evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/isolation_repair_20261017_135417"
+    },
+    {
+      "error": "Successful variant tool logs were removed at cleanup, so previous complete access history is unavailable",
+      "status": "future_private_bounded_logs_retained_canary_verified",
+      "evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661/agent_audit"
     }
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "ablations_orthogonalization_host_eval_complete_verifier_running",
-  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
+  "gpu_stage": "ablations_unused_checkpoint_baseline_gradient_ascent_preparing",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "New orthogonalization ablation GPU evaluation completed13:40:08; verifier now active, no new candidate/final run",
+    "current_purpose": "No new GPU activity after14:10 checkpoint restart; previous four native evaluations preserved",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -298,9 +319,9 @@
     "second_method_evaluation_finished": "2026-10-17T04:17:37.146098+00:00",
     "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
-  "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
-  "last_effective_activity": "2026-10-17T13:41:39.507000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_134159.json",
+  "scientific_results_scope": "Two development candidates and one negative sealed final completed before the variants exposure; four subsequent native variant executions retained as exploratory due to exposed authoring views. Three unused baseline budgets now resume with verified sealed agent views. Entire campaign and paper remain unqualified.",
+  "last_effective_activity": "2026-10-17T14:16:04.298000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_141634.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "scoped_sampler_restarted_after_ablation_recovery",
@@ -329,11 +350,27 @@
       "blocking": false,
       "recovery": "Subsequent command found memory-log helper and program_0 and exited0",
       "following_exit": 0
+    },
+    {
+      "timestamp": 1792217562943,
+      "tool": "grep",
+      "status": "error",
+      "error": "Ripgrep JSON record exceeded65536bytes during broad CSV search",
+      "blocking": false,
+      "resolution": "Agent switched to scoped rg and source inspection, then proceeded to current task planning at14:16:04"
+    },
+    {
+      "timestamp": 1792217570060,
+      "tool": "bash",
+      "exit": 1,
+      "blocking": false,
+      "reason": "Scoped rg returned no CSV matches; subsequent source reads and planning succeeded"
     }
   ],
   "scientific_outcomes": {
     "second_candidate_not_promoted": "Lower score; original winner retained",
     "sealed_final_not_qualified": "Scientifically valid execution; pre-registered tradeoff demonstration failed; preserve result and do not retune",
-    "boundary_anchor_ablation": "Single development seed1701: removing boundary term increases score0.00037739, Dice0.00115399 and boundaryF1 0.00067036 while worsening forget MAE0.00020575; no evidence here for primary-score benefit from boundary term"
+    "boundary_anchor_ablation": "Single development seed1701: removing boundary term increases score0.00037739, Dice0.00115399 and boundaryF1 0.00067036 while worsening forget MAE0.00020575; no evidence here for primary-score benefit from boundary term",
+    "variants_isolation": "New execution views repaired and checked inside the actual research container; earlier four native execution results retained as exploratory because original authoring/generation views exposed sealed source"
   }
 }
