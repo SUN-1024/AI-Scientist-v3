@@ -242,6 +242,43 @@ _cleanup_host_runtime() {
 }
 trap _cleanup_host_runtime EXIT
 
+# The task source is a separate mount from the filtered agent workspace.
+# Build its own public view; inherited environment controls are insufficient.
+if [ -n "$TASK_SOURCE_DIR" ] && [ -e "$TASK_SOURCE_DIR/task_contract.json" ]; then
+  if [ "$CONTAINERIZE" -ne 1 ]; then
+    echo "Contracted variant agents require container isolation" >&2
+    exit 1
+  fi
+  VARIANT_SEAL_VALUES_FILE="$HOST_RUNTIME_DIR/task-seal-values"
+  "$PYTHON_BIN" "$REPO_ROOT/src/scripts/lib/variant_task_shadow.py" \
+    "$TASK_SOURCE_DIR" "$HOST_RUNTIME_DIR" "$WORK_DIR" > "$VARIANT_SEAL_VALUES_FILE"
+  VARIANT_SEAL_VALUES=()
+  while IFS= read -r -d '' seal_value; do
+    VARIANT_SEAL_VALUES+=("$seal_value")
+  done < "$VARIANT_SEAL_VALUES_FILE"
+  if [ "${#VARIANT_SEAL_VALUES[@]}" -ne 5 ]; then
+    echo "Invalid contracted variant task view" >&2
+    exit 1
+  fi
+  TASK_SOURCE_DIR="${VARIANT_SEAL_VALUES[0]}"
+  export AGENT_TASK_SEALED_FILES="${VARIANT_SEAL_VALUES[1]}"
+  export AGENT_TASK_SEALED_DIRS="${VARIANT_SEAL_VALUES[2]}"
+  export AGENT_TASK_SEAL_EMPTY_DIR="${VARIANT_SEAL_VALUES[3]}"
+  export AGENT_CONTAINER_MOUNT_DOCKER_SOCK=0
+  export AGENT_CONTAINER_SESSION_NAME=""
+  export AGENT_CONTAINER_MOUNT_ROOT=""
+  export AGENT_CONTAINER_EXTRA_MOUNTS=""
+  export AGENT_CONTAINER_WRITABLE_FILE_SOURCE=""
+  export AGENT_CONTAINER_WRITABLE_FILE_RELATIVE=""
+  export AGENT_CONTAINER_PASSTHROUGH_KEYS=""
+  export AGENT_CONTAINER_SECRET_PASSTHROUGH_KEYS=""
+  export AGENT_CONTAINER_TASK_PYTHON=python
+  if [ -n "${VARIANT_SEAL_VALUES[4]}" ]; then
+    export AGENT_CONTAINER_EXTRA_MOUNTS="${VARIANT_SEAL_VALUES[4]}:/task-source/.venv:ro"
+    export AGENT_CONTAINER_TASK_PYTHON=/task-source/.venv/bin/python
+  fi
+fi
+
 # Export TASK_SOURCE_DIR so evaluate.py can find the task venv's Python.
 if [ -n "$TASK_SOURCE_DIR" ]; then
   export TASK_SOURCE_DIR
@@ -470,6 +507,33 @@ VARIANT_COST_RECORDED=0
 VARIANT_AGENT_PID=""
 VARIANT_WRITER_PID=""
 
+retain_variant_agent_audit() {
+  [ -n "${AGENT_VARIANT_AUDIT_ROOT:-}" ] || return 0
+  [ -f "$VARIANT_AGENT_LOG" ] || return 0
+  local audit_root
+  audit_root="$("$PYTHON_BIN" - "$AGENT_VARIANT_AUDIT_ROOT" "$WORK_DIR" "$HOST_RUNTIME_DIR" <<'PY'
+import os
+import stat
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+if not root.is_absolute() or root.is_symlink():
+    raise SystemExit("Variant audit root must be an absolute non-symlink directory")
+root = root.resolve(strict=True)
+metadata = root.stat()
+if (not root.is_dir() or metadata.st_uid != os.getuid()
+        or stat.S_IMODE(metadata.st_mode) & 0o077
+        or any(root.is_relative_to(Path(x).resolve()) for x in sys.argv[2:])):
+    raise SystemExit("Variant audit root must be private and outside agent/runtime mounts")
+print(root)
+PY
+  )" || return 1
+  safe_stage copy-file "$audit_root" \
+    "${VARIANT_COST_TEMP_DIR##*/}_${SKILL_STEP}.jsonl" "$VARIANT_AGENT_LOG" \
+    --maximum-bytes "$RETAINED_AGENT_LOG_MAX_BYTES" --mode 600
+}
+
 cleanup_variant_cost() {
   if [ -n "$VARIANT_AGENT_PID" ] && kill -0 "$VARIANT_AGENT_PID" 2>/dev/null; then
     terminate_pid_tree "$VARIANT_AGENT_PID" 0.2
@@ -484,6 +548,7 @@ cleanup_variant_cost() {
       "$PYTHON_BIN" "$VARIANT_AGENT_LOG" "$SKILL_STEP" \
       "variant:${SKILL_STEP}:${VARIANT_COST_TEMP_DIR##*/}" interrupted
   fi
+  retain_variant_agent_audit || echo "[variants] failed to retain private agent audit" >&2
   rm -f -- "$VARIANT_LOG_PIPE"
   rm -f -- "$VARIANT_AGENT_LOG"
   rm -f -- "$VARIANT_RETAINED_LOG"
@@ -523,6 +588,7 @@ record_headless_cost_log \
   "variant:${SKILL_STEP}:${VARIANT_COST_TEMP_DIR##*/}" \
   "$(headless_cost_status "$VARIANT_AGENT_EXIT_CODE")"
 VARIANT_COST_RECORDED=1
+retain_variant_agent_audit || exit 1
 if [ "$VARIANT_AGENT_EXIT_CODE" -ne 0 ] && [ "$VARIANT_AGENT_EXIT_CODE" -ne 130 ]; then
   VARIANT_RETAINED_LOG="$VARIANT_COST_TEMP_DIR/agent_failure.jsonl"
   if ! bounded_agent_log_writer \
