@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T13:32:26.679492+08:00",
+  "checked_at": "2026-10-17T13:41:59.057532+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -82,7 +82,7 @@
       "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "running_recovery_orthogonalization_ablation_preparing",
+      "status": "running_recovery_orthogonalization_ablation_verification",
       "logs_exist": true,
       "original_status": "degraded_infrastructure_failure",
       "original_exit_code": 4,
@@ -90,7 +90,7 @@
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
       "host_scoring_started": true,
-      "latest_agent_activity": "2026-10-17T13:31:49.269000+08:00",
+      "latest_agent_activity": "2026-10-17T13:41:39.507000+08:00",
       "current_stage": "execute_variants",
       "generation_completed": true,
       "proposed_candidates": 8,
@@ -149,6 +149,26 @@
         "rubric_passed": 9,
         "rubric_total": 9,
         "native_completed_at": "2026-10-17T05:31:22.275252+00:00"
+      },
+      "second_ablation_host_evaluation": {
+        "status": "host_evaluation_completed_verifier_pending",
+        "correct": true,
+        "score": 0.819450948044027,
+        "control_score": 0.8194708063004026,
+        "seed": 1701,
+        "deltas_variant_minus_control": {
+          "combined_score": -1.985825637562666e-05,
+          "heldout_macro_dice": -3.9123098996451944e-05,
+          "heldout_boundary_f1": -6.0184750385938734e-05,
+          "forget_retrain_probability_mae": -7.831246800892033e-06
+        },
+        "elapsed_seconds": 42.672777886968106,
+        "started_at": "2026-10-17T05:39:25.548319+00:00",
+        "finished_at": "2026-10-17T05:40:08.219811+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "program_id": "program_1",
+        "interpretation": "Single development-seed observation; native rubric verification is still running. No stable contribution claim follows from this tiny score difference."
       }
     },
     "final_evaluation": {
@@ -265,11 +285,11 @@
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "ablations_boundary_ablation_completed_orthogonalization_preparing",
+  "gpu_stage": "ablations_orthogonalization_host_eval_complete_verifier_running",
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "New boundary-term ablation GPU training/evaluation completed13:26:07 and native9/9 verification completed13:31:22; second ablation now preparing",
+    "current_purpose": "New orthogonalization ablation GPU evaluation completed13:40:08; verifier now active, no new candidate/final run",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -279,8 +299,8 @@
     "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
   "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
-  "last_effective_activity": "2026-10-17T13:31:49.269000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_133226.json",
+  "last_effective_activity": "2026-10-17T13:41:39.507000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_134159.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "scoped_sampler_restarted_after_ablation_recovery",
