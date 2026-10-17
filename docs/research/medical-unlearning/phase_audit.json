@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T12:53:07.610809+08:00",
+  "checked_at": "2026-10-17T13:01:49.943984+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -82,7 +82,7 @@
       "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "running_recovery_control_verification",
+      "status": "running_recovery_baseline_reference",
       "logs_exist": true,
       "original_status": "degraded_infrastructure_failure",
       "original_exit_code": 4,
@@ -90,7 +90,7 @@
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
       "host_scoring_started": true,
-      "latest_agent_activity": "2026-10-17T12:51:36.700000+08:00",
+      "latest_agent_activity": "2026-10-17T13:01:04.989000+08:00",
       "current_stage": "execute_variants",
       "generation_completed": true,
       "proposed_candidates": 8,
@@ -112,9 +112,14 @@
         "finished_at": "2026-10-17T04:45:06.339212+00:00",
         "returncode": 0,
         "execution_boundary": "brokered_search",
-        "status": "host_evaluation_completed_verifier_pending"
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T04:58:48.212803+00:00"
       },
-      "completed_variant_receipts": 0
+      "completed_variant_receipts": 1,
+      "current_variant": "baseline_reference",
+      "current_variant_index": 2
     },
     "final_evaluation": {
       "status": "completed_not_qualified",
@@ -230,11 +235,11 @@
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "ablations_control_best_host_eval_completed_verifier_running",
+  "gpu_stage": "ablations_control_complete_reference_baseline_agent_running",
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "Recovered ablations control_best completed real GPU evaluation; verifier active, other variants pending",
+    "current_purpose": "Control GPU evaluation and native verification completed; reference-baseline agent running, no new GPU activity since12:45:05",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -244,8 +249,8 @@
     "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
   "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
-  "last_effective_activity": "2026-10-17T12:51:36.700000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json",
+  "last_effective_activity": "2026-10-17T13:01:04.989000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_130149.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "scoped_sampler_restarted_after_ablation_recovery",
@@ -265,6 +270,15 @@
       "error": "File not found: /workspace/_idea_generation/task/task.md",
       "blocking": false,
       "resolution": "Agent successfully read /workspace/task/task.md at11:30:23 and histories at11:30:24"
+    },
+    {
+      "timestamp": 1792213250444,
+      "tool": "bash",
+      "exit": 2,
+      "kind": "optional_memory_files_absent_during_probe",
+      "blocking": false,
+      "recovery": "Subsequent command found memory-log helper and program_0 and exited0",
+      "following_exit": 0
     }
   ],
   "scientific_outcomes": {

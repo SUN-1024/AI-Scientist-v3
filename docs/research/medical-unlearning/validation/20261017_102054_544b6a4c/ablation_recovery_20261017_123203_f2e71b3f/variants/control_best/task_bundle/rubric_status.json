@@ -1,0 +1,58 @@
+{
+  "attempt_id": "control_best_attempt_00",
+  "idea_id": "control_best",
+  "metrics": {
+    "combined_score": 0.8194708063004026,
+    "correct": true
+  },
+  "next_recommendation": "Control passes all 9 rubrics and establishes the reference metrics (combined_score=0.819, correct=true); do NOT modify the control. Advance to ablation/expanded-study variants (final seeds 2701+2702, equal-time retain-only control, independent patient-level membership attacks) before any superiority claim.",
+  "overall_pass": true,
+  "rubrics": [
+    {
+      "evidence": "program_0/analysis/ contains all three required files: run_summary.csv, metric_values.csv, timeseries.csv.",
+      "id": "analysis_files_present",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv header carries all required columns: evaluation_id, variant_id, variant_kind, base_program, agent_name, correct, combined_score, overall_pass, primary_metric_name, primary_metric_value, program_dir, results_dir (one populated data row for control_best_eval_1).",
+      "id": "run_summary_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "metric_values.csv header carries all required columns: evaluation_id, variant_id, metric_name, metric_value, is_primary_metric; 22 metric rows present including the flagged primary metric combined_score.",
+      "id": "metric_values_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "timeseries.csv header carries all required columns: evaluation_id, variant_id, series_name, step, value. Header-only (no data rows) is explicitly valid per the rubric.",
+      "id": "timeseries_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv combined_score=0.8194708063004026 equals metrics.json; primary_metric_name=combined_score and primary_metric_value=0.8194708063004026 also match. Declared formula verified: 0.5*(1-0.0507581)+0.3*0.6779066+0.2*0.7073894=0.8194708.",
+      "id": "metrics_consistent_with_metrics_json",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv correct=True matches correct.json (correct=true).",
+      "id": "correctness_recorded",
+      "pass": true
+    },
+    {
+      "evidence": "No variant_spec.json present; control intent from active_idea.json/task.md ('Baseline control using the best program as-is', kind=control). Preserved: src/program.py implements the best BAMOA candidate and reuses hash-pinned upstream make_model+segmentation_loss verbatim; .retrofit_complete.json copied_program_tree_sha256 == source_program_tree_sha256 (3b35d4fe...), i.e. program unmodified.",
+      "id": "variant_intent_preserved",
+      "pass": true
+    },
+    {
+      "evidence": "Rubric scopes ablations/extra baselines; this is the control reference itself, evaluated as-is with program_tree_sha256 identical to source (zero comparison-axis change), so single-change scope is trivially satisfied.",
+      "id": "single_change_scope",
+      "pass": true
+    },
+    {
+      "evidence": "Available: all 22 declared evaluator metrics in metric_values.csv; correctness (correct=True); variant identity (variant_id=control_best, variant_kind=control, base_program=best); runtime (original 8.74s / retrain 6.20s / finetune 1.56s / neggrad 2.66s / deletion 7.09s); geometry proxy heldout_boundary_f1=0.7074; GT-absence counts=0. Per-seed: single seed 1701 search episode (evaluation_evidence.json) with per-patient dice/mae/boundary-f1 for candidate/original/finetune/neggrad/retrain. Missing/limited: timeseries.csv header-only (no step series), only one search seed (no final seeds 2701/2702), no confidence intervals. Header-only timeseries is valid; no undeclared diagnostics required.",
+      "id": "paper_analysis_ready",
+      "pass": true
+    }
+  ],
+  "variant_id": "control_best"
+}

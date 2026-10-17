@@ -15,9 +15,9 @@
     "analysis/timeseries.csv",
     "rubric_status.json"
   ],
-  "status": "running",
+  "status": "completed",
   "created_at": "2026-10-17T04:44:24.188506+00:00",
   "started_at": "2026-10-17T04:44:24.268294+00:00",
-  "completed_at": null,
-  "eval_count": 0
+  "completed_at": "2026-10-17T04:58:48.212803+00:00",
+  "eval_count": 1
 }

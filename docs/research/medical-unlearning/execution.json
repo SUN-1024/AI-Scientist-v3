@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-17T12:53:07.610809+08:00",
+  "updated_at": "2026-10-17T13:01:49.943984+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
@@ -26,27 +26,38 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T12:53:07.610809+08:00",
-    "status": "ablations_selected5_control_host_eval_pass_verification_running",
+    "checked_at": "2026-10-17T13:01:49.943984+08:00",
+    "status": "ablations_control_completed_reference_baseline_running",
     "exit_code": null,
     "restart_performed": false,
     "repair_applied": false,
     "gpu_training_observed": true,
-    "gpu_training_scope": "Recovered ablations control_best evaluated on both assigned GPUs; variants not yet completed",
+    "gpu_training_scope": "Ablations control completed real GPU scoring and native 9/9 rubric pass; baseline_reference agent now preparing evaluation, no new GPU training since prior check",
     "gpu_currently_idle": true,
-    "latest_effective_activity": "2026-10-17T12:51:36.700000+08:00",
+    "latest_effective_activity": "2026-10-17T13:01:04.989000+08:00",
     "latest_effective_activity_detail": {
-      "timestamp": 1792212696700,
+      "timestamp": 1792213264989,
       "tool": "read",
       "status": "completed",
       "title": "workspace/.opencode/skills/memory-log/scripts/append_memory.py",
-      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-WxHFUs/agent_opencode.jsonl"
+      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-KuVH9i/agent_opencode.jsonl"
     },
     "source_validation_rechecked": true,
     "new_wrapper_errors": [],
     "new_agent_errors": [],
-    "past_ten_minutes_progress": "框架按原上限选定2项消融、3项额外基线，连同2个固定对照共7任务。首个control_best已在隔离GPU评价中通过(correct=true)，得分0.8194708063与原最佳方案一致；当前核验代理仍运行，尚无完整消融结果。最近有效工具活动2026-10-17T12:51:36.700000+08:00。未发现新运行错误。",
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json",
+    "recovered_tool_errors": [
+      {
+        "timestamp": 1792213250444,
+        "tool": "bash",
+        "exit": 2,
+        "kind": "optional_memory_files_absent_during_probe",
+        "blocking": false,
+        "recovery": "Subsequent command found memory-log helper and program_0 and exited0",
+        "following_exit": 0
+      }
+    ],
+    "past_ten_minutes_progress": "首个control_best任务于12:58:48完成，1次评价且9/9审查通过；现在执行第2个任务baseline_reference。最近有效工具活动2026-10-17T13:01:04.989000+08:00。本轮无新增GPU训练；可选memory文件探测返回2后，代理改用已存在的helper并正常继续，无新阻塞。",
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_130149.json",
     "sealed_final_qualified": false,
     "sealed_final_hashes_unchanged": true
   },
@@ -219,12 +230,15 @@
         "finished_at": "2026-10-17T04:45:06.339212+00:00",
         "returncode": 0,
         "execution_boundary": "brokered_search",
-        "status": "host_evaluation_completed_verifier_pending"
+        "status": "completed_host_evaluation_and_native_rubric_pass",
+        "rubric_passed": 9,
+        "rubric_total": 9,
+        "native_completed_at": "2026-10-17T04:58:48.212803+00:00"
       },
       "frozen_tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
       "scientific_evaluators_changed": false,
       "sealed_final_repeated": false,
-      "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json"
+      "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_130149.json"
     }
   },
   "monitor_hint": {
@@ -496,7 +510,7 @@
     "purpose": "Tiny endpoint diagnostic without scientific data; not experiment progress",
     "interpretation": "The endpoint responded and the actual review produced new tool actions; no observed connection failure"
   },
-  "substage": "control_host_evaluation_completed_verification_running",
+  "substage": "control_completed_baseline_reference_running",
   "publication_recovery": {
     "original_exit_code": 1,
     "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092",
@@ -670,10 +684,10 @@
     "duration_samples": null,
     "purpose": "Same two GPUs during scoped ablation recovery; stop when this job PID identity stops",
     "old_trace_preserved": true,
-    "verified_at": "2026-10-17T12:53:07.610809+08:00",
+    "verified_at": "2026-10-17T13:01:49.943984+08:00",
     "last_rows": [
-      "2026/10/17 12:53:07.591, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-      "2026/10/17 12:53:07.592, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+      "2026/10/17 13:01:50.126, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+      "2026/10/17 13:01:50.127, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
     ],
     "peaks_since_sampler_start": {
       "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
@@ -690,7 +704,7 @@
       }
     },
     "running": true,
-    "bytes": 159130
+    "bytes": 231130
   },
   "formal_experiment_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
   "first_candidate_result": {
@@ -916,7 +930,7 @@
       true
     ],
     "scientific_claim_qualified": false,
-    "files_reverified_unchanged_at": "2026-10-17T12:52:49.330671+08:00"
+    "files_reverified_unchanged_at": "2026-10-17T13:02:15.609716+08:00"
   },
   "ablation_recoveries": [
     {
@@ -964,7 +978,7 @@
       "scientific_protocol_changed": false,
       "sealed_final_repeated": false,
       "progress": {
-        "checked_at": "2026-10-17T12:53:07.610809+08:00",
+        "checked_at": "2026-10-17T13:01:49.943984+08:00",
         "completed_stage": "select_variants_and_materialize_workspaces",
         "current_stage": "execute_variants",
         "proposed_candidates": 8,
@@ -992,11 +1006,17 @@
           "finished_at": "2026-10-17T04:45:06.339212+00:00",
           "returncode": 0,
           "execution_boundary": "brokered_search",
-          "status": "host_evaluation_completed_verifier_pending"
+          "status": "completed_host_evaluation_and_native_rubric_pass",
+          "rubric_passed": 9,
+          "rubric_total": 9,
+          "native_completed_at": "2026-10-17T04:58:48.212803+00:00"
         },
-        "latest_agent_activity": "2026-10-17T12:51:36.700000+08:00",
-        "completed_variant_receipts": 0,
-        "rubric_aggregate": "Agent entries are provisional while verifier runs; host canonicalizes overall_pass after agent exit"
+        "latest_agent_activity": "2026-10-17T13:01:04.989000+08:00",
+        "completed_variant_receipts": 1,
+        "rubric_aggregate": "Control canonical host-owned overall_pass=true after verifier exit; current baseline pending",
+        "current_variant": "baseline_reference",
+        "current_variant_index": 2,
+        "current_variant_host_evaluation_available": false
       }
     }
   ],
