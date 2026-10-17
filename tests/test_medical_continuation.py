@@ -29,6 +29,35 @@ def test_completed_verified_draft_can_continue_with_original_protocol():
     assert not any(v.startswith(('investigation.execution.','ablations.execution.','final.')) for v in values)
 
 
+def test_uncapped_model_wait_changes_only_agent_watchdogs():
+    record={'budget_authorization':{'automatic_recovery_authorized':True,
+                                   'overall_time_limit_seconds':None,
+                                   'overall_model_call_limit':None}}
+    values=M['agent_wait_overrides'](record)
+    assert set(values)=={'investigation.execution.idea_timeout_seconds=7200',
+                        'investigation.execution.run_timeout_seconds=7200'}
+    # The medical preset keeps all fixed scientific work and evaluator deadlines.
+    from omegaconf import OmegaConf
+    cfg=OmegaConf.load(Path(__file__).resolve().parents[1]/'configs/preset/medical_unlearning.yaml')
+    assert cfg.investigation.execution.harness_evaluation_timeout_seconds==2100
+    assert cfg.investigation.execution.max_idea_cycles==2
+    assert cfg.investigation.execution.max_program_evals_per_attempt==1
+    assert cfg.ablations.execution.max_evals_per_variant==1
+    assert cfg.final.timeout_seconds==3900
+
+
+@pytest.mark.parametrize('change',['authorization','time_limit','call_limit','missing_time','missing_calls'])
+def test_model_watchdog_override_requires_explicit_uncapped_authorization(change):
+    auth={'automatic_recovery_authorized':True,'overall_time_limit_seconds':None,
+          'overall_model_call_limit':None}
+    if change=='authorization':auth['automatic_recovery_authorized']=False
+    if change=='time_limit':auth['overall_time_limit_seconds']=3600
+    if change=='call_limit':auth['overall_model_call_limit']=10
+    if change=='missing_time':auth.pop('overall_time_limit_seconds')
+    if change=='missing_calls':auth.pop('overall_model_call_limit')
+    assert M['agent_wait_overrides']({'budget_authorization':auth})==[]
+
+
 @pytest.mark.parametrize('change', ['', 'active', 'success', 'unknown_exit', 'research_exists',
                                    'other_phase', 'different_failure', 'missing_source'])
 def test_initialization_retry_preserves_research_and_requires_a_qualified_source(change):

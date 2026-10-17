@@ -60,6 +60,21 @@ def overrides(source: str, image: str) -> list[str]:
             'container.image=' + image]
 
 
+def agent_wait_overrides(record: dict) -> list[str]:
+    """Allow slow model calls without changing scientific evaluation budgets.
+
+    These are per-agent watchdogs, not an overall study limit. A stopped
+    watchdog can be resumed under the user's uncapped recovery authorization.
+    """
+    authorization = record.get('budget_authorization', {})
+    if (authorization.get('automatic_recovery_authorized')
+            and authorization.get('overall_time_limit_seconds', 'missing') is None
+            and authorization.get('overall_model_call_limit', 'missing') is None):
+        return ['investigation.execution.idea_timeout_seconds=7200',
+                'investigation.execution.run_timeout_seconds=7200']
+    return []
+
+
 def require_initialization_retry(record: dict, state: dict, inventory: dict) -> None:
     """Only a stopped startup failure with no usable research work can restart."""
     entries=set(inventory['entries'])
@@ -139,7 +154,8 @@ print(json.dumps({'entries':[p.name for p in root.iterdir()],
         launcher['sync'](directory); launcher['stage_auth'](directory)
         remote('mkdir -p ' + shlex.quote(results) + '\n')
         # Pin the exact image that passed qualification; no floating-tag switch.
-        cmd = launcher['args_for']('run', overrides(source,verification['image_id']),directory)
+        cmd = launcher['args_for']('run', overrides(source,verification['image_id'])
+                                   + agent_wait_overrides(record),directory)
         cmd += ['run_id='+job,'paths.run_dir='+results]
         require_ready(inspect(source_job), verification)
         if args.retry_initialization:
