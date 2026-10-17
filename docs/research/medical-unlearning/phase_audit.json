@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T12:04:08.152814+08:00",
+  "checked_at": "2026-10-17T12:12:25.445176+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -47,7 +47,7 @@
       "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
     },
     "investigation": {
-      "status": "cycle_2_idea_generation_first_evaluation_completed",
+      "status": "cycle_2_candidate_implementation_first_evaluation_completed",
       "logs_exist": true,
       "job_id": "20261017_102054_544b6a4c",
       "private_inputs_present": true,
@@ -61,18 +61,20 @@
       "source_checkpoint_preserved": true,
       "proposal_draft_available": true,
       "accepted_idea_available": true,
-      "proposal_draft_bytes": 33439,
-      "accepted_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent",
+      "proposal_draft_bytes": 33438,
+      "accepted_idea_id": "cycle02_memorization_selective_ascent_anytime_boundary_retain",
       "target_rubrics_count": 7,
       "candidate_implementation_available": true,
-      "method_attempt_in_progress": false,
+      "method_attempt_in_progress": true,
       "cycle": 2,
       "method_attempts_completed": 1,
       "first_candidate_correct": true,
       "first_candidate_score": 0.8194708063004026,
       "proposal_draft_cycle": 2,
-      "current_cycle_proposal_accepted": false,
-      "current_cycle_method_implementation_started": false
+      "current_cycle_proposal_accepted": true,
+      "current_cycle_method_implementation_started": true,
+      "accepted_ideas": 2,
+      "current_cycle_gpu_training_observed": false
     },
     "ablations": {
       "status": "not_started",
@@ -170,11 +172,11 @@
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "first_new_method_development_evaluation_completed",
-  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_resume_20261017_110416.csv",
+  "gpu_stage": "cycle2_candidate_implementation_gpu_idle",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "First new-method development evaluation completed; currently cycle2 idea generation",
+    "current_purpose": "First new-method development evaluation completed; currently cycle2 candidate implementation, no cycle2 GPU training yet",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -182,13 +184,13 @@
     "first_method_evaluation_finished": "2026-10-17T11:29:54.923+08:00"
   },
   "scientific_results_scope": "Source baseline qualification and entry baseline plus first new-method investigation evaluation (search plane, seed1701); no ablation, sealed final or paper results",
-  "last_effective_activity": "2026-10-17T12:03:39.877000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_120408.json",
+  "last_effective_activity": "2026-10-17T12:12:06.934000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_121225.json",
   "new_error_events": [],
   "sampling_maintenance": {
-    "status": "continuous_successor_waiting_for_existing_sampler",
+    "status": "continuous_sampler_handoff_live_verified",
     "old_trace_ended": "2026-10-17T10:55:02+08:00",
-    "new_sampler_pid": 2615843,
+    "new_sampler_pid": 2729096,
     "old_trace_preserved": true,
     "duplicate_prevention": "process check plus exclusive sampler flock",
     "same_two_assigned_gpus_only": true,
@@ -200,18 +202,30 @@
       "existing_sampler_pid": 2615843,
       "purpose": "Wait for the existing sampler lock, then sample the same two GPUs while the current job identity is alive; no fixed overall duration",
       "verification": {
-        "checked_at": "2026-10-17T12:04:07.730102+08:00",
+        "checked_at": "2026-10-17T12:12:25.002326+08:00",
         "state": {
           "pid": 2729096,
-          "status": "waiting_for_existing_sampler",
-          "updated_at_unix": 1792209824.281639,
+          "status": "sampling",
+          "updated_at_unix": 1792210019.3870232,
           "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.csv"
         },
         "new_process_alive": true,
-        "old_process_alive": true,
-        "old_csv_bytes": 494963,
-        "new_csv_exists": false,
-        "new_csv_bytes": 0,
+        "old_process_alive": false,
+        "old_csv_bytes": 518579,
+        "new_csv_exists": true,
+        "new_csv_bytes": 44928,
+        "new_csv_last_rows": [
+          "2026/10/17 12:12:24.294, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+          "2026/10/17 12:12:24.295, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+        ],
+        "observed_gpu_uuids": [
+          "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113",
+          "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f"
+        ],
+        "lock_owned": true,
+        "watcher_processes": [
+          "2729096 python3 /home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_continuous_20261017_120344_ce18c7.py"
+        ],
         "helper_stderr": ""
       },
       "preparation_attempt_error": {
