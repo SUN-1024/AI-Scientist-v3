@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T12:42:23.784908+08:00",
+  "checked_at": "2026-10-17T12:53:07.610809+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -82,23 +82,39 @@
       "selected_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent"
     },
     "ablations": {
-      "status": "running_recovery_selection",
+      "status": "running_recovery_control_verification",
       "logs_exist": true,
       "original_status": "degraded_infrastructure_failure",
       "original_exit_code": 4,
       "original_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations",
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
-      "host_scoring_started": false,
-      "latest_agent_activity": "2026-10-17T12:40:08.772000+08:00",
-      "current_stage": "select_variants",
+      "host_scoring_started": true,
+      "latest_agent_activity": "2026-10-17T12:51:36.700000+08:00",
+      "current_stage": "execute_variants",
       "generation_completed": true,
       "proposed_candidates": 8,
       "proposed_counts": {
         "ablation": 5,
         "baseline": 3
       },
-      "accepted_candidates": null
+      "accepted_candidates": 5,
+      "accepted_counts": {
+        "ablation": 2,
+        "baseline": 3
+      },
+      "fixed_controls": 2,
+      "total_variant_workspaces": 7,
+      "control_host_evaluation": {
+        "correct": true,
+        "score": 0.8194708063004026,
+        "elapsed_seconds": 41.965879891999066,
+        "finished_at": "2026-10-17T04:45:06.339212+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "status": "host_evaluation_completed_verifier_pending"
+      },
+      "completed_variant_receipts": 0
     },
     "final_evaluation": {
       "status": "completed_not_qualified",
@@ -203,22 +219,22 @@
     },
     {
       "error": "Generation APIError401 No API-key provided",
-      "status": "fixed_and_verified_at_configuration_boundary",
-      "evidence": "41 Linux checks; actual selected provider key present and agent tools completed; actual native evaluator process has the same two-GPU selector"
+      "status": "fixed_and_live_execution_verified",
+      "evidence": "Native generation and selection completed; control_best isolated host GPU evaluation exited0 correct=true in41.97s using approved two-GPU broker; score reproduced original winner"
     },
     {
       "error": "Variants infrastructure failure: gpu_allocation_invalid",
-      "status": "fixed_and_verified_at_configuration_boundary",
-      "evidence": "41 Linux checks; actual selected provider key present and agent tools completed; actual native evaluator process has the same two-GPU selector"
+      "status": "fixed_and_live_execution_verified",
+      "evidence": "Native generation and selection completed; control_best isolated host GPU evaluation exited0 correct=true in41.97s using approved two-GPU broker; score reproduced original winner"
     }
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "ablations_candidate_generation_after_sealed_final",
+  "gpu_stage": "ablations_control_best_host_eval_completed_verifier_running",
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_ablations_20261017_123355.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "Recovered ablations is selecting proposed variants; no new GPU scoring since the completed development/final runs",
+    "current_purpose": "Recovered ablations control_best completed real GPU evaluation; verifier active, other variants pending",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
@@ -228,8 +244,8 @@
     "sealed_final_completed": "2026-10-17T12:19:23.248801+08:00"
   },
   "scientific_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
-  "last_effective_activity": "2026-10-17T12:40:08.772000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_124223.json",
+  "last_effective_activity": "2026-10-17T12:51:36.700000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "scoped_sampler_restarted_after_ablation_recovery",

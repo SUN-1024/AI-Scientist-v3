@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-17T12:42:23.784908+08:00",
+  "updated_at": "2026-10-17T12:53:07.610809+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
@@ -26,27 +26,27 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T12:42:23.784908+08:00",
-    "status": "ablations_generated8_selection_running",
+    "checked_at": "2026-10-17T12:53:07.610809+08:00",
+    "status": "ablations_selected5_control_host_eval_pass_verification_running",
     "exit_code": null,
     "restart_performed": false,
     "repair_applied": false,
     "gpu_training_observed": true,
-    "gpu_training_scope": "Previous development/final runs completed; no GPU scoring in recovered ablations yet",
+    "gpu_training_scope": "Recovered ablations control_best evaluated on both assigned GPUs; variants not yet completed",
     "gpu_currently_idle": true,
-    "latest_effective_activity": "2026-10-17T12:40:08.772000+08:00",
+    "latest_effective_activity": "2026-10-17T12:51:36.700000+08:00",
     "latest_effective_activity_detail": {
-      "timestamp": 1792212008772,
+      "timestamp": 1792212696700,
       "tool": "read",
       "status": "completed",
-      "title": "workspace/change_summary.json",
-      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-16He89/agent_opencode.jsonl"
+      "title": "workspace/.opencode/skills/memory-log/scripts/append_memory.py",
+      "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-e2d316ed4f8f4414a45054c33def8af2/agentic-variant-cost-WxHFUs/agent_opencode.jsonl"
     },
     "source_validation_rechecked": true,
     "new_wrapper_errors": [],
     "new_agent_errors": [],
-    "past_ten_minutes_progress": "恢复后的方案生成阶段正常结束（7分39秒），提出8项建议：5项消融、3项额外基线。当前原生框架正在按原上限筛选；最新有效工具活动12:40:08为读取生成摘要。尚无消融GPU评分或新实验结果，未发现新错误。",
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_124223.json",
+    "past_ten_minutes_progress": "框架按原上限选定2项消融、3项额外基线，连同2个固定对照共7任务。首个control_best已在隔离GPU评价中通过(correct=true)，得分0.8194708063与原最佳方案一致；当前核验代理仍运行，尚无完整消融结果。最近有效工具活动2026-10-17T12:51:36.700000+08:00。未发现新运行错误。",
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json",
     "sealed_final_qualified": false,
     "sealed_final_hashes_unchanged": true
   },
@@ -177,7 +177,7 @@
       "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json"
     },
     "ablations_handoff": {
-      "status": "applied_authentication_live_verified_gpu_selector_verified_scoring_pending",
+      "status": "applied_authentication_and_host_gpu_scoring_live_verified",
       "initial_errors": [
         "Generation APIError401 No API-key provided",
         "Variants infrastructure failure: gpu_allocation_invalid"
@@ -212,10 +212,19 @@
           "VARIANT_EVAL_SANDBOX_GPUS": "\"device=GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f,GPU-340679f6-cccd-c15e-7c16-a23f11e3e113\""
         }
       ],
-      "host_scoring_live_validation": "pending planned stage5; do not count generation as GPU scoring",
+      "host_scoring_live_validation": {
+        "correct": true,
+        "score": 0.8194708063004026,
+        "elapsed_seconds": 41.965879891999066,
+        "finished_at": "2026-10-17T04:45:06.339212+00:00",
+        "returncode": 0,
+        "execution_boundary": "brokered_search",
+        "status": "host_evaluation_completed_verifier_pending"
+      },
       "frozen_tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
       "scientific_evaluators_changed": false,
-      "sealed_final_repeated": false
+      "sealed_final_repeated": false,
+      "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_125307.json"
     }
   },
   "monitor_hint": {
@@ -487,7 +496,7 @@
     "purpose": "Tiny endpoint diagnostic without scientific data; not experiment progress",
     "interpretation": "The endpoint responded and the actual review produced new tool actions; no observed connection failure"
   },
-  "substage": "selecting_ablation_candidates",
+  "substage": "control_host_evaluation_completed_verification_running",
   "publication_recovery": {
     "original_exit_code": 1,
     "directory": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092",
@@ -661,26 +670,27 @@
     "duration_samples": null,
     "purpose": "Same two GPUs during scoped ablation recovery; stop when this job PID identity stops",
     "old_trace_preserved": true,
-    "verified_at": "2026-10-17T12:41:51.889563+08:00",
+    "verified_at": "2026-10-17T12:53:07.610809+08:00",
     "last_rows": [
-      "2026/10/17 12:41:51.588, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-      "2026/10/17 12:41:51.589, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+      "2026/10/17 12:53:07.591, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+      "2026/10/17 12:53:07.592, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
     ],
     "peaks_since_sampler_start": {
       "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-        "memory_mib": 0,
-        "utilization_percent": 0,
-        "active_samples": 0,
-        "last_active": null
+        "memory_mib": 592.0,
+        "utilization_percent": 28.0,
+        "active_samples": 38,
+        "last_active": "2026/10/17 12:45:05.881"
       },
       "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-        "memory_mib": 0,
-        "utilization_percent": 0,
-        "active_samples": 0,
-        "last_active": null
+        "memory_mib": 404.0,
+        "utilization_percent": 10.0,
+        "active_samples": 34,
+        "last_active": "2026/10/17 12:45:05.882"
       }
     },
-    "running": true
+    "running": true,
+    "bytes": 159130
   },
   "formal_experiment_results_scope": "Two development-search candidate episodes(seed1701), selected cycle1 candidate, one sealed final invocation(seeds2701/2702) not qualified; ablations recovery incomplete and paper blocked",
   "first_candidate_result": {
@@ -906,7 +916,7 @@
       true
     ],
     "scientific_claim_qualified": false,
-    "files_reverified_unchanged_at": "2026-10-17T12:42:23.784908+08:00"
+    "files_reverified_unchanged_at": "2026-10-17T12:52:49.330671+08:00"
   },
   "ablation_recoveries": [
     {
@@ -954,16 +964,39 @@
       "scientific_protocol_changed": false,
       "sealed_final_repeated": false,
       "progress": {
-        "checked_at": "2026-10-17T12:42:23.784908+08:00",
-        "completed_stage": "generate_candidates",
-        "current_stage": "select_variants",
+        "checked_at": "2026-10-17T12:53:07.610809+08:00",
+        "completed_stage": "select_variants_and_materialize_workspaces",
+        "current_stage": "execute_variants",
         "proposed_candidates": 8,
-        "proposed_counts": {
-          "ablation": 5,
+        "accepted_candidates": 5,
+        "accepted_counts": {
+          "ablation": 2,
           "baseline": 3
         },
-        "accepted_candidates": null,
-        "host_scoring_started": false
+        "fixed_controls": 2,
+        "total_variant_workspaces": 7,
+        "variant_ids": [
+          "ablation_no_boundary_anchor",
+          "ablation_no_orthogonalization",
+          "baseline_boundary_retain_only",
+          "baseline_gradient_ascent",
+          "baseline_joint_neggrad",
+          "baseline_reference",
+          "control_best"
+        ],
+        "host_scoring_started": true,
+        "control_host_evaluation": {
+          "correct": true,
+          "score": 0.8194708063004026,
+          "elapsed_seconds": 41.965879891999066,
+          "finished_at": "2026-10-17T04:45:06.339212+00:00",
+          "returncode": 0,
+          "execution_boundary": "brokered_search",
+          "status": "host_evaluation_completed_verifier_pending"
+        },
+        "latest_agent_activity": "2026-10-17T12:51:36.700000+08:00",
+        "completed_variant_receipts": 0,
+        "rubric_aggregate": "Agent entries are provisional while verifier runs; host canonicalizes overall_pass after agent exit"
       }
     }
   ],

@@ -1,0 +1,64 @@
+{
+  "controls": [
+    "control_best"
+  ],
+  "accepted": [
+    {
+      "variant_id": "ablation_no_boundary_anchor",
+      "title": "Ablation: remove the boundary-anchored retain fidelity term",
+      "kind": "ablation",
+      "hypothesis": "The weight-normalised 1-pixel boundary-band term (boundary_anchored_loss, BOUNDARY_WEIGHT=2.0, BOUNDARY_DILATE=3) is what lifts heldout_boundary_f1 and heldout_macro_dice; without it, utility components of combined_score drop while forget_retrain_probability_mae stays roughly unchanged.",
+      "source": "generated"
+    },
+    {
+      "variant_id": "ablation_no_orthogonalization",
+      "title": "Ablation: remove PCGrad-style ascent/retain orthogonalisation",
+      "kind": "ablation",
+      "hypothesis": "Projecting out the retain-conflicting component of the ascent gradient (orthogonalize) is what prevents forgetting from cancelling retain-descent directions; with raw ascent gradients, heldout utility degrades and forget-patient divergence from clean Retrain becomes damage-driven rather than targeted.",
+      "source": "generated"
+    },
+    {
+      "variant_id": "baseline_gradient_ascent",
+      "title": "Baseline: pure gradient ascent unlearning on forget patients",
+      "kind": "baseline",
+      "hypothesis": "Generic gradient ascent - the naive unlearning extreme named in the task hypothesis and absent from the evaluator-owned comparison set - destroys forget-patient predictions without approximating clean Retrain and leaks damage into heldout utility, yielding a much lower combined_score than BAMOA.",
+      "source": "generated"
+    },
+    {
+      "variant_id": "baseline_joint_neggrad",
+      "title": "Baseline: plain joint-step NegGrad+ on the same anchor/RPC skeleton",
+      "kind": "baseline",
+      "hypothesis": "With the identical alternating-RPC structure and cached retain anchor but the plain NegGrad+ composition parameter.grad = retain_grad - 0.1 * ascent_grad (no boundary term, no orthogonalisation, no gate, no damping, no norm clamp), performance should land near the evaluator's split-step NegGrad+ and clearly below BAMOA, showing the gains come from the protections and boundary objective rather than the joint/anchor structure itself.",
+      "source": "generated"
+    },
+    {
+      "variant_id": "baseline_boundary_retain_only",
+      "title": "Baseline: boundary-anchored retain-only fine-tuning (no forgetting term)",
+      "kind": "baseline",
+      "hypothesis": "If BAMOA's benefit were merely extra retain training under its boundary objective (Alternative 2), then boundary-anchored retain-only fine-tuning - the exact degenerate fallback BAMOA's own docstring describes - would match its combined_score; we expect it to preserve heldout utility but barely move forget-patient predictions away from Original, so forget_retrain_probability_mae stays near the Original's and the 0.5-weight MAE term keeps combined_score below BAMOA's.",
+      "source": "generated"
+    }
+  ],
+  "rejected": [
+    {
+      "variant_id": "ablation_no_memorization_gate",
+      "title": "Ablation: remove the self-closing memorization gate (gate fixed at 1)",
+      "kind": "ablation",
+      "reason": "ablation cap reached (2)"
+    },
+    {
+      "variant_id": "ablation_no_sensitivity_damping",
+      "title": "Ablation: remove element-wise sensitivity damping (uniform damping = 1)",
+      "kind": "ablation",
+      "reason": "ablation cap reached (2)"
+    },
+    {
+      "variant_id": "ablation_no_ascent_norm_clamp",
+      "title": "Ablation: remove the ascent-gradient norm clamp (ascent_scale fixed at 1)",
+      "kind": "ablation",
+      "reason": "ablation cap reached (2)"
+    }
+  ],
+  "num_accepted": 5,
+  "num_rejected": 3
+}
