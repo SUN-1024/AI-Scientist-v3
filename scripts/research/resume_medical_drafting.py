@@ -54,6 +54,7 @@ def runner_text(launcher: dict, directory: str, command: list[str]) -> str:
             + 'flock -n 9 || exit 73\n'
             + 'export AGENTIC_TASK_RUNTIME_CACHE_HANDOFF=1\n'
             + 'export TASK_REVIEW_PACKAGE_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple\n'
+            + 'export AGENTIC_TASK_PACKAGE_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple\n'
             + 'export AGENT_CONTAINER_GPUS=' + shlex.quote(selector) + '\n'
             + shlex.join(command) + '\n')
 

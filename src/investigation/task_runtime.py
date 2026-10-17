@@ -22,6 +22,7 @@ from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from src.final_evaluation.candidate_broker import (
     CandidateBroker,
@@ -588,6 +589,7 @@ def _docker_command(
     search_evaluation: bool = False,
     draft_smoke: bool = False,
     qualification: bool = False,
+    package_index_url: str | None = None,
 ) -> list[str]:
     command = [
         "docker",
@@ -656,6 +658,13 @@ def _docker_command(
                 "PIP_NO_CACHE_DIR=1",
             )
         )
+        if package_index_url:
+            index = urlsplit(package_index_url)
+            if (index.scheme != "https" or not index.hostname
+                    or index.username is not None or index.password is not None
+                    or index.query or index.fragment):
+                raise ValueError("Task package index must be a public HTTPS URL")
+            command.extend(("--env", "PIP_INDEX_URL=" + package_index_url))
     if results_dir is not None:
         command.extend(("--volume", f"{results_dir}:/results:rw"))
     if cuda_visible_devices is not None:
@@ -2238,6 +2247,7 @@ def _prepare_task_runtime(
                     network=container_network,
                     runtime_dir=build_root,
                     runtime_writable=True,
+                    package_index_url=base_environment.get("AGENTIC_TASK_PACKAGE_INDEX"),
                     cid_path=tooling_build_cid,
                     inner_command=[
                         "/runtime/.venv/bin/python",
@@ -2272,6 +2282,7 @@ def _prepare_task_runtime(
                     network=container_network,
                     runtime_dir=build_root,
                     runtime_writable=True,
+                    package_index_url=base_environment.get("AGENTIC_TASK_PACKAGE_INDEX"),
                     cid_path=tooling_install_cid,
                     inner_command=[
                         "/runtime/.venv/bin/python",
@@ -2309,6 +2320,7 @@ def _prepare_task_runtime(
                         network=container_network,
                         runtime_dir=build_root,
                         runtime_writable=True,
+                        package_index_url=base_environment.get("AGENTIC_TASK_PACKAGE_INDEX"),
                         cid_path=install_cid,
                         inner_command=[
                             "/runtime/.venv/bin/python",

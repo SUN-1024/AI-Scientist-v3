@@ -321,6 +321,23 @@ def _container_agent_shell(command: str, **environment: str) -> subprocess.Compl
 # --- contracted baseline classification -----------------------------------------------------
 
 
+@pytest.mark.parametrize("index", [
+    "http://packages.example/simple", "https://user:secret@packages.example/simple",
+    "https://packages.example/simple?token=secret", "https://packages.example/simple#secret",
+])
+def test_package_mirror_rejects_insecure_or_credentialed_urls(tmp_path, index):
+    with pytest.raises(ValueError, match="public HTTPS"):
+        _docker_command_for(tmp_path, runtime_writable=True, package_index_url=index)
+
+
+def test_package_mirror_is_limited_to_writable_install_containers(tmp_path):
+    mirror = "https://pypi.tuna.tsinghua.edu.cn/simple"
+    install = _docker_command_for(tmp_path, runtime_writable=True, package_index_url=mirror)
+    evaluate = _docker_command_for(tmp_path, package_index_url=mirror)
+    assert "PIP_INDEX_URL=" + mirror in install
+    assert not any(arg.startswith("PIP_INDEX_URL=") for arg in evaluate)
+
+
 def test_docker_commands_expose_opt_in_markers_mask_snapshot_and_fit_socket_limit(tmp_path: Path) -> None:
     # Former: task broker socket path fits the Linux unix-socket limit for both phases.
     for phase in ("runtime-search", "final-smoke"):
@@ -686,7 +703,8 @@ def test_prepare_runtime_creates_image_venv_and_installs_pinned_requirements(bas
         containerize=True,
         container_image="evaluator:latest",
         run=fake_run,
-        base_environment={"PATH": "/bin", "DEEPSEEK_API_KEY": "secret"},
+        base_environment={"PATH": "/bin", "DEEPSEEK_API_KEY": "secret",
+                          "AGENTIC_TASK_PACKAGE_INDEX": "https://pypi.tuna.tsinghua.edu.cn/simple"},
     )
     assert all(command[0] == "docker" for command in commands)
     assert any("--only-binary=:all:" in command for command in commands)
@@ -700,6 +718,11 @@ def test_prepare_runtime_creates_image_venv_and_installs_pinned_requirements(bas
     assert all("PIP_NO_CACHE_DIR=1" in command for command in writable_runtime_commands)
     assert "TMPDIR=/runtime/.tmp" not in evaluation
     assert "PIP_NO_CACHE_DIR=1" not in evaluation
+    pip_commands = [command for command in writable_runtime_commands if "pip" in command]
+    assert pip_commands
+    assert all("PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple" in command
+               for command in pip_commands)
+    assert not any(arg.startswith("PIP_INDEX_URL=") for arg in evaluation)
     assert "CUDA_VISIBLE_DEVICES=" in evaluation
     assert "--gpus" not in evaluation
     assert not any("DEEPSEEK_API_KEY" in argument for command in commands for argument in command)
