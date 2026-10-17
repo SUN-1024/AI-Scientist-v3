@@ -153,6 +153,11 @@ def main() -> None:
                + shlex.quote(archive + '/stopped-exit-code') + '\nnohup bash ' + shlex.quote(path)
                + ' > run.log 2>&1 < /dev/null &\necho $! > pid\n')
         record['status'] = 'running_investigation'
+        record['substage'] = 'idea_generation_cycle_' + str(witness['current_cycle'] + 1)
+        record['next_action'] = {'requires_user_decision': False,
+                                'action': 'Monitor the resumed investigation and original downstream phases. '
+                                          'If investigation fails again, inspect its retained framework checkpoint '
+                                          'with resume_medical_investigation.py before --resume; do not redraft.'}
         record['last_monitor_check'] = {'checked_at': now, 'status': 'resumed_existing_investigation_checkpoint',
                                         'restart_performed': True, 'repair_applied': True,
                                         'prior_exit_code': state['exit_code'], 'attempt_id': attempt}

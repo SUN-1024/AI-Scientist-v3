@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-17T10:34:40.430682+08:00",
+  "updated_at": "2026-10-17T10:58:21.994955+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
@@ -26,48 +26,39 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T10:34:40.430682+08:00",
-    "status": "running_idea_generation_source_inspection",
-    "restart_performed": false,
-    "repair_applied": false,
-    "metadata_corrected": true,
+    "checked_at": "2026-10-17T10:58:21.994955+08:00",
+    "status": "checkpoint_resumed_with_live_verified_model_watchdogs",
+    "restart_performed": true,
+    "repair_applied": true,
     "exit_code": null,
+    "prior_exit_code": 2,
+    "prior_idea_exit_codes": [
+      124,
+      124
+    ],
+    "actual_model_watchdog_seconds": 7200,
+    "actual_host_scoring_budget_seconds": 2100,
     "gpu_training_observed": true,
-    "gpu_purpose": "Investigation starting candidate baseline; no new-method training yet",
-    "gpu_peaks": {
-      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
-        "peak_memory_mib": 592.0,
-        "peak_utilization_percent": 17.0,
-        "first_activity": "2026/10/17 10:24:06.627",
-        "last_activity": "2026/10/17 10:24:45.298",
-        "active_samples": 38
-      },
-      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
-        "peak_memory_mib": 398.0,
-        "peak_utilization_percent": 5.0,
-        "first_activity": "2026/10/17 10:24:10.815",
-        "last_activity": "2026/10/17 10:24:46.344",
-        "active_samples": 35
-      }
-    },
-    "current_gpu_activity": "Both assigned A40s currently idle",
+    "gpu_currently_idle": true,
+    "new_method_training_started": false,
+    "proposal_draft_available": true,
+    "accepted_idea_available": false,
     "new_method_results_available": false,
-    "latest_effective_activity": "2026-10-17T10:34:21.404000+08:00",
     "latest_effective_activity_detail": {
-      "timestamp": 1792204461404,
+      "timestamp": 1792205865215,
       "tool": "read",
       "status": "completed",
-      "title": "workspace/.baseline-seed-xg9moos2/program_0/src/program.py"
+      "title": "workspace/.baseline-seed-lhdiklif/program_0/src/program.py"
     },
     "new_wrapper_errors": [],
     "new_agent_errors": [],
-    "source_validation_rechecked": true,
-    "local_evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_103440.json",
-    "past_ten_minutes_progress": "Starting candidate completed44.6s at10:24:47; idea agent read history through10:25:40 and inspected baseline program source at10:34:21; no recorded idea or new-method result yet"
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json",
+    "past_ten_minutes_progress": "Proposal and rubrics retained; two900s timeouts recorded; genuine checkpoint resumed with7200s model watchdog and validated baseline reused",
+    "latest_effective_activity": "2026-10-17T10:57:45.215000+08:00"
   },
   "next_action": {
     "requires_user_decision": false,
-    "action": "Monitor each downstream phase; diagnose and repair actual failures; preserve scientific protocol and the two assigned A40s"
+    "action": "Monitor resumed investigation and original downstream phases. If investigation fails, inspect retained framework checkpoint with resume_medical_investigation.py before --resume; do not redraft."
   },
   "previous_execution": {
     "job_id": "20261016_221356_d7251131",
@@ -173,6 +164,23 @@
       "validation": "62 recovery/continuation/container tests passed on server Linux; shell syntax passed",
       "scientific_tooling_sha256_unchanged": "f280b40fae21e60e74ebc909b89a290b0678783acf9a3d5e2f5bee543ca231b5",
       "active_task_restarted": false
+    },
+    "model_wait_timeout": {
+      "observed_at": "2026-10-17T10:49:07.469238+08:00",
+      "failure_time": "2026-10-17T10:39:57+08:00",
+      "failure": "First idea-generation attempt exceeded the pilot900s model watchdog and exited124",
+      "native_recovery": "Framework started generation attempt2 in the same cycle at10:39:57",
+      "repair": "Only model-agent watchdogs are7200s under existing uncapped authorization; scientific evaluation budgets and original2cycles are unchanged",
+      "single_call_watchdog_seconds": 7200,
+      "overall_study_limit_seconds": null,
+      "deployment": "Applied via original frozen-job checkpoint resume at10:56:36; actual run_config confirms7200s model watchdogs and2100s host scoring",
+      "checkpoint_launcher": "python3 scripts/research/resume_medical_investigation.py",
+      "checkpoint_resume": "python3 scripts/research/resume_medical_investigation.py --resume",
+      "guard": "Current run/container must stop with a failed exit; matching scientific source, unchanged private evaluators, original trusted cycle budget and usable framework checkpoint required; all old logs retained",
+      "validation": "63 targeted checks passed on both local Mac and server40 Linux; real active-run inspection refused overlap and found a valid original0/2checkpoint",
+      "tooling_sha256_unchanged": "21eb6d2b8464d2094fcc893d11d16e044096eb0af07e1f47b9175a0eb032f14a",
+      "status": "applied_and_live_verified",
+      "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json"
     }
   },
   "monitor_hint": {
@@ -529,9 +537,42 @@
     "starting_candidate_score": 0.8177455611478867,
     "regular_search_feasibility_field": null,
     "feasibility_note": "Regular search does not emit qualification feasibility; source production qualification was feasible=true and current entry completed in44.6s within1800s",
-    "idea_agent_latest_observed_tool": "2026-10-17T10:34:21.404000+08:00 workspace/.baseline-seed-xg9moos2/program_0/src/program.py",
+    "idea_agent_latest_observed_tool": {
+      "timestamp": 1792205865215,
+      "tool": "read",
+      "status": "completed",
+      "title": "workspace/.baseline-seed-lhdiklif/program_0/src/program.py"
+    },
     "agent_container_job_label": "20261017_102054_544b6a4c",
     "new_method_results_available": false,
-    "final_results_available": false
-  }
+    "final_results_available": false,
+    "proposal_draft_available": true,
+    "accepted_idea_available": false
+  },
+  "investigation_recoveries": [
+    {
+      "attempt_id": "20261017_105634_32f1e7b4",
+      "job_id": "20261017_102054_544b6a4c",
+      "prior_exit_code": 2,
+      "archive": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/20261017_105634_32f1e7b4",
+      "resumed_at": "2026-10-17T10:56:36.442453+08:00",
+      "checkpoint": {
+        "errors": [],
+        "cycle_budget": 2,
+        "current_cycle": 0,
+        "last_phase_event": {
+          "event": "phase_end",
+          "elapsed": "2038.4s",
+          "label": "Investigation",
+          "phase_name": "investigation",
+          "return_code": 2,
+          "status": "failed"
+        },
+        "later_outputs": []
+      },
+      "model_watchdog_seconds": 7200,
+      "scientific_protocol_changed": false,
+      "framework_code_replaced": false
+    }
+  ]
 }

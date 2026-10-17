@@ -92,4 +92,3 @@ def test_recovery_archive_preserves_failed_exit_logs_and_research(tmp_path):
     result=subprocess.run(command,text=True,capture_output=True,timeout=10)
     assert result.returncode!=0
     assert (job/'exit-code').read_text()=='2\n'
-

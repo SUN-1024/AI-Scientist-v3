@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T10:34:40.430682+08:00",
+  "checked_at": "2026-10-17T10:58:21.994955+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -47,7 +47,7 @@
       "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
     },
     "investigation": {
-      "status": "cycle_1_idea_generation",
+      "status": "cycle_1_idea_generation_after_checkpoint_resume",
       "logs_exist": true,
       "job_id": "20261017_102054_544b6a4c",
       "private_inputs_present": true,
@@ -55,7 +55,12 @@
       "new_method_results_available": false,
       "starting_candidate_correct": true,
       "starting_candidate_score": 0.8177455611478867,
-      "starting_candidate_evaluation_seconds": 44.6
+      "starting_candidate_evaluation_seconds": 44.6,
+      "model_watchdog_seconds": 7200,
+      "prior_exit_code": 2,
+      "source_checkpoint_preserved": true,
+      "proposal_draft_available": true,
+      "accepted_idea_available": false
     },
     "ablations": {
       "status": "not_started",
@@ -144,6 +149,11 @@
       "error": "Fresh run discarded evaluator-private resources/contract using agent-view ignore rules",
       "status": "fixed_and_regression_verified",
       "evidence": "95 checks passLinux; validated published task snapshots preserve private inputs, original agent ignore file unchanged, agent view sealed, corrupt source refused; actual current run has all5private inputs"
+    },
+    {
+      "error": "Two idea-generation attempts exceeded900s pilot model watchdog",
+      "status": "fixed_and_checkpoint_resume_live_verified",
+      "evidence": "63 checks pass on local/server; original research files and failed exits retained; actual resumed config model7200s, hostscoring2100s, resume=true, original2cycles"
     }
   ],
   "scientific_results_available": true,
@@ -159,7 +169,7 @@
     "new_method_training_started": false
   },
   "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results",
-  "last_effective_activity": "2026-10-17T10:34:21.404000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_103440.json",
+  "last_effective_activity": "2026-10-17T10:57:45.215000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json",
   "new_error_events": []
 }
