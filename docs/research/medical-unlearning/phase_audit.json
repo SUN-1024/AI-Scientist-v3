@@ -1,10 +1,13 @@
 {
-  "checked_at": "2026-10-17T09:28:24.601051+08:00",
+  "checked_at": "2026-10-17T10:28:31.504869+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
     "20261017_084517_1b64cdd7",
-    "20261017_085117_652b0da2"
+    "20261017_085117_652b0da2",
+    "20261017_095210_4a83c897",
+    "20261017_095922_f607f42f",
+    "20261017_102054_544b6a4c"
   ],
   "phases": {
     "design": {
@@ -12,20 +15,21 @@
       "evidence": "original accepted_review.json + design_receipt.json, restored with fingerprint and canonical task checks"
     },
     "task_drafting": {
-      "status": "complete_scaffold_reused_with_metric_fix",
+      "status": "completed_with_verified_publication_recovery",
       "duration_seconds": 3037,
       "contract_schema": "pass",
       "contract_static_lint": "pass",
       "candidate_boundary": "pass",
-      "canonical_task_unchanged": true
+      "canonical_task_unchanged": true,
+      "published_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/task"
     },
     "independent_validation": {
-      "status": "corrected_isolated_smoke_passed_alignment_active",
+      "status": "all_source_gates_passed",
       "candidate_boundary": "pass",
       "contract": "pass",
       "acceptance_smoke": "pass",
-      "alignment": "running",
-      "full_baseline_qualification": "pending",
+      "alignment": "pass_11_of_11_dimensions",
+      "full_baseline_qualification": "pass_correct_and_feasible",
       "prior_smoke_receipt": "Historical only; did not cover corrected metric",
       "duration_seconds": 225,
       "gate_scaffold_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
@@ -38,11 +42,20 @@
         "source_gate_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
         "main_qualification_gate": "pending",
         "used_as_release_receipt": false
-      }
+      },
+      "publication": "pass_after_owned_resource_recovery",
+      "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
     },
     "investigation": {
-      "status": "not_started",
-      "logs_exist": false
+      "status": "cycle_1_idea_generation",
+      "logs_exist": true,
+      "job_id": "20261017_102054_544b6a4c",
+      "private_inputs_present": true,
+      "entry_baseline_revalidation": "pass_current_tooling",
+      "new_method_results_available": false,
+      "starting_candidate_correct": true,
+      "starting_candidate_score": 0.8177455611478867,
+      "starting_candidate_evaluation_seconds": 44.6
     },
     "ablations": {
       "status": "not_started",
@@ -116,18 +129,34 @@
       "error": "Temporary judge container missing from recovery container ownership check",
       "status": "fixed_and_verified",
       "evidence": "Future agent containers carry the medical job label; a private ownership journal covers current legacy judge; live guard reports ec2551f78639 and rejects duplicate launch;62tests passLinux"
+    },
+    {
+      "error": "Recovery copied unowned resources into publication destination",
+      "status": "fixed_and_published_through_official_API",
+      "evidence": "Only duplicate resource directory moved to retained backup after hash equality; genuine alignment and qualification receipts validated; published plan69b121... unchanged; qualified cache reactivated"
+    },
+    {
+      "error": "Internal source snapshot marker leaked through legacy recovery copy",
+      "status": "fixed_without_changing_publication_identity",
+      "evidence": "Marker retained in publication recovery backup; plan hash and alignment unchanged; future recovery staging omits managed runtime/snapshot state"
+    },
+    {
+      "error": "Fresh run discarded evaluator-private resources/contract using agent-view ignore rules",
+      "status": "fixed_and_regression_verified",
+      "evidence": "95 checks passLinux; validated published task snapshots preserve private inputs, original agent ignore file unchanged, agent view sealed, corrupt source refused; actual current run has all5private inputs"
     }
   ],
   "scientific_results_available": true,
-  "current_job_id": "20261017_085117_652b0da2",
+  "current_job_id": "20261017_102054_544b6a4c",
   "gpu_stage": "isolated development validation only",
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/gpu-samples.csv",
   "gpu_training": {
     "observed": true,
-    "purpose": "Complete production-search baseline qualification on isolated copy",
+    "current_purpose": "Investigation starting candidate validation",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
-    "investigation_started": false
+    "first_current_activity": "2026/10/17 10:24:07.671",
+    "new_method_training_started": false
   },
-  "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results"
+  "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results"
 }

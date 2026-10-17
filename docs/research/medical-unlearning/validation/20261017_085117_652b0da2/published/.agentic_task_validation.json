@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "verdict": "pass",
+  "summary": "The scaffold faithfully implements the canonical ACDC patient-level machine-unlearning development pilot. All file-level expected fingerprints were recomputed and match (capture.py, evaluate.py, evaluate_final.py, task.md, task_contract.json, program_0/program_spec.toml, program_0/src/program.py); the declared_scaffold aggregate digest uses a harness-internal algorithm not locally reproducible, but every file it names verifies. Independent stdlib checks confirmed: all 78 vendored NPZ file/image-content/raw-voxel hashes match both manifests and all 81 contract provenance artifacts match the visible scaffold; zero patient-ID, alias, image-content, and raw-voxel overlap between the 39-patient search and final packets; the copied make_model/segmentation_loss are byte-identical to the hash-pinned upstream/puseg snapshot (verified against resources/preparation_receipt.json); worst-case RPC transcripts (search 117<=160, final 2x116=232<=320, predict blocks 25/24 recomputed from real manifests) fit declared budgets; the largest serialized message (16x4x128x128 float32 predict response = 5,592,509 bytes with base64+envelope+framing) stays below the 8 MiB planned cap and the 64 MiB wire limit; the 206,209-parameter MONAI 1.5.1 UNet (counted analytically from the downloaded pinned wheel source) needs 4 chunks of 262144 bytes, within the declared 8-chunk maximum and consistent with the starter's chunk-plan validation; joint phase budgets fit the wall clocks (search 1450s<=1800s, final 2x1470+300=3240s<=3600s) with per-RPC timeouts capped by remaining episode work budget and reset slots reserved for all remaining episodes. Search and final predicates are declared separately: search correct is a 7-gate scientific-validity/eligibility check requiring no baseline wins; final correct adds the task.md 0.50 reference-quality gate and pre-registered dominance over Original, fine-tuning, NegGrad+, and the executed wall-time-matched equal-time control. Both planes use identical per-call timeouts and deletion/predict windows, so no operation can pass search yet time out in final. Isolation holds: the search evaluator resolves only resources/search and the final only resources/final; RPC payloads carry only the reset seed, Original weights, labeled retain/forget minibatches, and unlabeled inference images - never heldout labels, Retrain state, scores, or paths; no EXCHANGE_DIR/AGENTIC_CANDIDATE_EXCHANGE/network use exists. Non-blocking limitations: the starter docstring's chunk_bytes example (1048576) differs from the evaluator's actual 262144 (validation accepts any consistent plan); collect_required_baseline derives a bounded lowercase-only category from str(error) instead of a fixed constant (diagnostic-only, no authority); the evaluator GPU check requires >=1 role-local device rather than exactly 1; upstream/README.md is an unpinned one-line documentation file inside the vendored snapshot whose consumed files are all hash-pinned. Harness attestation shows production-search qualification pending, which is expected pre-qualification state, not an alignment defect; smoke attests only the reduced path.",
+  "fingerprints": {
+    "capture.py": "eb5d1538243708b6cd0dcd54b5970465e826332e85f9f4efe03e92c548887a86",
+    "declared_scaffold": "sha256:4e6ff2759b26ca522abb8a7407b68608269baed345161cc641858370a11408c4",
+    "evaluate.py": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+    "evaluate_final.py": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0",
+    "program_0/program_spec.toml": "a48b9b611bd9c1404b766f8fca65f0e2b2882b8b1ef410903f7e712fcfca4f1d",
+    "program_0/src/program.py": "91374ed05e9b25d8e1ce0bc5008bd250f720eea5b938b20fdf6d8e6e3dfda48e",
+    "task.md": "dc20313a1e211954ecd13aac507c0a3e310c37d02bb68ff468d98b7a4a1909cc",
+    "task_contract.json": "ae507930dd2ce2d71553033c752255d01acea4e612d239b0889bd8663b4b1151"
+  },
+  "dimensions": [
+    {
+      "id": "goal_and_method_fidelity",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task.md",
+          "line": 2,
+          "detail": "Canonical goal: anatomy-preserving patient-level machine unlearning for medical image segmentation approximating retrain-without-patient while preserving utility and reducing cost, explicitly not equating inaccurate forget-patient predictions with successful unlearning."
+        },
+        {
+          "path": "task_contract.json",
+          "line": 8,
+          "detail": "Contract method class matches: selective forgetting for segmentation evaluated as an ACDC low-resolution 2D development pilot with a sealed-evaluator deletion/utility trade-off protocol; description preserves all non-claims (no certified removal, no privacy guarantee, membership attacks a required later gate)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1162,
+          "detail": "combined_score_from implements exactly 0.5*(1-forget_retrain_probability_mae)+0.3*heldout_macro_dice+0.2*heldout_boundary_f1 on candidate values, the deletion/utility trade-off objective from task.md line 35; identical function in evaluate_final.py line 1218."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1736,
+          "detail": "Evaluator-owned negative controls implemented: _permutation_control selects the first deterministic NON-IDENTITY shape-compatible heldout pair (identity rejected as vacuous at line 1749-1750, no guaranteed-degradation claim), and the all-background constant-prediction control at lines 1826-1834 must score exactly zero foreground Dice on every GT-foreground patient. Verified on real data: 7 valid pairs exist in the search packet and 5 in the final packet, so controls execute rather than vacuously fail."
+        },
+        {
+          "path": "program_0/src/program.py",
+          "line": 190,
+          "detail": "Starter is a clearly labeled placeholder split-step NegGrad+ adaptation (one Adam lr=1e-4 step per update RPC, -0.1*loss on forget roles), documented as 'not a claimed anatomy-preserving method' to be replaced per attempt; the protocol gives a research candidate the Original weights plus labeled retain/forget minibatches needed for retain-boundary-consistency, gradient-conflict, or parameter-selective methods from task.md line 19."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "upstream_grounding",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "detail": "Runtime dependencies pinned exactly as task.md line 12 requires: torch==2.8.0, monai==1.5.1, numpy==2.2.6, scipy==1.16.2 (lines 1-4), matching contract provenance.dependencies; all are released versions installable on linux x86_64 CUDA (monai 1.5.1 py3-none-any wheel was downloaded and inspected during this review)."
+        },
+        {
+          "path": "resources/preparation_receipt.json",
+          "line": 27,
+          "detail": "Receipt pins upstream snapshot hashes (models.py d76eeeb9..., losses.py 615ff113..., unlearning.py 37a8b9bc...) plus source_git_head 2883aa9c (line 4), source manifest/split hashes (lines 5-6), and original_test_read=false / source_modified=false (lines 7-8). Recomputed sha256 of all three upstream/puseg files matches these values exactly."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 680,
+          "detail": "make_model is a verbatim copy of upstream/puseg/models.py (diff-verified after import placement; MONAI UNet spatial_dims=2, in 1, out 4, channels=[16,32,64,128], strides=[2,2,2], num_res_units=1, INSTANCE without running stats, dropout 0.0 per task.md line 22); segmentation_loss at line 704 is verbatim from upstream/puseg/losses.py after F.->_sample_mean/_cross_entropy renames; both copies are identical across evaluate.py, evaluate_final.py, and program_0/src/program.py; the evaluator is self-contained and never reads the snapshot at runtime (UPSTREAM_SNAPSHOT_SHA256 recorded at line 244)."
+        },
+        {
+          "path": "task_contract.json",
+          "line": 241,
+          "detail": "Upstream declaration pins the user-owned snapshot by git head and per-file SHA-256 with no invented public repository URL (as task.md line 10 requires), states unlearning.py is a method reference never executed or imported (no code reference exists in any evaluator or the starter), and line 252 pins the ACDC dataset (CC-BY-NC-SA-4.0, Bernard et al. citation, pre-vendored hash-pinned NPZ packets, no runtime download)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 820,
+          "detail": "Runtime integration of the pinned data is real: manifest sha256 rechecked against the hardcoded expected value (search 005fa231... line 176; final 6ba15441... evaluate_final.py line 214), then per-patient file sha (line 877), NPY header dtype/shape (lines 883-888), and image-content array hash (line 896) are re-verified. This review independently recomputed all 78 NPZ file and image-content hashes, headers, shapes, and label ranges: all match both manifests, and both manifest hashes match contract provenance artifacts (81/81 artifacts verified, zero mismatches)."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "search_proxy_fidelity",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task_contract.json",
+          "line": 826,
+          "detail": "Both proxies are declared with explicit preserves/omits: combined_score_screening keeps the identical score formula and component definitions in both planes and omits only the final claim gates; single_seed_development_packet keeps the packet schema, copied architecture/loss, chunked handle protocol, reset discipline, evaluator-owned comparisons, and 400/80 update budgets, and omits seed 2702, the final-only equal-time control, and the sealed final packet identity."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 178,
+          "detail": "Search plane runs the declared development workload: SEEDS=(1701,) with production reset sequence [1701] (line 179) per task.md line 27; the same scientific axes are exercised - identical region-balanced MAE, pooled macro Dice, pixel-space boundary F1, and the same Original/Retrain/fine-tune/NegGrad+ comparisons trained by the evaluator (run_baseline_phase lines 1684-1733) with identical 400-update references and 80-update lr=1e-4 baselines."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 101,
+          "detail": "Search correct is declared as an eligibility predicate that does NOT require beating any baseline (docstring lines 101-133, implemented in plane_correct line 2054), keeping screening separate from the final claim; limits are explicit that this is a development-only screening score, not a privacy certification (lines 87-88)."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "final_evaluation_fidelity",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "evaluate_final.py",
+          "line": 216,
+          "detail": "Final plane runs the promised held-out protocol: SEEDS=(2701,2702) with production reset sequence [2701,2702] (line 217), one reset per episode, references retrained per seed and never reused across seeds; the final packet is disjoint from search (verified: zero overlap in patient IDs, aliases, image-content hashes, and raw-voxel hashes across the two 39-patient packets)."
+        },
+        {
+          "path": "evaluate_final.py",
+          "line": 1794,
+          "detail": "run_equaltime_control executes the wall-time-matched equal-time retain-only fine-tuning control (final plane only): retain-only Adam lr=1e-4 from Original parameters for wall clock matched to the candidate's trusted measured deletion time (equaltime_target = min(deletion_seconds, allowance) at line 2036), with EQUALTIME_STEP_CAP=60000 as a declared safety ceiling, at least one real update always run, and a dedicated deadline so failure retains the episode's worst-case contribution - testing Alternative 2 at matched runtime as task.md lines 17 and 24 require before any superiority claim."
+        },
+        {
+          "path": "evaluate_final.py",
+          "line": 2201,
+          "detail": "Final claim predicate (plane_correct, lines 2175-2219) enforces gate (B): original_heldout_macro_dice >= 0.50 AND retrain_heldout_macro_dice >= 0.50 exactly as task.md line 36 (below threshold => undertrained/inconclusive, correct false, no unlearning-success claim)."
+        },
+        {
+          "path": "evaluate_final.py",
+          "line": 2214,
+          "detail": "Gate (C) requires the candidate to show strictly lower forget-patient probability distance at equal-or-better heldout utility against EVERY required deletion comparison (original, finetune, neggrad, equaltime) on the equal-seed aggregate, with clean Retrain correctly treated as the distance reference feeding gate (B) rather than a dominance target; gate (A) requires all validity gates including the exact reset transcript, and gate (D) folds in predeclared control behavior - so beating combined_score alone can never yield correct=true."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "search_final_isolation",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "evaluate.py",
+          "line": 175,
+          "detail": "RESOURCE_LEAF='search' and resource_root() (line 771) resolve only resources/search; the final manifest hash and final seeds appear nowhere in evaluate.py or program_0/src/program.py (grep-verified). evaluate_final.py symmetrically pins only resources/final (line 213) with hash 6ba15441... (line 214); neither evaluator imports the other and load_packet additionally verifies the directory contains exactly the frozen packet (line 907-910)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1655,
+          "detail": "RPC payload audit: predict requests carry only {op, group, patient_index, block_index, images} (unlabeled, position-indexed); update requests carry only retain/forget minibatches sampled from selection['retain']/selection['forget'] (lines 1630-1640); the only weights transmitted are the Original parameters (line 1602 _flat_parameter_buffer(original_model)); responses are validated to exact key sets (lines 1397-1431). No heldout labels, Retrain weights/predictions, scores, correctness, or host paths cross the wire; no EXCHANGE_DIR, AGENTIC_CANDIDATE_EXCHANGE, socket, or HTTP usage exists in any executable file."
+        },
+        {
+          "path": "task_contract.json",
+          "line": 848,
+          "detail": "final_sealed declares final-packet contents, final seed workload mapping, heldout labels in both planes during prediction, all Retrain-derived outputs, in-episode scores/metrics, and sealed final result files as never candidate-visible; search_visible (line 840-845) restricts post-episode feedback to declared scalars and receipts and states combined_score is a development-only screening signal."
+        },
+        {
+          "path": "program_0/src/program.py",
+          "line": 7,
+          "detail": "Candidate runs with no task/results mounts and shares no filesystem with the evaluator; all state is candidate-owned memory (_STATE, lines 214-215) wiped on reset (line 317-329); the native transport spawns it with sanitized env, cwd='/', and -I isolation (evaluate.py lines 593-612, 1187-1191), and the broker path is the fixed /broker-code/candidate_proxy.py requiring both the socket env signal and path match (evaluate.py lines 1437-1447)."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "metrics_and_rubrics",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task.md",
+          "line": 35,
+          "detail": "Canonical rubric: combined_score = 0.5*(1-forget_retrain_probability_mae)+0.3*heldout_macro_dice+0.2*heldout_boundary_f1, declared finite scalar metrics for all components, missing/failed seed contributes combined_score=0 with fixed equal seed weights; evaluate.py line 1162 and the worst-case table at line 261 implement this exactly (combined 0.0, MAE 1.0, utility 0.0, elapsed caps 150/150/60/60/180)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1058,
+          "detail": "Dice per task.md line 32: macro_dice_and_absence pools all of a patient's slices per foreground class (RV/myocardium/LV), excludes GT-absent classes from that patient's macro while counting absences (reported as heldout/forget_gt_absence_count metrics), and scores a present class with empty prediction as 0; patients and seeds averaged equally (aggregate_macro_dice line 1076, aggregate_outcomes line 2038)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1089,
+          "detail": "region_balanced_mae implements task.md line 33 exactly: foreground and background mean |candidate-Retrain| probability differences computed separately then averaged equally when both exist, then patients averaged equally (line 1105); boundary_f1_counts (line 1117) pools 1-pixel-tolerance matched/total boundary counts over slices via scipy morphology before class/patient averaging and is labeled pixel-space pilot boundary F1 (line 18), never native-volume surface Dice or HD95."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 339,
+          "detail": "fixed_weight_score validates predeclared weights sum to 1 and substitutes the predeclared worst case for None (failed/missing episodes) without renormalizing surviving weights; aggregate_outcomes (line 2038) applies equal fixed seed weights (1.0 search, 0.5/0.5 final) and raises on any nonfinite contribution, so failures can never be dropped or silently reweighted."
+        },
+        {
+          "path": "evaluate_final.py",
+          "line": 2201,
+          "detail": "No claim inflation: search correct never requires beating baselines (evaluate.py line 101-104, plane_correct line 2054); final correct adds only task.md-sourced thresholds (0.50 gate line 2201-2204; per-comparison trade-off dominance lines 2212-2218) declared as fixed at scaffold time; contract metric lists match evaluator METRIC_WORST_CASE keys exactly (22 search, 26 final including equaltime_* scalars), verified programmatically."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "candidate_editability",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task_contract.json",
+          "line": 12,
+          "detail": "Candidate interface is the supported python_rpc_v1:handle broker API with editable_paths=['program_0/src'] (line 14); no invented telemetry accessors are referenced anywhere and the evaluator never calls anything beyond handle(request) through the broker proxy (evaluate.py lines 1350-1373)."
+        },
+        {
+          "path": "program_0/src/program.py",
+          "line": 512,
+          "detail": "handle(request) dispatches the full documented state machine (reset/weights_begin/weights_chunk/weights_commit/update/finalize/predict, lines 512-540) with exact response key sets, bounded error strings (line 259-260), and finite inline JSON only; the module docstring (lines 10-201) specifies every request/response field, tensor envelope format, budget semantics, and the enforced-vs-advisory distinction, so a research agent can replace the placeholder method while preserving the interface."
+        },
+        {
+          "path": "program_0/program_spec.toml",
+          "line": 5,
+          "detail": "Standard program spec: schema_version 1, code_root='src', script entrypoint program.py, generic integration, standard copy excludes; the editable boundary (program_0/src) contains exactly the starter program, permitting the intended research contribution (arbitrary internal deletion logic within the 180s window, 80 offered update RPCs, and in-memory chunked weight import) without touching evaluator, splits, score, labels, architecture, or the clean-retrain reference."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "compute_realism",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task_contract.json",
+          "line": 782,
+          "detail": "max_candidate_rpc_calls covers the complete production transcript: search 160 >= exact worst case 117 per episode (reset 1 + weights_begin 1 + weights_chunk 8 declared max + weights_commit 1 + update 80 + finalize 1 + predict 25) x 1 episode; final 320 (line 794) >= 116 x 2 episodes = 232. Predict block counts 25/24 were recomputed from the real manifests (sum of ceil(slices/16) over forget+heldout patients) and match the preflight table built by preflight_rpc_budget (evaluate.py line 1480-1495), enforced identically at runtime (line 181, CandidateSession.rpc line 1389-1393); no replay is declared."
+        },
+        {
+          "path": "task_contract.json",
+          "line": 775,
+          "detail": "GPU declaration matches task.md line 28 exactly: gpu_count=2 aggregate NVIDIA A40 with evaluator_gpu_count=1 and candidate_gpu_count=1 per plane, memory 64 GB, cpu_cores 8, float32; each role uses only its local cuda:0 (evaluate.py line 2195, evaluate_final.py line 2353, program.py line 267 - the only device strings in the codebase), the evaluator validates its role-local count without inspecting the peer allocation (evaluate.py line 2193), and torch CPU threads are set to 2 in evaluator (line 236) and starter (program.py line 265)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1498,
+          "detail": "Message-size preflight fully serializes representative production values (UTF-8 JSON + base64 + envelope + framing newline, bounded_json_bytes line 383-387 requires strictly < 64 MiB and <= 8 MiB planned cap); independently recomputed: predict response 5,592,509 B is the maximum, update request 874,024 B, weights_chunk 349,577 B - all far below both limits; chunked weight transfer is backed only by candidate-owned memory (_STATE['transfer'] chunks dict, program.py lines 368-397) and every chunk call counts against the RPC budget."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 236,
+          "detail": "CPU/wall realism: candidate deletion allowance <=180 s per episode (line 195, enforced post-hoc at line 1643 and via phase deadlines), native-mode RLIMIT_CPU = ceil(600x2)=1200 CPU-seconds per spawned episode process (lines 232-233, 1180-1183) exceeds the realistic 2-thread consumption of the 180s deletion + 240s predict windows (~840 CPU-s max), separate from the wall deadline; workload (206,209-parameter 2D UNet, 960 evaluator updates, 80 candidate updates, ~740 slices per packet) fits A40 throughput comfortably inside the 1800s/3600s plane walls."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "execution_feasibility",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "evaluate.py",
+          "line": 1544,
+          "detail": "Joint budget preflight (require_joint_workload_budget lines 363-380) verifies the declared phase table fits the wall clock including startup/imports/setup and a finish reserve: search 180+30+1x(140+450+190+250+180+30)=1450<=1800; final (evaluate_final.py line 1604) 200+100+2x(140+450+190+250+210+200+30)=3240<=3600 - both recomputed and confirmed; the plane deadline starts at _PROCESS_START before imports (line 143), so container startup and dependency loading are inside the budget, and A40 throughput for 960 updates of a 206k-parameter 2D UNet (~tens of seconds) leaves large margin under the 450s baseline allowance."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1984,
+          "detail": "Scheduler reserves a reset slot (reset_timeout+overhead) for every remaining episode before starting (line 1984-1985 raises if insufficient), each episode deadline subtracts remaining reset slots (line 1990), and every RPC timeout is capped by the current episode's remaining work budget (effective = min(rpc_cap, work_deadline - clock(), timeout), lines 2000-2005), so slow individually-valid replies or mid-episode timeouts cannot starve later resets; dispatch and cleanup allowances are bounded (terminate SIGTERM->1s->SIGKILL->1s lines 1313-1344, reader teardown <=1s line 1296, executor.shutdown(wait=False) line 1922), and failed episodes retain worst-case contributions while later episodes still run."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1437,
+          "detail": "Search/final runtime compatibility: OP_TIMEOUT_SECONDS (lines 202-210: reset 120, weights 30, update 20, finalize 20, predict 60), DELETION_WINDOW_SECONDS=180, and PREDICT_WINDOW_SECONDS=240 are identical in both evaluators (evaluate_final.py lines 242-250, 233-234), and final only enlarges allowances (scoring 180->200, startup 180->200, finish 30->100, wall 1800->3600), so no candidate operation can pass search yet time out in final due to a smaller effective allowance; brokered per-call enforcement is harness-owned per task.md line 28 ('through the supported harness'), with wire-limit validation still applied in-process (line 1365); production qualification pending in the attestation is expected pre-qualification state, not a defect."
+        },
+        {
+          "path": "program_0/src/program.py",
+          "line": 346,
+          "detail": "Rubric decisions rest solely on evaluator-owned computation: candidate self-reported state contributes nothing (weights_commit digest comparison is wire-integrity validation only, evaluate.py lines 1417-1426), predictions are revalidated for finiteness/range/softmax-sum/completeness (lines 1659-1679), and the starter's chunk-plan validation ((count-1)*chunk_bytes < total <= count*chunk_bytes, lines 346-349) is consistent with the evaluator's actual transfer (824,836-byte buffer -> 4 chunks of 262,144 with 38,404-byte tail, verified analytically against the pinned monai 1.5.1 wheel source); dependencies are installable offline-pinned on linux x86_64 CUDA and smoke reduces only workload sizes (2 reference updates, 1 offered update, 2 patients/split, 8-slice cap, lines 215-228) under the same device discovery, topology validation, imports, and broker paths with a 115s internal wall under the 120s framework bound (line 184)."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "reproducibility",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "evaluate.py",
+          "line": 960,
+          "detail": "All sampling is seeded and deterministic: BatchSampler draws patient-uniform then slice-uniform (task.md line 22) from random.Random((seed*1000003+salt*7919) mod 2^61) with fixed per-method salts (lines 252-256); references initialize from torch.manual_seed(seed) with Original and Retrain sharing the same fresh-init seed (lines 1693-1711) and the init digest is recorded (line 1695, receipt line 1949); cudnn.deterministic=True/benchmark=False and threads=2 are set in evaluator (lines 2188-2189) and starter (program.py lines 270-271)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 877,
+          "detail": "Data provenance is re-verified at runtime before use: per-patient file sha256 (line 877), NPY header descr/shape (lines 883-888), decompressed image-content sha256 (line 896), label range (line 901), duplicate alias/content/raw-voxel hash rejection (lines 858-872), and exact packet directory contents (lines 907-910); this review independently reproduced all of these checks over all 78 NPZ files with zero mismatches and confirmed cross-plane disjointness of IDs, aliases, content hashes, and raw-voxel hashes."
+        },
+        {
+          "path": "resources/preparation_receipt.json",
+          "line": 4,
+          "detail": "Provenance chain is complete: source_git_head 2883aa9c, source manifest/split sha256 (lines 5-6), per-plane manifest hashes matching both contract provenance and evaluator constants, upstream file hashes (lines 26-30), preprocessing recipe (line 9: all ED/ES axial slices, per-volume z-score, bilinear/nearest resample to 128x128, low-resolution 2D pilot only), and attestations that the source project's test cohort was never read and the source was never modified (lines 7-8)."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 1949,
+          "detail": "Receipts preserve everything needed to audit or reproduce a run: reference_init_identity_sha256, data_identity_sha256, manifest_sha256, upstream_snapshot_sha256, model_config, device, per-phase trusted wall times, RPC counts vs budget, declared vs sent reset transcripts, predict block counts, and enforced-vs-advisory limit lists (lines 1938-1965), all embedded in the bounded schema-version-1 evaluation_evidence.json (build_evidence line 2064, validated line 2084) alongside metrics.json and correct.json."
+        }
+      ],
+      "remediation": ""
+    },
+    {
+      "id": "publication_scope",
+      "verdict": "pass",
+      "evidence": [
+        {
+          "path": "task_contract.json",
+          "line": 856,
+          "detail": "Publication gate is contract-owned and harness-executed: search_is_proxy=true, requires_final_evaluation=true (line 857), and the promotion rule (line 825) is explicitly harness-owned - eligible search candidates ranked by combined_score with deterministic tie-breaks, frozen after declared campaign capacity and before any final-plane resource is reachable, with publication eligibility requiring a sealed final evaluation under the final claim predicate (validity gates + 0.50 reference gate + trade-off demonstration against every required comparison including the executed equal-time control + predeclared control behavior); no task-local promotion, freezing, or publication controller exists in the scaffold."
+        },
+        {
+          "path": "task_contract.json",
+          "line": 858,
+          "detail": "required_evidence enumerates the development-pilot labeling ('development pilot' in abstract and limitations, never submitted), the completed comparison table with per-patient rows and per-seed values, the 0.50 gate evidence with undertrained/inconclusive declaration path, explicit pixel-space boundary-F1 labeling, enforced-vs-advisory limit receipts, data-integrity and disjointness receipts, exact reset transcripts and message-size preflight, control evidence with identity-permutation rejection, privacy/cost receipts (no medical bytes to external services, offline runtime, original project untouched), and the explicit non-claims with next-stage gates (membership attacks, SCRUB/SalUn, KiTS23) - preventing development-only results from supporting broader claims."
+        },
+        {
+          "path": "evaluate.py",
+          "line": 2138,
+          "detail": "Evaluator outputs carry no undeclared controller/publication metadata: write_outputs emits exactly metrics.json, correct.json ({'correct': bool}), the optional bounded evaluation_evidence.json (exact {schema_version:1, episodes} envelope enforced by _validate_evidence line 2084-2125: unique int seeds, finite score/duration, bool correct, depth<=12, <=16 MiB, no extra record keys), and qualification.json only under the harness qualification flag with exactly {schema_version:1, feasible:bool} (line 2255); final-plane diagnostics stay sealed (stderr episode lines and worker-stderr forwarding are gated on PLANE=='search', lines 1281-1290 and 1577, with repair_mode itself search-only, line 2178)."
+        },
+        {
+          "path": "capture.py",
+          "line": 14,
+          "detail": "capture.py is present as the harness-required standard compatibility artifact: a safe regular file defining a bounded in-memory OutputCapture (no I/O beyond buffering, no subprocesses or sockets), not imported by either evaluator (permitted) and not artificially wired in; the remaining scaffold files are all standard or hash-declared in contract provenance (81/81 artifacts verified), with the minimal sufficient dependency set (4 pinned packages); the single unpinned upstream/README.md is a one-line documentation file restating task.md reuse rules whose consumed snapshot files are all hash-pinned - a non-blocking limitation, not an executable support file."
+        }
+      ],
+      "remediation": ""
+    }
+  ]
+}

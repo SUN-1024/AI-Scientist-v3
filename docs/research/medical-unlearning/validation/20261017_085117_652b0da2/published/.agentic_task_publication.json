@@ -1,0 +1,22 @@
+{
+  "files": {
+    "capture.py": "eb5d1538243708b6cd0dcd54b5970465e826332e85f9f4efe03e92c548887a86",
+    "evaluate.py": "408e9cea69fde35362140c322a7c9edd46fca7fa0a7a58f7a375cf676e739f15",
+    "evaluate_final.py": "d9d8aea12f2c26bb886179911252d29d1a7914abafea32d2e84546c339ac27a0",
+    "program_0/program_spec.toml": "a48b9b611bd9c1404b766f8fca65f0e2b2882b8b1ef410903f7e712fcfca4f1d",
+    "program_0/src/program.py": "91374ed05e9b25d8e1ce0bc5008bd250f720eea5b938b20fdf6d8e6e3dfda48e",
+    "requirements.txt": "8514dd2194bcbce76cd3f5c150d5a651a69bcef90274b281bf3be3b0d65db148",
+    "task.md": "dc20313a1e211954ecd13aac507c0a3e310c37d02bb68ff468d98b7a4a1909cc",
+    "task_contract.json": "ae507930dd2ce2d71553033c752255d01acea4e612d239b0889bd8663b4b1151"
+  },
+  "generated": {
+    ".agentic_task_ignore": "ed27c669dea952987aa392d9e6cd20036ded7d88fe9c9f197f5b8e3b04204aad"
+  },
+  "max_runtime_bytes": 17179869184,
+  "resources": {
+    "bytes": 66630133,
+    "path": "resources",
+    "sha256": "b96100e4e37f34d4f3fa1014f3ca8ba9cd9bb6d4f60b353bb88fb56ffb76db53"
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,13 @@
+{
+  "status": "pass",
+  "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
+  "baseline_correct": true,
+  "baseline_feasible": true,
+  "resource_sha256": "b96100e4e37f34d4f3fa1014f3ca8ba9cd9bb6d4f60b353bb88fb56ffb76db53",
+  "prior_resources": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2/publication_recovery_094917_44d092/prior_resources",
+  "runtime_cache_key": "f2c72ae6fd30a7a5e3106c7274ee83e138307fe676e21ae1ed3153c1aa6875eb",
+  "runtime_activated": true,
+  "scientific_protocol_changed": false,
+  "scientific_gates_rerun": false,
+  "reason": "Complete publication with existing matching, genuine gate receipts"
+}
