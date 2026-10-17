@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T10:58:21.994955+08:00",
+  "checked_at": "2026-10-17T11:06:06.931636+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -159,7 +159,7 @@
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
   "gpu_stage": "investigation_starting_candidate_baseline_completed",
-  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu-samples.csv",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_resume_20261017_110416.csv",
   "gpu_training": {
     "observed": true,
     "current_purpose": "Investigation starting candidate validation",
@@ -169,7 +169,15 @@
     "new_method_training_started": false
   },
   "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results",
-  "last_effective_activity": "2026-10-17T10:57:45.215000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/checkpoint_resume_20261017_105636.json",
-  "new_error_events": []
+  "last_effective_activity": "2026-10-17T11:03:58.442000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_110606.json",
+  "new_error_events": [],
+  "sampling_maintenance": {
+    "status": "restored_after_checkpoint_resume",
+    "old_trace_ended": "2026-10-17T10:55:02+08:00",
+    "new_sampler_pid": 2615843,
+    "old_trace_preserved": true,
+    "duplicate_prevention": "process check plus exclusive sampler flock",
+    "same_two_assigned_gpus_only": true
+  }
 }
