@@ -5,7 +5,7 @@
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
   "job_id": "20261017_102054_544b6a4c",
-  "status": "running_ablations_checkpoint_recovery_prior_isolation_unqualified",
+  "status": "stopped_for_user_authorized_new_research",
   "phase": "ablations",
   "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/run.log",
   "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c",
@@ -26,9 +26,9 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T14:25:31.966378+08:00",
-    "status": "model_code_authoring_request_silent_not_gpu_failure",
-    "exit_code": null,
+    "checked_at": "2026-10-17T14:32:26.523041+08:00",
+    "status": "stopped_for_new_research",
+    "exit_code": 143,
     "restart_performed": false,
     "repair_applied": false,
     "gpu_training_observed": true,
@@ -62,7 +62,7 @@
       }
     ],
     "past_ten_minutes_progress": "14:22人工暂停全部15项定时任务；本次实查没有新研究评价。第5/7个基线仍在代码生成，最新完整工具活动14:18:06，14:18:09后的模型流持续静默。两张A40空闲，当前恢复自14:10以来尚无新GPU训练；先前两轮开发、一次最终评价和四项比较均有真实GPU回执。",
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/manual_diagnosis_20261017_142531.json",
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/scratch/medical-research-restart-stop.json",
     "sealed_final_qualified": false,
     "sealed_final_hashes_unchanged": true,
     "prior_variant_source_isolation_qualified": false,
@@ -261,6 +261,31 @@
       "prior_four_results_isolation_qualified": false,
       "earlier_successful_access_logs_unavailable": true,
       "private_future_audit_root": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661/agent_audit"
+    },
+    "model_transport": {
+      "status": "configuration_and_actual_mock_transport_verified",
+      "options": {
+        "timeout": 300000,
+        "headerTimeout": 90000,
+        "chunkTimeout": 90000
+      },
+      "image_opencode_version": "1.18.29",
+      "actual_canary": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/engineering_restart_20261017/transport_verification.json",
+      "checks": [
+        "normal response",
+        "slow stream control",
+        "response headers timeout",
+        "stream gap timeout",
+        "total request timeout"
+      ],
+      "scope": "New campaign provider config only; evaluator clocks unchanged"
+    },
+    "development_tradeoff_assessment": {
+      "status": "implemented_and_tested",
+      "tool": "scripts/research/assess_medical_tradeoff.py",
+      "purpose": "Report every utility/distance comparison independently of the framework scalar-score rubric; does not alter evaluator metrics or claim confirmatory success",
+      "tests": "Included in98 passing Linux targeted tests",
+      "missing_equal_time_in_search": true
     }
   },
   "monitor_hint": "All15 scheduled tasks are paused at the human user request. Check manually; do not reenable automation without a new user request. A live process or pending model stream does not establish research progress.",
@@ -1503,5 +1528,11 @@
     ],
     "research_process_stopped": false,
     "automatic_reenable_authorized": false
+  },
+  "research_restart_authorization": {
+    "human_authorized": true,
+    "authorized_at": "2026-10-17T14:38:54.370502+08:00",
+    "user_instruction": "你解决一下问题啊，重新用这个工具来进行研究。",
+    "scope": "New AI-Scientist v3 development campaign after engineering fixes; retain old results; no old final-data reuse; scheduled tasks remain paused"
   }
 }

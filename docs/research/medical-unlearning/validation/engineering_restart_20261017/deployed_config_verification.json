@@ -1,0 +1,13 @@
+{
+  "opencode_version": "1.18.29",
+  "timeout_options": {
+    "timeout": 300000,
+    "headerTimeout": 90000,
+    "chunkTimeout": 90000
+  },
+  "config_valid": true,
+  "checked_at": "2026-10-17T14:34:53.122449+08:00",
+  "network": "none",
+  "credentials": "dummy_only",
+  "gpu": "none"
+}

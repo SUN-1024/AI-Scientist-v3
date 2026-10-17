@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-10-17T14:44:35.430191+08:00",
+  "linux_targeted_tests": {
+    "passed": 98,
+    "failed": 0,
+    "targets": [
+      "tests/test_medical_research_restart.py",
+      "tests/test_medical_tradeoff.py",
+      "tests/test_medical_variant_checkpoint.py",
+      "tests/test_medical_continuation.py",
+      "tests/runtime/test_variant_task_shadow.py",
+      "tests/runtime/test_container_auth.py",
+      "tests/gpu/test_pipeline_gpu_allocation.py"
+    ]
+  },
+  "mac_targeted_tests": {
+    "passed": 69,
+    "failed": 0
+  },
+  "actual_docker_transport_checks": 5,
+  "actual_docker_transport_passed": true,
+  "new_benchmark_created": false,
+  "frozen_benchmark_reused": true,
+  "old_final_repeated": false,
+  "new_campaign_scope": "development only",
+  "automations_reenabled": false
+}

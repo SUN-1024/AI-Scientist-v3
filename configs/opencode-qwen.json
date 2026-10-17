@@ -9,7 +9,10 @@
       "name": "Qwen Token Plan",
       "options": {
         "baseURL": "https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1",
-        "apiKey": "{env:QWEN_PLAN_API_KEY}"
+        "apiKey": "{env:QWEN_PLAN_API_KEY}",
+        "timeout": 300000,
+        "headerTimeout": 90000,
+        "chunkTimeout": 90000
       },
       "models": {
         "qwen3.8-max": {
