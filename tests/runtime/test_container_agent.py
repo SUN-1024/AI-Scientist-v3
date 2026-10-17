@@ -541,8 +541,10 @@ def dock(tmp_path: Path) -> _DockerSandbox:
 
 def test_run_agent_prompt_mounts_seed_home_env_file_results_root_and_task_source(dock: _DockerSandbox) -> None:
     # mounts seed home at a stable path
-    dock.run(dock.codex_run())
+    job = "20261017_085117_652b0da2"
+    dock.run(dock.codex_run(), exports={"AGENTIC_RESEARCH_JOB_ID": job})
     args = dock.args()
+    assert "ai.agentic-scientist.research-job=" + job in args
     assert "HOME=/home/agent-home" in args
     assert f"{dock.container_home}:/home/agent-home" in args
     assert f"{dock.container_home}:/home/agent" not in args
@@ -694,6 +696,7 @@ def test_run_agent_prompt_session_reuse_codex_profile_exec_and_non_codex_profile
             "DOCKER_CALLS_FILE": calls_file,
             "DOCKER_STATE_DIR": state_dir,
             "AGENT_CONTAINER_SESSION_NAME": "codex-worker-01",
+            "AGENTIC_RESEARCH_JOB_ID": "20261017_085117_652b0da2",
             "AGENT_CONTAINER_MOUNT_ROOT": results_root,
             "TEST_CONTAINER_SECRET": "must-not-appear",
             "AGENT_CONTAINER_PASSTHROUGH_KEYS": "TEST_CONTAINER_SECRET",
@@ -707,6 +710,7 @@ def test_run_agent_prompt_session_reuse_codex_profile_exec_and_non_codex_profile
     assert len(run_calls) == 1, "\n".join(calls)
     assert len(exec_calls) == 2, "\n".join(calls)
     assert "--name codex-worker-01" in run_calls[0]
+    assert "--label ai.agentic-scientist.research-job=20261017_085117_652b0da2" in run_calls[0]
     assert "-e TEST_CONTAINER_SECRET" in run_calls[0]
     assert "sleep infinity" in run_calls[0]
     assert "-e TEST_CONTAINER_SECRET" in exec_calls[0]

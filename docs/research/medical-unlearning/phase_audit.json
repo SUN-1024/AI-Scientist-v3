@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T09:06:26.038348+08:00",
+  "checked_at": "2026-10-17T09:28:24.601051+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -111,6 +111,11 @@
       "error": "Isolated runtime pip did not inherit package mirror; measured23KiB/s Torch download",
       "status": "fixed_and_unit_integration_verified",
       "evidence": "Medical runner explicitly selects Tsinghua for writable install containers only;99tests passLinux; new job resumed"
+    },
+    {
+      "error": "Temporary judge container missing from recovery container ownership check",
+      "status": "fixed_and_verified",
+      "evidence": "Future agent containers carry the medical job label; a private ownership journal covers current legacy judge; live guard reports ec2551f78639 and rejects duplicate launch;62tests passLinux"
     }
   ],
   "scientific_results_available": true,

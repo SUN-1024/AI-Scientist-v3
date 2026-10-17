@@ -1,6 +1,7 @@
 """Recovery keeps the newest work, prevents duplicate jobs, and honors authorization."""
 import os
 import configparser
+import json
 from pathlib import Path
 import runpy
 import shlex
@@ -38,6 +39,37 @@ def test_inspect_direct_recovery_and_orphan_container(tmp_path):
     assert state['running'] is True
     assert state['source_draft'] == str(draft)
     assert state['exit_code'] == 124
+
+
+@pytest.mark.parametrize('ownership', ['label', 'journal'])
+def test_orphan_judge_is_found_without_a_job_path_mount(tmp_path, monkeypatch, ownership):
+    directory = tmp_path / 'jobs' / JOB; directory.mkdir(parents=True)
+    (tmp_path / 'results' / JOB).mkdir(parents=True)
+    owned, unrelated = 'a' * 64, 'b' * 64
+    labels = {STATE['JOB_LABEL']: JOB} if ownership == 'label' else {}
+    if ownership == 'journal':
+        path = directory / 'owned-container-ids.json'
+        path.write_text(json.dumps({'job_id':JOB,'container_ids':[owned]}));path.chmod(0o600)
+    containers = [{'Id':owned,'Config':{'Labels':labels},
+                   'Mounts':[{'Source':'/tmp/private-judge/view'}]},
+                  {'Id':unrelated,'Config':{'Labels':{STATE['JOB_LABEL']:'another-job'}},
+                   'Mounts':[{'Source':'/tmp/unrelated/view'}]}]
+    def docker(command, **kwargs):
+        return owned + '\n' + unrelated + '\n' if command[:3] == ['docker','ps','-q'] else json.dumps(containers)
+    monkeypatch.setattr(STATE['subprocess'],'check_output',docker)
+    result = STATE['inspect_job'](tmp_path, JOB, process_ids=[])
+    assert result['running'] and result['container_ids'] == [owned[:12]]
+
+
+@pytest.mark.parametrize('unsafe', ['permissions','wrong_job','symlink'])
+def test_owned_container_journal_rejects_unsafe_state(tmp_path, unsafe):
+    path=tmp_path/'owned-container-ids.json'
+    contents=json.dumps({'job_id':'wrong' if unsafe=='wrong_job' else JOB,'container_ids':['a'*64]})
+    if unsafe=='symlink':
+        target=tmp_path/'outside';target.write_text(contents);path.symlink_to(target)
+    else:
+        path.write_text(contents);path.chmod(0o644 if unsafe=='permissions' else 0o600)
+    with pytest.raises(ValueError):STATE['journal_container_ids'](tmp_path,JOB)
 
 
 def authorized():

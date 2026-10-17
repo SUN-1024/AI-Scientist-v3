@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-10-17T09:06:26.038348+08:00",
+  "updated_at": "2026-10-17T09:28:24.601051+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
   "host": "sunguanqun@10.113.100.40",
   "job_id": "20261017_085117_652b0da2",
-  "status": "running_drafting_recovery",
+  "status": "running_alignment",
   "phase": "task_drafting",
   "remote_log": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/run.log",
   "remote_results": "/home/sunguanqun/AI-Scientist-v3/results/20261017_085117_652b0da2",
@@ -26,7 +26,7 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T09:06:26.038348+08:00",
+    "checked_at": "2026-10-17T09:28:24.601051+08:00",
     "status": "full_baseline_preflight_passed_independent_alignment_running",
     "scientific_results_available": true,
     "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results",
@@ -34,7 +34,7 @@
     "investigation_started": false,
     "repair_applied": false,
     "restart_performed": false,
-    "latest_effective_activity": "Independent judge inspected pinned MONAI source at09:04:55; report pending"
+    "latest_effective_activity": "Independent judge checked serialized production payload size and accepted method claim at09:27:51; report pending"
   },
   "next_action": {
     "requires_user_decision": false,
@@ -133,6 +133,17 @@
           "downstream_release": false
         }
       }
+    },
+    "review_container_ownership": {
+      "checked_at": "2026-10-17T09:28:24.601051+08:00",
+      "cause": "Judge containers mount only private temporary paths, so the previous result-directory mount check did not include them",
+      "future_fix": "Medical runner exports job identity and one-shot/reused agent containers receive a matching Docker ownership label",
+      "current_legacy_fix": "Host-private0600 owned-container journal records the verified full current container ID; unsafe journals fail closed",
+      "live_container_id": "ec2551f78639",
+      "live_inspection": "Current inspector now reports the judge container and refuses overlap",
+      "validation": "62 recovery/continuation/container tests passed on server Linux; shell syntax passed",
+      "scientific_tooling_sha256_unchanged": "f280b40fae21e60e74ebc909b89a290b0678783acf9a3d5e2f5bee543ca231b5",
+      "active_task_restarted": false
     }
   },
   "monitor_hint": {
@@ -341,5 +352,14 @@
     "local_evidence_directory": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_085117_652b0da2/baseline_preflight"
   },
   "scientific_results_scope": "Full development-search baseline qualification only (seed1701); no investigation, ablation, sealed final or paper results",
-  "formal_experiment_results_available": false
+  "formal_experiment_results_available": false,
+  "review_provider_health": {
+    "checked_at": "2026-10-17T09:21:16.729512+08:00",
+    "status": 200,
+    "elapsed_seconds": 1.86,
+    "completion_tokens": 23,
+    "purpose": "Tiny endpoint diagnostic without scientific data; not experiment progress",
+    "interpretation": "The endpoint responded and the actual review produced new tool actions; no observed connection failure"
+  },
+  "substage": "independent_scientific_alignment"
 }

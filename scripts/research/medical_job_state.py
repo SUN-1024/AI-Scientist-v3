@@ -6,7 +6,27 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
+
+JOB_LABEL = 'ai.agentic-scientist.research-job'
+
+
+def journal_container_ids(directory: Path, job: str) -> set[str]:
+    # A trusted host-only journal covers already-running legacy containers.
+    path = directory / 'owned-container-ids.json'
+    if not path.exists() and not path.is_symlink():
+        return set()
+    metadata = path.lstat()
+    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o077 or metadata.st_size > 16384):
+        raise ValueError('Unsafe owned-container journal')
+    payload = json.loads(path.read_text())
+    ids = payload.get('container_ids')
+    if (payload.get('job_id') != job or not isinstance(ids, list) or len(ids) > 64
+            or not all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value) for value in ids)):
+        raise ValueError('Invalid owned-container journal')
+    return set(ids)
 
 
 def within(path: Path, root: Path) -> bool:
@@ -50,8 +70,11 @@ def inspect_job(base: Path, job: str, *, process_ids=None, container_ids=None) -
         # Do not print Docker environment data (it may contain provider secrets).
         ids = subprocess.check_output(['docker', 'ps', '-q'], text=True).split()
         containers = json.loads(subprocess.check_output(['docker', 'inspect', *ids], text=True)) if ids else []
+        journal = journal_container_ids(directory, job)
         container_ids = [c['Id'][:12] for c in containers
-                         if any(within(Path(m['Source']), directory) or within(Path(m['Source']), results)
+                         if c['Id'] in journal
+                         or (c.get('Config', {}).get('Labels') or {}).get(JOB_LABEL) == job
+                         or any(within(Path(m['Source']), directory) or within(Path(m['Source']), results)
                                 for m in c.get('Mounts', []) if m.get('Source'))]
     receipt = directory / 'exit-code'
     exit_code = int(receipt.read_text().strip()) if receipt.is_file() else None

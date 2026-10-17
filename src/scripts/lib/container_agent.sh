@@ -1233,6 +1233,9 @@ ensure_agent_session_container() {
       -e TMPDIR=/agent-tmp -e TMP=/agent-tmp -e TEMP=/agent-tmp
     )
   fi
+  if [ -n "${AGENTIC_RESEARCH_JOB_ID:-}" ]; then
+    docker_cmd+=(--label "ai.agentic-scientist.research-job=$AGENTIC_RESEARCH_JOB_ID")
+  fi
   docker_cmd+=(
     "$container_image"
     sleep infinity
@@ -1614,6 +1617,9 @@ _dispatch_inner_command() {
         --label "ai.agentic-scientist.temp-path=$container_temp_dir"
         -e TMPDIR=/agent-tmp -e TMP=/agent-tmp -e TEMP=/agent-tmp
       )
+    fi
+    if [ -n "${AGENTIC_RESEARCH_JOB_ID:-}" ]; then
+      docker_cmd+=(--label "ai.agentic-scientist.research-job=$AGENTIC_RESEARCH_JOB_ID")
     fi
     docker_cmd+=(
       "$container_image"
