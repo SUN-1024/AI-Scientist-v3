@@ -61,7 +61,10 @@ def runner_text(launcher: dict, directory: str, command: list[str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--resume', action='store_true', help='Submit only if the current job has stopped')
+    parser.add_argument('--fix-boundary-f1', action='store_true', help='Apply the verified boundary metric correction in the new copy')
     args = parser.parse_args()
+    if args.fix_boundary_f1 and not args.resume:
+        parser.error('--fix-boundary-f1 requires --resume')
     launcher = runpy.run_path(str(ROOT / 'scripts/remote-agsci'))
     remote, sync, stage_auth = (launcher[k] for k in ('remote', 'sync', 'stage_auth'))
     base = launcher['REMOTE']
@@ -96,6 +99,12 @@ def main() -> None:
                + ' > ' + shlex.quote(results + '/recovery_context.json') + '\n'
                + 'printf %s ' + shlex.quote('\nRecovery context:\n' + json.dumps(context, ensure_ascii=False, indent=2))
                + ' >> ' + shlex.quote(directory + '/recovery_prompt.md') + '\n')
+        metric_repair = None
+        if args.fix_boundary_f1:
+            result = remote(shlex.join([base + '/.venv/bin/python',
+                            directory + '/scripts/research/fix_medical_boundary_f1.py', results + '/task',
+                            '--output', results + '/boundary_f1_repair']) + '\n', capture=True)
+            metric_repair = json.loads(result.stdout)
         # Recheck after staging, so a separately resumed job cannot be replaced.
         require_recoverable(record, inspect())
         command = drafting_command(directory, results, source, base)
@@ -109,6 +118,11 @@ def main() -> None:
         record['recovery'] = {'source_draft': source, 'overall_timeout_seconds': None,
                               'scope': 'Continue latest saved code with all robust validation gates',
                               'runtime_cache_handoff': True, 'training_started': False}
+        if metric_repair:
+            record['boundary_f1_repair'] = metric_repair
+            record['boundary_f1_repair']['receipt_path'] = results + '/boundary_f1_repair/receipt.json'
+            record['blocking_findings'] = []
+        record['verification_gate'].update(current_passed=[], current_pending=record['verification_gate']['required_before_downstream'])
         record['next_action'] = {'requires_user_decision': False,
                                 'action': 'Monitor, diagnose and recover without overall budget cap; preserve scientific per-evaluation budgets'}
         atomic_record(record_path, record)  # A dispatch with an unknown outcome remains traceable.

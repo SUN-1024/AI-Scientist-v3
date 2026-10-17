@@ -1174,6 +1174,10 @@ PY
 }
 
 draft_scaffold_until_complete() {
+  if [ -n "${ACCEPTED_DESIGN_DIR:-}" ] && inspect_staged_scaffold >/dev/null 2>&1; then
+    echo "[task.sh] retaining complete recovered scaffold; every validation gate will rerun"
+    return 0
+  fi
   local attempt=1
   local agent_exit=0
   local inspection_exit=0

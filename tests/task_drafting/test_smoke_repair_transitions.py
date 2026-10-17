@@ -23,6 +23,42 @@ def _function(name: str) -> str:
     return name + "() {" + script.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
 
 
+@pytest.mark.parametrize("recovery,complete,expected_agent_calls", [
+    (True, True, 0), (True, False, 1), (False, True, 1),
+])
+def test_recovery_reuses_only_complete_scaffolds(
+    tmp_path, recovery, complete, expected_agent_calls
+):
+    # A complete recovered evaluator must reach the real gates unchanged.
+    # New/incomplete drafts must still invoke the authoring agent.
+    body = r'''
+set -eu
+PROMPT=fixture
+DRAFT_MAX_ATTEMPTS=1
+OUTPUT_DIR=fixture
+CONTAINER_HOME_DIR=fixture
+STAGED_TASK_DIR=fixture
+task_progress_emit() { :; }
+inspect_staged_scaffold() {
+  if [ "$COMPLETE" = 1 ] || [ -f "$TRACE" ]; then return 0; fi
+  return 3
+}
+run_logged_agent_step() { printf 'agent\n' >> "$TRACE"; }
+'''
+    result = subprocess.run(
+        ["bash", "-c", body + _function("draft_scaffold_until_complete")
+         + "draft_scaffold_until_complete\n"],
+        env=os.environ | {"ACCEPTED_DESIGN_DIR": "verified" if recovery else "",
+                          "COMPLETE": "1" if complete else "0",
+                          "TRACE": str(tmp_path / "calls")},
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    trace = tmp_path / "calls"
+    calls = trace.read_text().splitlines() if trace.exists() else []
+    assert len(calls) == expected_agent_calls
+
+
 # --- smoke loop with real scope and rollback operations -------------------------------------
 
 

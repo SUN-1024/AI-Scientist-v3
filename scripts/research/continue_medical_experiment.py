@@ -13,7 +13,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[2]
 # Run inside the selected job checkout so verification uses its harness version.
 VERIFY = '''
-import json,sys
+import ast,hashlib,json,sys
 from pathlib import Path
 from src.investigation.task_alignment import load_task_alignment_report
 from src.investigation.task_contract import load_task_contract
@@ -21,6 +21,14 @@ from src.task_drafting.publication import validate_published_task_plan
 from src.task_drafting.qualification import load_task_qualification_receipt
 p=Path(sys.argv[1])
 try:
+    expected_ast = sys.argv[2] if len(sys.argv)>2 else ''
+    if expected_ast:
+        for name in ('evaluate.py','evaluate_final.py'):
+            nodes={n.name:n for n in ast.parse((p/name).read_text()).body if isinstance(n,ast.FunctionDef)}
+            tree=ast.Module(body=[nodes[n] for n in ('boundary_f1_counts','macro_boundary_f1')],type_ignores=[])
+            actual=hashlib.sha256(ast.dump(tree,include_attributes=False).encode()).hexdigest()
+            if actual != expected_ast:
+                raise ValueError('Verified boundary metric changed: '+name)
     load_task_contract(p/'task_contract.json')
     alignment=load_task_alignment_report(p/'.agentic_task_validation.json',scaffold_dir=p)
     if alignment.verdict != 'pass':
@@ -75,8 +83,11 @@ def main() -> None:
         verification = {'ready': False, 'reason': 'Draft task is still active'}
         if not state['running'] and state['exit_code'] == 0:
             result = remote('cd ' + shlex.quote(directory) + '\n' + shlex.quote(base + '/.venv/bin/python')
-                            + ' - ' + shlex.quote(source) + " <<'PY'\n" + VERIFY + '\nPY\n', capture=True)
+                            + ' - ' + shlex.join([source,record.get('boundary_f1_repair',{}).get('expected_metric_ast_sha256','')])
+                            + " <<'PY'\n" + VERIFY + '\nPY\n', capture=True)
             verification = json.loads(result.stdout)
+        if record.get('blocking_findings'):
+            verification = {'ready':False,'reason':'Unresolved scientific findings: '+str(record['blocking_findings'])}
         if not args.run:
             print(json.dumps({'job_id':old,'state':state,'verification':verification},indent=2))
             return
