@@ -1,0 +1,19 @@
+{
+  "verified_at": "2026-10-17T08:18:26.061251+08:00",
+  "cause": "Alignment review retried full package installs under short timeouts and a slow default index, although runtime qualification is a separate gate",
+  "current_fix": "Configured Tsinghua PyPI only in disposable judge HOME; fetched declared MONAI1.5.1 wheel without dependencies, then agent successfully inspected its source at08:15:38",
+  "wheel_sha256": "3112e6ce63352f2ebb8a324a5c199b026aa8e61e914b4912cda3e890e6f7e7c5",
+  "persistent_fix": "Medical runner exports TASK_REVIEW_PACKAGE_INDEX; task.sh seeds only judge pip config; alignment prompt directs stdlib/source inspection and pinned --no-deps archive reads, with runtime feasibility still required by production qualification",
+  "validation": "37 targeted tests passed on Mac and Linux;141 prompt-contract tests passed on Mac",
+  "permissions_note": "external_directory asking events were auto-approved; they were not a permission deadlock",
+  "live_completion": {
+    "checked_at": "2026-10-17T08:23:06.405985+08:00",
+    "scope": "Disposable alignment judge user-site only",
+    "stopped_processes": "One pip installer in this judge container; judge and host job not restarted",
+    "method": "Validated and reused complete cached183914597-byte CPU Torch wheel, installed required small dependencies through Tsinghua, and installed MONAI pinned wheel",
+    "first_import": "Torch/Monai installed; import initially failed because NumPy was absent; failure retained",
+    "final_import": "REVIEW_IMPORT_PASS 2.8.0+cpu 1.5.1 2.2.6 1.16.2",
+    "formal_cuda_runtime_changed": false,
+    "canonical_scaffold_fingerprint_before_and_after": "sha256:38956ff076abd22a7b317ba8a424add356a7dedc3af5737005c93727b4e0528e"
+  }
+}
