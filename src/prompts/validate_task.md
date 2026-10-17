@@ -77,6 +77,11 @@ success attests the workload and fingerprint it names, not unseen workloads or a
 Reject execution feasibility only for concrete current code or contract defects, with an existing
 file/line and a repairable cause; do not demand a successful downstream run as the remediation.
 The harness must still require matching alignment and qualification evidence before publication.
+Use source inspection and small standard-library checks for this alignment review. Do not
+reinstall the task's full training environment or repeat GPU training here; independent runtime
+qualification owns those checks. If you need to inspect an upstream dependency's implementation,
+download its declared pinned wheel with `pip download --no-deps` and inspect the source in the
+archive. Use the configured package mirror and retain concrete code evidence for every finding.
 Schema, CLI, result-file contracts, candidate isolation, no leakage, and bounded RPC remain strict.
 The same is true for search/final separation, offline runtime, and same-path smoke behavior.
 Every independent case-seed run is one candidate episode and requires exactly one reset.

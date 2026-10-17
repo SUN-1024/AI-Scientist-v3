@@ -12,6 +12,36 @@ qualification_remaining_seconds() {
   fi
 }
 
+# The alignment agent has its own disposable HOME. Configure downloads there
+# without changing the isolated scientific runtime or the host's pip settings.
+prepare_alignment_package_index() {
+  [ -n "${TASK_REVIEW_PACKAGE_INDEX:-}" ] || return 0
+  "$PYTHON_BIN" - "$1" "$TASK_REVIEW_PACKAGE_INDEX" <<'PY'
+import configparser
+import os
+from pathlib import Path
+import sys
+from urllib.parse import urlsplit
+
+home, index = Path(sys.argv[1]), sys.argv[2]
+url = urlsplit(index)
+if url.scheme != "https" or not url.hostname or url.username or url.password:
+    raise SystemExit("Review package index must be a public HTTPS URL")
+directory = home / ".config" / "pip"
+directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+path = directory / "pip.conf"
+config = configparser.ConfigParser()
+if path.exists():
+    config.read(path)
+if not config.has_section("global"):
+    config.add_section("global")
+config.set("global", "index-url", index)
+with path.open("w", encoding="utf-8") as output:
+    config.write(output)
+os.chmod(path, 0o600)
+PY
+}
+
 clear_provisional_acceptance() {
   ACCEPTED_ALIGNMENT_REPORT=""
   ACCEPTED_QUALIFICATION_REPORT=""

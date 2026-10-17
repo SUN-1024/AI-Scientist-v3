@@ -3373,6 +3373,7 @@ while true; do
   JUDGE_HOME_DIR="$VALIDATION_ROOT/.judge_home_${review_round}"
   mkdir -p "$JUDGE_HOME_DIR"
   seed_auth_into_home "$AGENT" "$CONTAINER_AUTH_ROOT" "$JUDGE_HOME_DIR"
+  prepare_alignment_package_index "$JUDGE_HOME_DIR"
   JUDGE_SCAFFOLD_DIR="$VALIDATION_ROOT/judge_view_${review_round}"
   prepare_alignment_judge_view \
     "$STAGED_TASK_DIR" "$JUDGE_SCAFFOLD_DIR" \

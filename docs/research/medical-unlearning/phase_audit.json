@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T08:06:20.437355+08:00",
+  "checked_at": "2026-10-17T08:18:26.061251+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51"
@@ -80,6 +80,11 @@
       "error": "final development smoke correct=false",
       "status": "expected_scientific_gate_result_preserved",
       "evidence": "process exit0; very small smoke reference training below fixed0.50 Dice gate; this is not a qualified experiment"
+    },
+    {
+      "error": "Alignment reviewer package installation/download timeouts",
+      "status": "scoped_mirror_fixed_and_source_read_resumed",
+      "evidence": "MONAI1.5.1 wheel downloaded from Tsinghua and read by judge08:15:38; future reviews instructed to inspect pinned source archives and leave full runtime execution to qualification"
     }
   ],
   "formal_gpu_training_started": false,

@@ -1,5 +1,6 @@
 """Recovery keeps the newest work, prevents duplicate jobs, and honors authorization."""
 import os
+import configparser
 from pathlib import Path
 import runpy
 import shlex
@@ -80,3 +81,19 @@ def test_shared_deadline_can_be_disabled_without_changing_finite_mode(budget, el
     script = f'source {shlex.quote(str(library))}\nQUALIFICATION_TIMEOUT_SECONDS={budget}\nSECONDS={elapsed}\nqualification_remaining_seconds 30'
     value = subprocess.check_output(['bash', '-c', script], text=True).strip()
     assert int(value) == expected
+
+
+@pytest.mark.parametrize('index', ['', 'https://pypi.tuna.tsinghua.edu.cn/simple'])
+def test_review_package_index_is_scoped_to_disposable_judge_home(tmp_path, index):
+    import sys
+    home = tmp_path / 'judge'; home.mkdir()
+    library = ROOT / 'src/scripts/lib/task_qualification.sh'
+    env = os.environ | {'PYTHON_BIN': sys.executable, 'TASK_REVIEW_PACKAGE_INDEX': index}
+    subprocess.run(['bash', '-c', f'source {shlex.quote(str(library))}\nprepare_alignment_package_index {shlex.quote(str(home))}'],env=env,check=True)
+    config_path = home / '.config/pip/pip.conf'
+    if not index:
+        assert not config_path.exists()
+    else:
+        config = configparser.ConfigParser(); config.read(config_path)
+        assert config['global']['index-url'] == index
+        assert config_path.stat().st_mode & 0o777 == 0o600
