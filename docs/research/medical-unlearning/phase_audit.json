@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T10:28:31.504869+08:00",
+  "checked_at": "2026-10-17T10:34:40.430682+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -40,7 +40,7 @@
         "seed": 1701,
         "total_seconds": 60.85846066195518,
         "source_gate_fingerprint": "sha256:7260e45f62180cd8a3a66ebe848bc9e70a48cc1a372d0642dd69bac0e1b02793",
-        "main_qualification_gate": "pending",
+        "main_qualification_gate": "pass_separate_main_receipt",
         "used_as_release_receipt": false
       },
       "publication": "pass_after_owned_resource_recovery",
@@ -83,7 +83,7 @@
     {
       "error": "First full drafting run7200s timeout",
       "status": "recovered_and_overall_limit_authorization_removed",
-      "evidence": "new job reuses saved code and accepted design; current job still has original technical timer, successors uncapped"
+      "evidence": "Historical timeout preserved; uncapped successors completed all task qualification and publication gates"
     },
     {
       "error": "OpenCode draft-task skill: ripgrep execution failed after GitHub download attempt",
@@ -117,8 +117,8 @@
     },
     {
       "error": "Tolerant boundary F1 reused one directional match count",
-      "status": "implementation_fixed_full_validation_pending",
-      "evidence": "Two actual evaluator modules each passed7 geometric regressions under pinned NumPy/SciPy; all gates rerun"
+      "status": "fixed_and_fully_independently_validated",
+      "evidence": "Corrected actual evaluators passed pinned geometry regressions, independent alignment, isolated smoke and main full production baseline qualification; current metric AST reverified"
     },
     {
       "error": "Isolated runtime pip did not inherit package mirror; measured23KiB/s Torch download",
@@ -148,15 +148,18 @@
   ],
   "scientific_results_available": true,
   "current_job_id": "20261017_102054_544b6a4c",
-  "gpu_stage": "isolated development validation only",
-  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_085117_652b0da2/gpu-samples.csv",
+  "gpu_stage": "investigation_starting_candidate_baseline_completed",
+  "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu-samples.csv",
   "gpu_training": {
     "observed": true,
     "current_purpose": "Investigation starting candidate validation",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
-    "first_current_activity": "2026/10/17 10:24:07.671",
+    "first_current_activity": "2026/10/17 10:24:06.627",
     "new_method_training_started": false
   },
-  "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results"
+  "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results",
+  "last_effective_activity": "2026-10-17T10:34:21.404000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_103440.json",
+  "new_error_events": []
 }

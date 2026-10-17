@@ -1,0 +1,80 @@
+{
+  "checked_at": "2026-10-17T10:34:40.430682+08:00",
+  "job_id": "20261017_102054_544b6a4c",
+  "exit_code": null,
+  "run_log_tail": [
+    "1/5 · Running Investigation… 10m 0s · still running",
+    "Cycle 1/2 · Generating idea… 6m 6s · still running",
+    "1/5 · Running Investigation… 11m 0s · still running",
+    "Cycle 1/2 · Generating idea… 7m 6s · still running",
+    "1/5 · Running Investigation… 12m 0s · still running",
+    "Cycle 1/2 · Generating idea… 8m 6s · still running",
+    "1/5 · Running Investigation… 13m 0s · still running",
+    "Cycle 1/2 · Generating idea… 9m 6s · still running"
+  ],
+  "latest_agent_tool": {
+    "timestamp": 1792204461404,
+    "tool": "read",
+    "status": "completed",
+    "title": "workspace/.baseline-seed-xg9moos2/program_0/src/program.py"
+  },
+  "agent_errors": [],
+  "wrapper_errors": [],
+  "phases_present": {
+    "investigation": true,
+    "ablations": false,
+    "final_evaluation": false,
+    "posthoc": false,
+    "paper": false
+  },
+  "ideas_history.jsonl_records": 0,
+  "attempts_history.jsonl_records": 0,
+  "idea_generation_failures.jsonl_records": 0,
+  "gpu_trace": {
+    "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+      "peak_memory_mib": 592.0,
+      "peak_utilization_percent": 17.0,
+      "first_activity": "2026/10/17 10:24:06.627",
+      "last_activity": "2026/10/17 10:24:45.298",
+      "active_samples": 38
+    },
+    "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+      "peak_memory_mib": 398.0,
+      "peak_utilization_percent": 5.0,
+      "first_activity": "2026/10/17 10:24:10.815",
+      "last_activity": "2026/10/17 10:24:46.344",
+      "active_samples": 35
+    }
+  },
+  "gpu_now": {
+    "exit_code": 0,
+    "stdout": "0, 0 MiB, 0 %\n3, 0 MiB, 0 %"
+  },
+  "containers": {
+    "exit_code": 0,
+    "stdout": "f1e8d38a8340 agentic-1000-agent-tmp-zt6ozu1q Up 9 minutes 20261017_102054_544b6a4c\n6bec8cc0ec3e bridge-defect-model Up 2 weeks (healthy)"
+  },
+  "qualified_source_reverification": {
+    "ready": true,
+    "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6",
+    "expected_metric_ast_matches": true,
+    "alignment": "pass",
+    "full_production_baseline_correct": true,
+    "full_production_baseline_feasible": true,
+    "main_source_exit_code": 0,
+    "historical_failed_initialization_exit_codes": [
+      1,
+      2
+    ],
+    "historical_failures_preserved": true
+  },
+  "scope": "Current investigation entry baseline is valid; no new-method results; wrapper heartbeats are not progress",
+  "source_report_audit": {
+    "task_drafting": "completed_after_verified_publication_recovery",
+    "alignment_dimensions_passed": "11/11",
+    "acceptance_smoke": "pass",
+    "full_production_baseline_qualification": "pass",
+    "publication_recovery": "pass"
+  },
+  "continuation_guard": "Default downstream launcher correctly rejected duplicate phase submission; no restart performed"
+}
