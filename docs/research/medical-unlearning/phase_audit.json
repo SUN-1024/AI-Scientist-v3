@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T11:13:26.025782+08:00",
+  "checked_at": "2026-10-17T11:25:25.429402+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -47,7 +47,7 @@
       "publication_plan_sha256": "69b121c824a9ad2c9ad0b9515140af661fc31742726aac7e65c3dde768293ac6"
     },
     "investigation": {
-      "status": "cycle_1_updated_proposal_and_rubrics_draft",
+      "status": "cycle_1_candidate_implementation",
       "logs_exist": true,
       "job_id": "20261017_102054_544b6a4c",
       "private_inputs_present": true,
@@ -60,8 +60,12 @@
       "prior_exit_code": 2,
       "source_checkpoint_preserved": true,
       "proposal_draft_available": true,
-      "accepted_idea_available": false,
-      "proposal_draft_bytes": 27430
+      "accepted_idea_available": true,
+      "proposal_draft_bytes": 27430,
+      "accepted_idea_id": "cycle01_boundary_anchored_memorization_gated_orthogonal_ascent",
+      "target_rubrics_count": 7,
+      "candidate_implementation_available": true,
+      "method_attempt_in_progress": true
     },
     "ablations": {
       "status": "not_started",
@@ -163,15 +167,15 @@
   "gpu_sampling_evidence": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_resume_20261017_110416.csv",
   "gpu_training": {
     "observed": true,
-    "current_purpose": "Investigation starting candidate validation",
+    "current_purpose": "No active method training; candidate is being implemented. Prior entry baseline only.",
     "reference_updates_each": 400,
     "baseline_updates_each": 80,
     "first_current_activity": "2026/10/17 10:24:06.627",
     "new_method_training_started": false
   },
   "scientific_results_scope": "Source full baseline qualification plus current starting candidate validation; no new-method/final/paper results",
-  "last_effective_activity": "2026-10-17T11:12:07.984000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_111326.json",
+  "last_effective_activity": "2026-10-17T11:24:42.477000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_112525.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "restored_after_checkpoint_resume",
