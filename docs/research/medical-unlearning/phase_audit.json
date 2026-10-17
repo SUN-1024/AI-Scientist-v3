@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T11:37:23.457687+08:00",
+  "checked_at": "2026-10-17T11:42:51.917134+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -179,8 +179,8 @@
     "first_method_evaluation_finished": "2026-10-17T11:29:54.923+08:00"
   },
   "scientific_results_scope": "Source baseline qualification and entry baseline plus first new-method investigation evaluation (search plane, seed1701); no ablation, sealed final or paper results",
-  "last_effective_activity": "2026-10-17T11:30:24.546000+08:00",
-  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_113458.json",
+  "last_effective_activity": "2026-10-17T11:41:52.449000+08:00",
+  "latest_monitor_evidence": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_114251.json",
   "new_error_events": [],
   "sampling_maintenance": {
     "status": "restored_after_checkpoint_resume",
