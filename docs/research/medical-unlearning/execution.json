@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-17T14:16:34.899834+08:00",
+  "updated_at": "2026-10-17T14:25:31.966378+08:00",
   "tool": "SakanaAI AI-Scientist v3",
   "agent": "opencode",
   "model": "qwen-plan/qwen3.8-max",
@@ -26,17 +26,17 @@
   "paper_available": false,
   "submission_authorized": false,
   "last_monitor_check": {
-    "checked_at": "2026-10-17T14:16:34.899834+08:00",
-    "status": "isolation_fixed_live_checkpoint_baseline5_running",
+    "checked_at": "2026-10-17T14:25:31.966378+08:00",
+    "status": "model_code_authoring_request_silent_not_gpu_failure",
     "exit_code": null,
-    "restart_performed": true,
-    "repair_applied": true,
+    "restart_performed": false,
+    "repair_applied": false,
     "gpu_training_observed": true,
     "gpu_training_scope": "Previous four scoped native evaluations exist; checkpoint recovery after14:10 has no new GPU evaluation yet",
     "gpu_currently_idle": true,
-    "latest_effective_activity": "2026-10-17T14:16:04.298000+08:00",
+    "latest_effective_activity": "2026-10-17T14:18:06.870000+08:00",
     "latest_effective_activity_detail": {
-      "timestamp": 1792217764298,
+      "timestamp": 1792217886870,
       "tool": "todowrite",
       "status": "completed",
       "title": "command",
@@ -61,16 +61,18 @@
         "reason": "Scoped rg returned no CSV matches; subsequent source reads and planning succeeded"
       }
     ],
-    "past_ten_minutes_progress": "本轮确认并修复消融代理私有源挂载暴露：13:54停止保存回执，30项Linux检查及实际断网容器通过，14:10仅恢复3个未使用评价预算。新研究容器实际最终评估器/契约0字节、最终目录空；原4结果63项哈希不变但隔离未认证，仅作探索。当前第5/7纯梯度上升基线准备代码，最新有效活动2026-10-17T14:16:04.298000+08:00；两GPU空闲。",
-    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/monitor_20261017_141634.json",
+    "past_ten_minutes_progress": "14:22人工暂停全部15项定时任务；本次实查没有新研究评价。第5/7个基线仍在代码生成，最新完整工具活动14:18:06，14:18:09后的模型流持续静默。两张A40空闲，当前恢复自14:10以来尚无新GPU训练；先前两轮开发、一次最终评价和四项比较均有真实GPU回执。",
+    "evidence_path": "/Users/sun/Documents/ChatGPT/AI-scientist-V3/docs/research/medical-unlearning/validation/20261017_102054_544b6a4c/manual_diagnosis_20261017_142531.json",
     "sealed_final_qualified": false,
     "sealed_final_hashes_unchanged": true,
     "prior_variant_source_isolation_qualified": false,
-    "new_agent_source_isolation_verified": true
+    "new_agent_source_isolation_verified": true,
+    "check_mode": "manual_after_scheduled_tasks_paused",
+    "model_request_silence_seconds": 442.9133
   },
   "next_action": {
     "requires_user_decision": false,
-    "action": "Monitor only three unused baseline budgets in repaired views and retain private tool audit logs. Do not repeat completed evaluations or sealed final. Entire-campaign isolation remains unqualified because earlier generation/authoring views were exposed; keep posthoc and paper blocked until a concrete scientific decision after this scoped engineering recovery.",
+    "action": "Directly inspect the current model-authoring request and finish only the original three unused baseline budgets. All schedules stay paused. Preserve completed results and the one-time sealed negative final; posthoc and paper remain blocked by scientific findings. Do not create duplicate runs or reset used evaluation budgets.",
     "scientific_decision_pending_after_scoped_recovery": true
   },
   "previous_execution": {
@@ -261,10 +263,7 @@
       "private_future_audit_root": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/attempts/variant_checkpoint_20261017_141026_812d1661/agent_audit"
     }
   },
-  "monitor_hint": {
-    "interpretation": "Current phase is a standalone ablations recovery. Inspect phase_output_overrides.ablations and live bounded variant streams via owned process fds; successful variant logs may live in task-scoped temp storage until exit. Main pipeline exit0 was completed_degraded/not_qualified, not scientific success. Sealed final may not be rerun or used for candidate tuning.",
-    "gpu_sampling": "Use current gpu_sampling.csv for the checkpoint recovery; prior scoped ablation trace stopped after intentional isolation stop. Keep all historical traces."
-  },
+  "monitor_hint": "All15 scheduled tasks are paused at the human user request. Check manually; do not reenable automation without a new user request. A live process or pending model stream does not establish research progress.",
   "verification_gate": {
     "enabled": true,
     "required_before_downstream": [
@@ -710,11 +709,11 @@
     },
     "running": true,
     "duration_samples": null,
-    "verified_at": "2026-10-17T14:16:34.033349+08:00",
+    "verified_at": "2026-10-17T14:25:31.966378+08:00",
     "purpose": "Only the original two GPUs during checkpoint recovery of the three unused baseline budgets",
     "last_rows": [
-      "2026/10/17 14:16:33.791, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
-      "2026/10/17 14:16:33.792, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+      "2026/10/17 14:25:31.707, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+      "2026/10/17 14:25:31.708, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
     ],
     "peaks_since_sampler_start": {
       "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
@@ -730,7 +729,7 @@
         "last_active": null
       }
     },
-    "bytes": 40896
+    "bytes": 115056
   },
   "formal_experiment_results_scope": "Two development candidates and one negative sealed final completed before the variants exposure; four subsequent native variant executions retained as exploratory due to exposed authoring views. Three unused baseline budgets now resume with verified sealed agent views. Entire campaign and paper remain unqualified.",
   "first_candidate_result": {
@@ -990,7 +989,7 @@
       true
     ],
     "scientific_claim_qualified": false,
-    "files_reverified_unchanged_at": "2026-10-17T14:16:34.899834+08:00"
+    "files_reverified_unchanged_at": "2026-10-17T14:23:31.589483+08:00"
   },
   "ablation_recoveries": [
     {
@@ -1417,5 +1416,92 @@
   "blocking_finding_scopes": {
     "final_tradeoff_not_demonstrated": "paper and superiority claim",
     "variant_agent_private_task_source_exposure": "qualification of earlier ablation generation/authoring views and paper; repaired new execution views independently verified"
+  },
+  "automation_control": {
+    "updated_at": "2026-10-17T14:26:13.227758+08:00",
+    "requested_by": "human user",
+    "request": "把所有定时任务就直接关闭了，你来操作",
+    "total": 15,
+    "active_count": 0,
+    "all_paused": true,
+    "tasks": [
+      {
+        "id": "2-1-0",
+        "name": "桥梁模型2.1.0发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2-1-1",
+        "name": "桥梁模型2.1.1发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2025",
+        "name": "2025年度绩效申报核验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai",
+        "name": "生成式AI逐字稿处理",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai-scientist",
+        "name": "检查并修复 AI-Scientist 医学遗忘实验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation",
+        "name": "表格加粗同步检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation-2",
+        "name": "第二周实践手册完成检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "follow-up-monitor",
+        "name": "Follow-up monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "media-03558r1-gmail-decision-monitor",
+        "name": "MedIA 03558R1 Gmail decision monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "orca-256k",
+        "name": "Orca Router 与压缩验证收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "peft",
+        "name": "桥梁裂缝全量PEFT训练监控",
+        "status": "PAUSED"
+      },
+      {
+        "id": "pga-dps",
+        "name": "PGA-DPS 原论文完整复现跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ppt",
+        "name": "循环神经网络分章教学PPT进度",
+        "status": "PAUSED"
+      },
+      {
+        "id": "qwen",
+        "name": "Qwen 思考档位适配收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "t1-r3-c04-gpu0-admission-wait",
+        "name": "T1-R3 C04 GPU0 admission wait",
+        "status": "PAUSED"
+      }
+    ],
+    "research_process_stopped": false,
+    "automatic_reenable_authorized": false
   }
 }

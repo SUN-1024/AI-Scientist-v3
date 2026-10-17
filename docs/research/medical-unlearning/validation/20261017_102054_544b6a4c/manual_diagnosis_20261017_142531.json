@@ -1,0 +1,193 @@
+{
+  "checked_at": "2026-10-17T14:25:31.966378+08:00",
+  "job_id": "20261017_102054_544b6a4c",
+  "automation_control": {
+    "updated_at": "2026-10-17T14:26:13.227758+08:00",
+    "requested_by": "human user",
+    "request": "把所有定时任务就直接关闭了，你来操作",
+    "total": 15,
+    "active_count": 0,
+    "all_paused": true,
+    "tasks": [
+      {
+        "id": "2-1-0",
+        "name": "桥梁模型2.1.0发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2-1-1",
+        "name": "桥梁模型2.1.1发布跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "2025",
+        "name": "2025年度绩效申报核验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai",
+        "name": "生成式AI逐字稿处理",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ai-scientist",
+        "name": "检查并修复 AI-Scientist 医学遗忘实验",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation",
+        "name": "表格加粗同步检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "automation-2",
+        "name": "第二周实践手册完成检查",
+        "status": "PAUSED"
+      },
+      {
+        "id": "follow-up-monitor",
+        "name": "Follow-up monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "media-03558r1-gmail-decision-monitor",
+        "name": "MedIA 03558R1 Gmail decision monitor",
+        "status": "PAUSED"
+      },
+      {
+        "id": "orca-256k",
+        "name": "Orca Router 与压缩验证收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "peft",
+        "name": "桥梁裂缝全量PEFT训练监控",
+        "status": "PAUSED"
+      },
+      {
+        "id": "pga-dps",
+        "name": "PGA-DPS 原论文完整复现跟进",
+        "status": "PAUSED"
+      },
+      {
+        "id": "ppt",
+        "name": "循环神经网络分章教学PPT进度",
+        "status": "PAUSED"
+      },
+      {
+        "id": "qwen",
+        "name": "Qwen 思考档位适配收尾",
+        "status": "PAUSED"
+      },
+      {
+        "id": "t1-r3-c04-gpu0-admission-wait",
+        "name": "T1-R3 C04 GPU0 admission wait",
+        "status": "PAUSED"
+      }
+    ],
+    "research_process_stopped": false,
+    "automatic_reenable_authorized": false
+  },
+  "phase": "ablations",
+  "current_variant": "baseline_gradient_ascent",
+  "completed_variant_count": 4,
+  "total_variant_count": 7,
+  "current_variant_evaluations": 0,
+  "latest_effective_tool": {
+    "timestamp": 1792217886870,
+    "tool": "todowrite",
+    "status": "completed",
+    "title": "command",
+    "log": "/home/sunguanqun/AI-Scientist-v3/scratch/tmp/agentic-scientist-1000/temp/run-1728f885e85c4bb5a6ce9e972f0ed669/agentic-variant-cost-ezvylv/agent_opencode.jsonl"
+  },
+  "model_request": {
+    "provider": "qwen-plan",
+    "model": "qwen-plan/qwen3.8-max",
+    "stream_modified": "2026-10-17T14:18:09.053078+08:00",
+    "stream_bytes": 269199,
+    "observed_silence_seconds": 442.9133,
+    "request_pending": true,
+    "new_complete_output": false,
+    "diagnosis": "Waiting in code-authoring model stream, not GPU evaluation; silence alone cannot distinguish slow generation from a stalled provider request"
+  },
+  "source_gates_rechecked": true,
+  "prior_campaign_source_isolation_qualified": false,
+  "sealed_final_hashes": {
+    "final_evaluation/final_manifest.json": {
+      "expected": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+      "actual": "81324c8bb3fa39f5ac3f959ee5bc1f86d3d2dad6b785071b603497523a345317",
+      "unchanged": true
+    },
+    "final_evaluation/invocation.json": {
+      "expected": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+      "actual": "1358b3b9f44afa3cca0af018138d1c1297e14aa887a619267dfcbb5e767dc90e",
+      "unchanged": true
+    },
+    "final_evaluation/results/metrics.json": {
+      "expected": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+      "actual": "1c959ef42fc9d34247b4b03558c7521a2816fca8483e20267f0f0918f969e5e8",
+      "unchanged": true
+    },
+    "final_evaluation/results/correct.json": {
+      "expected": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+      "actual": "680114bb678482acbdf917c1f9406ac20e466022daaef08c846f7a7b7741c49f",
+      "unchanged": true
+    },
+    "final_evaluation/results/evaluation_evidence.json": {
+      "expected": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+      "actual": "492e834c2994054dcdfb1763ccb95baa951cf1a2e29e4080dbee1546437db31a",
+      "unchanged": true
+    }
+  },
+  "gpu_now": "0, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0 MiB, 0 %\n3, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0 MiB, 0 %",
+  "gpu_sampling": {
+    "pid": 2970322,
+    "running": true,
+    "csv": "/home/sunguanqun/AI-Scientist-v3/jobs/20261017_102054_544b6a4c/gpu_watch_checkpoint_20261017_141138.csv",
+    "bytes": 115056,
+    "last_rows": [
+      "2026/10/17 14:25:31.707, GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f, 0, 0",
+      "2026/10/17 14:25:31.708, GPU-340679f6-cccd-c15e-7c16-a23f11e3e113, 0, 0"
+    ],
+    "peaks": {
+      "GPU-aa6927f3-5a42-945a-c24b-0ac80e86b53f": {
+        "memory_mib": 0,
+        "utilization_percent": 0,
+        "active_samples": 0,
+        "last_active": null
+      },
+      "GPU-340679f6-cccd-c15e-7c16-a23f11e3e113": {
+        "memory_mib": 0,
+        "utilization_percent": 0,
+        "active_samples": 0,
+        "last_active": null
+      }
+    }
+  },
+  "research_processes": {
+    "job_id": "20261017_102054_544b6a4c",
+    "running": true,
+    "process_ids": [
+      2968161,
+      2968165,
+      2968177,
+      2968213,
+      2968214,
+      2968215,
+      2968258,
+      2968259,
+      2968260
+    ],
+    "container_ids": [
+      "e2832bb59431"
+    ],
+    "exit_code": null,
+    "source_draft": null,
+    "published_task": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/task",
+    "has_qualification_receipt": true
+  },
+  "new_agent_errors": [],
+  "scientific_protocol_changed": false,
+  "research_restarted": false,
+  "sealed_final_repeated": false
+}

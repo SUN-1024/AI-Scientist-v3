@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T14:16:34.899834+08:00",
+  "checked_at": "2026-10-17T14:25:31.966378+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51",
@@ -90,7 +90,7 @@
       "current_outputs": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f",
       "recovery_started_at": "2026-10-17T12:32:06.526865+08:00",
       "host_scoring_started": true,
-      "latest_agent_activity": "2026-10-17T14:16:04.298000+08:00",
+      "latest_agent_activity": "2026-10-17T14:18:06.870000+08:00",
       "current_stage": "execute_unused_variant_checkpoint",
       "generation_completed": true,
       "proposed_candidates": 8,
@@ -180,7 +180,10 @@
       "isolation_qualified": false,
       "new_agent_source_view_verified": true,
       "prior_results_scope": "Four exploratory native executions; prior generation/authoring task-source view exposure cannot be retrospectively certified",
-      "checkpoint_recovery_started_at": "2026-10-17T14:10:26.957095+08:00"
+      "checkpoint_recovery_started_at": "2026-10-17T14:10:26.957095+08:00",
+      "current_model_request_last_stream_output": "2026-10-17T14:18:09.053078+08:00",
+      "current_model_request_silence_seconds": 442.9133,
+      "current_variant_evaluations": 0
     },
     "final_evaluation": {
       "status": "completed_not_qualified",
@@ -372,5 +375,11 @@
     "sealed_final_not_qualified": "Scientifically valid execution; pre-registered tradeoff demonstration failed; preserve result and do not retune",
     "boundary_anchor_ablation": "Single development seed1701: removing boundary term increases score0.00037739, Dice0.00115399 and boundaryF1 0.00067036 while worsening forget MAE0.00020575; no evidence here for primary-score benefit from boundary term",
     "variants_isolation": "New execution views repaired and checked inside the actual research container; earlier four native execution results retained as exploratory because original authoring/generation views exposed sealed source"
+  },
+  "manual_control": {
+    "all_scheduled_tasks_paused": true,
+    "task_count": 15,
+    "active_count": 0,
+    "research_process_running": true
   }
 }
