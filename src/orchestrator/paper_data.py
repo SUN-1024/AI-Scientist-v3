@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.research.evidence import merge_assessments
+
 import json
 import re
 import shutil
@@ -743,6 +745,7 @@ def build_paper_data(
     if has_multitask_ablation_bundle(resolved):
         paper_data = build_multitask_ablation_paper_data(resolved, paper_profile=paper_profile)
         merge_study_context(paper_data, investigation_results_dir or resolved)
+        merge_assessments(paper_data, investigation_results_dir or resolved)
         if resolved_final_dir is not None:
             _merge_final_evaluation(
                 paper_data,
@@ -756,6 +759,7 @@ def build_paper_data(
         ablation_data = build_ablation_paper_data(resolved, paper_profile=paper_profile)
         _merge_cross_task_results(ablation_data, resolved)
         merge_study_context(ablation_data, investigation_results_dir or resolved)
+        merge_assessments(ablation_data, investigation_results_dir or resolved)
         if resolved_final_dir is not None:
             _merge_final_evaluation(
                 ablation_data,
@@ -813,6 +817,8 @@ def build_paper_data(
                 all_programs.append(
                     {
                         "idea_id": idea_id_default,
+                        **({"research_basis": idea_bundle["research_basis"]}
+                           if isinstance(idea_bundle, dict) and "research_basis" in idea_bundle else {}),
                         "idea_dir_name": idea_dir.name,
                         "attempt_id": attempt_id_default,
                         "attempt_dir_name": (
@@ -1006,6 +1012,7 @@ def build_paper_data(
 
     _merge_cross_task_results(paper_data, resolved)
     merge_study_context(paper_data, investigation_results_dir or resolved)
+    merge_assessments(paper_data, investigation_results_dir or resolved)
     if resolved_final_dir is not None:
         _merge_final_evaluation(
             paper_data,

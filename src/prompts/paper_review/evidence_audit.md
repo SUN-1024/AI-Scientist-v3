@@ -98,3 +98,5 @@ AUDIT_SUMMARY: One visible results claim overstates what the grounded evidence c
 AUDIT_FINDING_COUNT: 1
 AUDIT_FINDING: id=results-overclaim-1 || section=Results || claim=The paper says the method consistently outperforms all baselines across tasks. || issue=claims_grounding.json only supports one benchmark-specific improvement and does not justify the across-tasks wording. || evidence=paper.tex Results paragraph 2; claims_grounding.json claim[3]; paper_data.json grounding_sources for the cited result ids. || fix=Narrow the sentence to the supported benchmark or add an explicit limitation.
 ```
+
+If evaluated programs carry research_basis, inspect their cited prior work. Treat differentiation judgments as agent assessments. Unresolved novelty and replication status must remain explicit; a search score gain is not evidence of novelty. Verify attribution against task/research_context when present.

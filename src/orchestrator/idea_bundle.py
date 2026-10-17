@@ -218,7 +218,7 @@ def normalize_idea_bundle(raw: Any, cycle_index: int) -> dict[str, Any]:
     if not isinstance(notes, str):
         notes = ""
 
-    return {
+    normalized = {
         "idea_id": idea_id,
         "title": title.strip(),
         "hypothesis": hypothesis.strip(),
@@ -226,3 +226,11 @@ def normalize_idea_bundle(raw: Any, cycle_index: int) -> dict[str, Any]:
         "target_rubrics": target_rubrics,
         "notes_for_agent": notes.strip(),
     }
+    if "research_basis" in raw:
+        from src.research.evidence import normalize_basis
+
+        try:
+            normalized["research_basis"] = normalize_basis(raw["research_basis"])
+        except ValueError as exc:
+            raise IdeaBundleValidationError(str(exc)) from exc
+    return normalized

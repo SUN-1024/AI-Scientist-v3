@@ -70,6 +70,7 @@ packages = [
     "src.posthoc_pipeline",
     "src.final_evaluation",
     "src.task_drafting",
+    "src.research",
 ]
 
 [tool.ruff]

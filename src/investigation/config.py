@@ -110,6 +110,18 @@ class PathsConfig:
 
 @dataclass
 class ExecutionConfig:
+    search_strategy: str = field(
+        default="best",
+        metadata={"help": "Parent selection: best (existing V3 policy) or tree (bounded branching)"},
+    )
+    search_width: int = field(
+        default=4,
+        metadata={"help": "Top correct candidates retained in the branching search frontier"},
+    )
+    search_explore_every: int = field(
+        default=3,
+        metadata={"help": "Explore a less-visited branch every N idea cycles"},
+    )
     max_idea_cycles: int = field(
         default=20,
         metadata={"help": "Max outer idea-generation cycles"},
@@ -547,6 +559,14 @@ def validate(cfg: InvestigationConfig) -> None:
         raise ConfigValidationError(
             "execution.gpu_evaluation requires execution.harness_evaluated_attempts=true"
         )
+    if cfg.execution.search_strategy not in {"best", "tree"}:
+        raise ConfigValidationError("execution.search_strategy must be best or tree")
+    for name in ("search_width", "search_explore_every"):
+        value = getattr(cfg.execution, name)
+        if type(value) is not int or value < 2:
+            raise ConfigValidationError(f"execution.{name} must be an integer >= 2")
+    if cfg.execution.search_strategy == "tree" and cfg.execution.prune_every_n_cycles:
+        raise ConfigValidationError("tree search requires execution.prune_every_n_cycles=0")
     if cfg.execution.prune_every_n_cycles < 0:
         raise ConfigValidationError("execution.prune_every_n_cycles must be >= 0")
     if cfg.execution.worker_index < 0:

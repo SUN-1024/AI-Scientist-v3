@@ -22,6 +22,7 @@ USAGE = """\
 Usage: agsci <command> [arguments]
 
 Commands:
+  research     Unified research: templates, literature preparation, branching search, and evidence
   run          Run the pipeline: agsci run [task_dir] [--dry-run] key=value ...
   investigate  Run the investigation loop alone: agsci investigate [HYDRA_OVERRIDES...]
   doctor       Check this host for the tools, images, and GPUs the pipeline needs
@@ -53,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
     if command in {"-h", "--help", "help"}:
         print(USAGE, end="")
         return 0
+    if command == "research":
+        from src.research import cli as research_cli
+
+        return research_cli.main(rest)
     if command == "run":
         from src.pipeline import cli as pipeline_cli
 

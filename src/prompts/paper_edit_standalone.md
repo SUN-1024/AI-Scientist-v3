@@ -437,3 +437,6 @@ Rules:
 - When a PDF exists, reference the PDF from LaTeX so lines, text, and markers remain vector sharp.
 - For raster-only output, generate at least 2400 px wide for full-width placement or 1200 px wide for column-width placement.
 - Never upscale an existing raster image; regenerate it from source at the required size.
+
+# Prior Work and Contribution Boundaries
+{{RESEARCH_CONTEXT}}

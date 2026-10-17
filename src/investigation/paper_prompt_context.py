@@ -91,7 +91,10 @@ def paper_workspace_context_replacements(workspace_dir: Path) -> dict[str, str]:
     aggregated_dir = workspace_dir / "aggregated"
     results_readme_path = workspace_dir / "results_readme.md"
     contributions_path = workspace_dir / "contributions.md"
+    from src.research.evidence import render_context
+
     return {
+        "RESEARCH_CONTEXT": render_context(workspace_dir / "task", for_paper=True),
         "POSTHOC_ANALYSES_CONTEXT": _render_posthoc_analyses_context(workspace_dir),
         "POSTHOC_RANKING_PATH": "./posthoc_ranking.json",
         "DRAFT_REFERENCE_GAPS_PATH": "./draft_reference_gaps.md",

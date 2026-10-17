@@ -1,0 +1,9 @@
+#!/bin/bash
+# Run the unified entry point with this checkout's Python environment.
+set -euo pipefail
+RESEARCH_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+if [ ! -x "$RESEARCH_ROOT/.venv/bin/agsci" ]; then
+  printf '%s\n' "Missing .venv/bin/agsci. Run uv sync --frozen in $RESEARCH_ROOT first." >&2
+  exit 2
+fi
+exec "$RESEARCH_ROOT/scripts/local-agsci" research "$@"

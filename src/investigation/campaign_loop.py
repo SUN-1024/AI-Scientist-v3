@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import time
@@ -18,6 +19,8 @@ from .files import confirm_prune_warning
 from .idea_generation import IdeaArtifactsError, load_idea_artifacts
 from .idea_retry_feedback import sanitize_validation_feedback, validation_feedback_from_output
 from .models import IdeaGenerationResult, PaperGenerationResult, RunAttemptResult
+from .search_tree import SearchTree
+from src.research.evidence import validate_basis_for_task
 from .script_runners import copy_output_log_no_follow, write_output_log_no_follow
 from .task_failure import (
     AGENT_LOG_FAILURE, INFRASTRUCTURE_EXIT_CODE, TASK_CONTRACT_FAILURE, failure_details,
@@ -98,6 +101,16 @@ def run_cycles_and_finalize(
     if conclusions_dir is None:
         conclusions_dir = global_memory_dir
     state_store.ensure_conclusions_files(conclusions_dir)
+    search_tree = None
+    if cfg.execution.search_strategy == "tree":
+        try:
+            search_tree = SearchTree(
+                results_dir, task_dir, width=cfg.execution.search_width,
+                explore_every=cfg.execution.search_explore_every,
+            )
+        except (ValueError, OSError) as exc:
+            log_event_fn("campaign_failed", reason="invalid_search_tree", detail=str(exc))
+            return 2
     prune_n = cfg.execution.prune_every_n_cycles
     if prune_n > 0 and not containerize:
         log_event_fn(
@@ -175,6 +188,18 @@ def run_cycles_and_finalize(
                 conclusions_pre_state["own_conclusions_size"],
             )
 
+        cycle_seed = best_program_dir
+        if search_tree is not None:
+            try:
+                search_parent = search_tree.choose(cycle_idx, best_manifest, best_program_dir)
+                cycle_seed = Path(search_parent["program_dir"])
+            except (ValueError, OSError) as exc:
+                log_event_fn("campaign_failed", reason="invalid_search_parent", detail=str(exc))
+                return 2
+            log_event_fn(
+                "search_parent_selected", cycle=cycle_idx,
+                node_id=search_parent["node_id"], seed_program_dir=cycle_seed,
+            )
         cycle_started_at = time.monotonic()
         log_event_fn(
             "cycle_start",
@@ -294,6 +319,10 @@ def run_cycles_and_finalize(
                         require_harness_verification=cfg.execution.harness_evaluated_attempts,
                         harness_incumbent_score=harness_incumbent_score,
                     )
+                    try:
+                        validate_basis_for_task(task_dir, artifacts.bundle)
+                    except (ValueError, OSError) as exc:
+                        raise IdeaArtifactsError("invalid_research_basis", detail=str(exc)) from exc
                 except IdeaArtifactsError as exc:
                     failure_reason = exc.reason
                     failure_detail = exc.detail
@@ -392,6 +421,17 @@ def run_cycles_and_finalize(
             return 2
 
         idea_id = str(idea_bundle["idea_id"])
+        if idea_bundle.get("research_basis", {}).get("status") == "collision":
+            state_store.write_private_text(
+                results_dir / "research_decision.json",
+                json.dumps(idea_bundle, ensure_ascii=False, indent=2),
+            )
+            log_event_fn("campaign_failed", reason="supported_prior_work_collision", idea_id=idea_id)
+            checkpoint_fn(
+                label="prior work collision", phase="investigation", event="research_collision",
+                cycle=cycle_idx, idea_id=idea_id, final=finalize_on_exit,
+            )
+            return 3
         idea_title = idea_bundle.get("title") if isinstance(idea_bundle.get("title"), str) else None
         target_ids = rubrics.extract_target_rubric_ids(idea_bundle["target_rubrics"])
         idea_dir_name = state_store.idea_dir_name(
@@ -464,7 +504,7 @@ def run_cycles_and_finalize(
             idea_id=idea_id,
             attempt_id=attempt_id,
             attempt_number=attempt_number,
-            seed_program_dir=best_program_dir,
+            seed_program_dir=cycle_seed,
             agent=cycle_agent.agent,
             agent_model=cycle_agent.model,
         )
@@ -479,7 +519,7 @@ def run_cycles_and_finalize(
             global_memory_dir=global_memory_dir,
             conclusions_dir=conclusions_dir,
             worker_index=worker_index,
-            seed_program_dir=best_program_dir,
+            seed_program_dir=cycle_seed,
             idea_file=idea_file,
             rubrics_file=rubrics_file,
             attempt_id=attempt_id,
@@ -578,6 +618,7 @@ def run_cycles_and_finalize(
         )
         evaluated_score: float | None = None
         evaluated_correct: bool | None = None
+        candidate = None
         if attempt_result.experiment_dir is not None:
             candidate = find_best_program_in_experiment_fn(attempt_result.experiment_dir)
             if candidate is not None:
@@ -604,6 +645,15 @@ def run_cycles_and_finalize(
                     outer_state["best_correct"] = True
                     best_updated = True
 
+        if search_tree is not None:
+            try:
+                search_tree.record(
+                    cycle=cycle_idx, idea=idea_bundle, candidate=candidate,
+                    exit_code=attempt_result.exit_code,
+                )
+            except (ValueError, OSError) as exc:
+                log_event_fn("campaign_failed", reason="invalid_search_outcome", detail=str(exc))
+                return 2
         run_failed = attempt_result.exit_code != 0
         attempt_pass = (not run_failed) and validation.valid and validation.overall_pass
         idea_success = attempt_pass

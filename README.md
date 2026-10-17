@@ -24,6 +24,10 @@ the task rubric, and iterate toward stronger programs. The pipeline then runs
 baselines and ablations, a sealed final evaluation, post-hoc analyses, and
 writes the paper, with every stage kept under one run directory.
 
+**Unified research extension:** see [中文说明与 V1/V2/V3 比较](README.zh-CN.md)
+for the optional `agsci research` workflow: literature preparation, reusable
+baselines, branching experiments, and evidence-linked writing.
+
 ## Install
 
 The recommended setup runs every agent phase inside Docker, which is the

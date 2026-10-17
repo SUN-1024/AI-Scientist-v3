@@ -35,6 +35,9 @@ Sequential optimization results support comparisons between evaluated configurat
 # Campaign Overview
 {{RESULTS_README}}
 
+# Prior Work and Contribution Boundaries
+{{RESEARCH_CONTEXT}}
+
 # Task Context
 ## Goal
 {{TASK_GOAL}}

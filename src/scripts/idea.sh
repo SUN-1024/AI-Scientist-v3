@@ -553,6 +553,8 @@ from src.investigation.skill_scope import (  # noqa: E402
     stage_skill_tree,
     validate_skill_set,
 )
+from src.investigation.search_tree import render_parent_context
+from src.research.evidence import render_context
 from src.investigation.harness_feedback import summarize_recent_attempts  # noqa: E402
 from src.investigation.files import load_instructions, relative_display_path  # noqa: E402
 
@@ -668,6 +670,8 @@ extra = {
         global_memory_recent,
         ("step", "idea_id", "summary", "next_action"),
     ),
+    "SEARCH_PARENT_CONTEXT": render_parent_context(results_dir, cycle_index),
+    "RESEARCH_CONTEXT": render_context(results_dir / "task"),
     "BEST_MANIFEST_SUMMARY": summarize_best_manifest(best_manifest),
     "CONCLUSIONS_MD_FILE": relative_display_path(conclusions_md, base_dir=base_dir),
     "CONCLUSIONS_HISTORY_FILE": relative_display_path(conclusions_history, base_dir=base_dir),
@@ -722,6 +726,8 @@ harness_evaluated_attempt = sys.argv[8] == "1"
 sys.path.insert(0, str(script_dir))
 
 from src.orchestrator import state as state_store
+from src.investigation.search_tree import render_parent_context
+from src.research.evidence import render_context
 from src.investigation.harness_feedback import summarize_recent_attempts
 from src.orchestrator.idea_bundle import MAX_SOURCE_PATTERN_CHARS
 from src.investigation.files import load_instructions, relative_display_path
@@ -832,6 +838,8 @@ extra = {
         global_memory_recent,
         ("step", "idea_id", "summary", "next_action"),
     ),
+    "SEARCH_PARENT_CONTEXT": render_parent_context(results_dir, cycle_index),
+    "RESEARCH_CONTEXT": render_context(results_dir / "task"),
     "BEST_MANIFEST_SUMMARY": summarize_best_manifest(best_manifest),
     "CONCLUSIONS_MD_FILE": relative_display_path(conclusions_md, base_dir=base_dir),
     "CONCLUSIONS_HISTORY_FILE": relative_display_path(conclusions_history, base_dir=base_dir),

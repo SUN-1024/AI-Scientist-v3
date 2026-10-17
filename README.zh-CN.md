@@ -1,0 +1,161 @@
+# Unified Research Agent
+
+基于 **AI Scientist V3 / The Agentic Scientist** 的整合开发版。目标是把文献判断、实验搜索和证据审计接成一个可追踪的研究流程。新增入口为 `agsci research`。
+
+保留上游作者、许可证、运行引擎和原有命令。当前实现已做开发验证；尚未通过同预算研究基准证明优于三个原始版本。
+
+## 三个版本各自的长处
+
+| 版本 | 核心做法 | 值得保留的长处 | 主要边界 |
+|---|---|---|---|
+| V1（2024） | 从实验模板开始，生成 idea、检索相近工作、改代码、实验、写作和评审 | 起点明确，已有基线便于排错，流程容易检查 | 依赖模板覆盖范围，主要按顺序迭代，新颖性检查不是可靠的科研结论 |
+| V2（2025） | 减少手写模板依赖，按可行性、调参、研究、消融分阶段做树搜索，结合视觉反馈 | 保留多个实验方向，阶段清楚，重视重复实验和图表反馈 | 搜索增加成本，自动评审仍需独立核查 |
+| V3（2026） | 通用 coding agent、多 worker 搜索、共享记忆、任务契约、最终评估、基线和消融、证据约束写作 | 工程链路完整，支持多种 agent，实验产物与论文主张的关系更清楚 | 固定文献检索在写作阶段；复杂任务自动构建、从文献构造 SOTA 基线仍有限制；分数提升不代表新颖性 |
+
+来源：[V1 论文](https://arxiv.org/html/2408.06292v1)、[V2 论文](https://arxiv.org/html/2504.08066v1)、[V3 论文](https://arxiv.org/html/2610.18933v1)与[官方 V3 仓库](https://github.com/SakanaAI/AI-Scientist-v3)。表中的长处是工程判断，不是跨版本统一测试的排名。
+
+V2 报告的是 ICLR 2025 **workshop** 评审结果，不能写成主会接收。V3 的 ALIFE 2026 案例有人类共同研究者核查和修改，不能作为完全无人参与的证据。不同案例不能直接证明版本间的性能优劣。
+
+## 整合方式
+
+```mermaid
+flowchart TD
+    A[研究目标与可选基线模板] --> B[文献检索或本地全文]
+    B --> C[冻结任务、来源、文本和哈希]
+    C --> D[比较最近工作并提出可区分实验]
+    D -->|证据不足| E[保留 needs_verification 状态]
+    D -->|有差异或做复现| F[执行实验]
+    D -->|全文支持的严重重合判断| S[停止并保存依据]
+    E --> F
+    F --> G[评价器检查结果]
+    G --> H[保留有效分支与全局最佳结果]
+    H -->|下一轮| D
+    H --> I[V3 基线、消融与最终评估]
+    I --> J[分析、图表、论文与证据审计]
+```
+
+| 组成 | 实际行为 | 来源与性质 |
+|---|---|---|
+| 可复用起点 | `init --template circpack` 或 `grpo`，复制任务并记录来源；也支持 `--brief` | 借鉴 V1 的模板思路，复用 V3 自带模板，没有导入 V1 的旧执行器 |
+| 前置文献 | Semantic Scholar 检索，读取公开 PDF 或本地全文，保存来源、全文状态、哈希和可定位片段 | 借鉴 V1/V2，将检索接到实验前 |
+| 差异记录 | 每个 idea 记录最近工作、重合、差异、替代解释和判别实验；引用须定位到保存文本 | 本次新增的证据连接层 |
+| 分支搜索 | 每个 worker 保留实验树，普通轮次用最高分有效分支，默认每 3 轮探索访问较少的候选 | 借鉴 V2 的树搜索思想；不是完整复刻 V2 阶段管理器或 MCTS |
+| 实验与写作 | 复用 V3 的隔离、任务契约、基线/消融、最终评估、图表和论文审计 | 上游已有能力；本次将文献比较接入论文数据 |
+
+每棵树的候选池最多包含分数最高的 `width` 个有效节点，加初始基线。历史节点保留。低分有效节点可以继续探索，但不替代全局最佳结果。`tree` 模式与历史目录 pruning 互斥。原有 `agsci run` 默认仍使用 `best` 策略。
+
+## 开始使用
+
+按[上游安装说明](docs/install.md)准备 Python。中国大陆环境可用镜像安装锁定依赖：
+
+```bash
+uv sync --frozen --group dev --index-url https://mirrors.aliyun.com/pypi/simple
+source .venv/bin/activate
+```
+
+从仓库根目录创建 CPU 示例。`prepare` 只准备输入和文献，不调用研究 agent，也不训练模型。
+
+```bash
+./scripts/research-agent init playground/circle-study --template circpack \
+  --query "circle packing unequal circles unit square optimization"
+
+# 配置预览：不创建工作区、不联网。
+./scripts/research-agent run playground/circle-study \
+  --workspace results/unified/circle-study --dry-run agent.name=codex
+
+# 在线检索；加 --offline 可只使用配置中列出的本地来源。
+./scripts/research-agent prepare playground/circle-study \
+  --workspace results/unified/circle-study agent.name=codex
+```
+
+检查 `input_task/research_context/README.md` 和 `catalog.json`。检索失败或只有摘要时，在原始项目添加合法取得的全文，更新 `research.yaml`，再使用新的工作区。冻结输入不能被静默改写。
+
+真正运行需要 V3 的 Docker agent 镜像，以及所选 agent 的凭据。镜像构建见[安装说明](docs/install.md#docker-image)。本扩展不复制个人凭据，认证沿用 V3。
+
+```bash
+./scripts/local-agsci doctor playground/circle-study agent.name=codex
+
+# 从准备好的输入开始完整流程。
+./scripts/research-agent run --resume results/unified/circle-study \
+  investigation.execution.max_idea_cycles=3 \
+  ablations.execution.num_replications=1 \
+  ablations.execution.max_evals_per_variant=2 \
+  posthoc.execution.max_selected_analyses=1
+
+./scripts/research-agent report results/unified/circle-study
+```
+
+这些小预算用于首次连通检查，不足以支持论文级结论。中断后继续用同一 `--resume` 路径。恢复行为沿用 V3，不保证重放中断的单次 agent 操作。并行参数是 `investigation.execution.workers`；各 worker 的树独立，记忆同步沿用 V3。
+
+`--dry-run` 检查研究配置和 Hydra 配置组合，显示传给 V3 的参数。它不检查凭据、镜像、GPU、评价器或网络；这些由 `doctor` 和正式流程检查。
+
+## 添加领域文献
+
+把全文放入项目，例如 `papers/closest_method.pdf`，再编辑 `research.yaml`：
+
+```yaml
+schema_version: 1
+literature:
+  queries:
+    - "your task nearest method controlled comparison"
+  sources:
+    - id: closest_method
+      title: "填入真实论文标题"
+      year: 2025
+      venue: "填入真实期刊或会议"
+      url: "https://example.org/replace-with-actual-paper"
+      path: papers/closest_method.pdf
+  max_papers: 8
+  results_per_query: 5
+  fetch_full_text: true
+  timeout_seconds: 15
+  proxy_fallback: http://127.0.0.1:7890
+search:
+  strategy: tree
+  width: 4
+  explore_every: 3
+```
+
+这是字段示例，须替换标题、链接和文件。纯在线检索可设 `sources: []`。本地来源支持 `.pdf/.txt/.md`。可选 `S2_API_KEY` 只用于 Semantic Scholar 请求。检索失败时尝试配置的代理，错误保留在目录中。
+
+来源状态为 `metadata`、`abstract`、`full_text` 或 `full_text_partial`。扫描 PDF 需要先 OCR。全文可用不等于完整阅读或判断正确。自动片段只是阅读入口，agent 可以读取全文并引用任意有效字符区间。
+
+| `research_basis.status` | 行为 |
+|---|---|
+| `differentiated` | agent 判断有可解释差异；要求全文引用，仍需独立核查 |
+| `needs_verification` | 证据不足；可继续探索，论文须保留不确定性 |
+| `replication` | 作为复现研究，不包装成新方法 |
+| `collision` | agent 判断问题、方法和贡献严重重合；要求全文引用，停止并保存依据 |
+
+引用校验拒绝不存在的来源、越界片段和被改写的文本。它不能自动证明片段支持某个语义结论。最终新颖性和有效性仍需研究者核对。
+
+## 输出与检查
+
+```text
+results/unified/circle-study/
+├── input_task/                   # 冻结的任务、配置、原始文献
+│   └── research_context/         # catalog.json、来源说明、抽取文本
+├── research_manifest.json        # 输入哈希与启动参数
+├── research_execution.json       # 正式运行后保存的最近一次模型与预算参数
+├── research_report.json          # 退出码、来源状态、树和 idea 判断
+├── research_report.md
+└── run/                          # V3 正式流程
+    ├── task/
+    ├── investigation/            # 树、ideas、最佳候选等
+    ├── ablations/
+    ├── final_evaluation/
+    ├── posthoc/
+    └── paper/
+```
+
+并行时，`search_tree.json` 在各 worker 的结果目录。`pipeline_returned` 只表示执行器返回 0，不表示结论成立。报告固定保留 `research_validity: requires_evidence_review`。论文数据保留 idea 比较及来源；写作和审计要求保留复现、负结果和未核实状态。
+
+开发验证见[验证记录](docs/unified-research-validation.md)。入口代码在 [src/research](src/research)，树策略在 [search_tree.py](src/investigation/search_tree.py)。
+
+## 如何验证是否更强
+
+在同一模型、任务、评价器、数据划分、实验次数和 token 预算下比较：原始 V3、V3 加前置文献、V3 加分支搜索，以及本整合版。
+
+分别报告有效运行率、最终保留集表现、重复实验方差、每项有效改进的费用，以及人工盲审的引用准确率和贡献可信度。先用 CPU 任务排查流程，再进入有可信基线的医疗 AI 任务。不要仅用自动 reviewer 分数定义成功。
+
+这是工程整合。当前没有证据把“组合三个版本”写成算法创新。若后续实验表明具体机制解决了明确问题，再形成可检验的研究贡献。
