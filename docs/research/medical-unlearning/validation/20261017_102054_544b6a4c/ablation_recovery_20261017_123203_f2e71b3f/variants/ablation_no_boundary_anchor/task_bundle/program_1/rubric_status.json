@@ -1,0 +1,58 @@
+{
+  "attempt_id": "ablation_no_boundary_anchor_attempt_01",
+  "idea_id": "ablation_no_boundary_anchor",
+  "metrics": {
+    "combined_score": 0.8198481998044542,
+    "correct": true
+  },
+  "next_recommendation": "All 9 rubrics PASS: stop immediately after program_1 (single-attempt cap); paper writers should use analysis/run_summary.csv + metric_values.csv rows and evaluation_evidence.json (seed 1701, per-patient geometry) as the ablation evidence, and source the control best-program combined_score from campaign records since it is absent from this workspace.",
+  "overall_pass": true,
+  "rubrics": [
+    {
+      "evidence": "program_1/analysis/ contains all three required files: run_summary.csv (329 B), metric_values.csv (2559 B), timeseries.csv (49 B).",
+      "id": "analysis_files_present",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary.csv header contains all required columns (evaluation_id,variant_id,variant_kind,base_program,agent_name,correct,combined_score,overall_pass,primary_metric_name,primary_metric_value,program_dir,results_dir) with one data row for ablation_no_boundary_anchor_eval_1.",
+      "id": "run_summary_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "metric_values.csv header contains all required columns (evaluation_id,variant_id,metric_name,metric_value,is_primary_metric) with 22 metric rows; combined_score flagged is_primary_metric=True.",
+      "id": "metric_values_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "timeseries.csv header contains all required columns (evaluation_id,variant_id,series_name,step,value); file is header-only, which the rubric explicitly accepts as valid.",
+      "id": "timeseries_schema_valid",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary combined_score=0.8198481998044542 and primary_metric_value=0.8198481998044542 (primary_metric_name=combined_score) exactly equal metrics.json combined_score=0.8198481998044542; all 22 metric_values.csv rows match metrics.json values verbatim.",
+      "id": "metrics_consistent_with_metrics_json",
+      "pass": true
+    },
+    {
+      "evidence": "run_summary correct=True matches correct.json {\"correct\": true} and evaluation_evidence.json episodes[0].correct=true (host prompt also states correctness True).",
+      "id": "correctness_recorded",
+      "pass": true
+    },
+    {
+      "evidence": "Declared ablation intent (active_idea.json/task.md; no standalone variant_spec.json exists in this workspace) is removal of the boundary-anchored retain term: src/program.py:593 (retain branch) and src/program.py:606 (forget-branch anchor recomputation) both set retain_total = retain_seg; boundary_anchored_loss/min_pool (src/program.py:301-320) and BOUNDARY_WEIGHT=2.0/BOUNDARY_DILATE=3 remain defined but unused; module docstring declares the no-boundary-anchor ablation of BAMOA with the one-Adam-step-per-RPC statement intact.",
+      "id": "variant_intent_preserved",
+      "pass": true
+    },
+    {
+      "evidence": "diff -u program_0/src/program.py program_1/src/program.py shows only the two retain_total assignment lines plus the module docstring re-declaration (implementation-plan step 5); retain_cache, orthogonalize, memorization_gate, sensitivity_damping, ascent_scale, all EMA updates, the non-finite gradient guard, and the predict nan_to_num/renormalisation are unchanged; program_spec.toml identical; no evaluator or protocol changes.",
+      "id": "single_change_scope",
+      "pass": true
+    },
+    {
+      "evidence": "Available: variant identity, correctness, and combined_score in run_summary.csv; all 22 declared evaluator metrics in metric_values.csv including runtime (original/retrain train, finetune, neggrad, candidate_deletion seconds); per-seed single episode (seed 1701, score 0.8198481998044542) with per-patient geometry (heldout dice, heldout boundary F1, forget dice, forget MAE) and permutation/background controls in evaluation_evidence.json. Missing: multi-seed observations (only one episode) and step-resolved timeseries (timeseries.csv header-only, valid per rubric); control best-program combined_score is not in this workspace, so no ablation-delta claim is inferred here.",
+      "id": "paper_analysis_ready",
+      "pass": true
+    }
+  ],
+  "variant_id": "ablation_no_boundary_anchor"
+}

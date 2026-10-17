@@ -1,0 +1,609 @@
+{
+ "schema_version": 1,
+ "episodes": [
+  {
+   "seed": 1701,
+   "score": 0.8198481998044542,
+   "correct": true,
+   "duration_seconds": 34.534505249001086,
+   "solution": {
+    "status": "completed",
+    "failure": null,
+    "combined_score": 0.8198481998044542,
+    "metrics": {
+     "forget_retrain_probability_mae": 0.05096386802487142,
+     "heldout_macro_dice": 0.6790606283998756,
+     "heldout_boundary_f1": 0.7080597264846358,
+     "forget_macro_dice": 0.8121441293214773,
+     "original_heldout_macro_dice": 0.6599504164335419,
+     "retrain_heldout_macro_dice": 0.645816920026032,
+     "original_forget_retrain_probability_mae": 0.05264527168735085,
+     "finetune_forget_retrain_probability_mae": 0.04909991689013499,
+     "neggrad_forget_retrain_probability_mae": 0.0466722630855789,
+     "original_forget_macro_dice": 0.7984798709176861,
+     "finetune_forget_macro_dice": 0.8238830039119035,
+     "neggrad_forget_macro_dice": 0.8100910903177567,
+     "finetune_heldout_macro_dice": 0.6816650963090747,
+     "neggrad_heldout_macro_dice": 0.6783178042941398,
+     "original_train_seconds": 8.637208155822009,
+     "retrain_train_seconds": 7.508905461989343,
+     "finetune_seconds": 1.5293886999133974,
+     "neggrad_seconds": 2.656668826006353,
+     "candidate_deletion_seconds": 7.24431859399192,
+     "heldout_gt_absence_count": 0.0,
+     "forget_gt_absence_count": 0.0,
+     "combined_score": 0.8198481998044542
+    },
+    "controls": {
+     "all_background_zero_foreground_dice": true,
+     "permutation": {
+      "non_identity": true,
+      "executed": true,
+      "patient_index_a": 2,
+      "patient_index_b": 4,
+      "dice_a_on_labels_b": 0.07725266963585044,
+      "dice_b_on_labels_a": 0.11301435045938579,
+      "dice_a_on_labels_a": 0.44204709173764667,
+      "dice_b_on_labels_b": 0.6999272508408376
+     }
+    },
+    "per_patient": {
+     "candidate": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.03313772675802622
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07898417125580859
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.04045784434558394
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.04027858644982351
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.06196101131511481
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7477573299967348
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8208169720824672
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.44204709173764667
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7885589330224919
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6999272508408376
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6509594989386471
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7708882907982302
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.675692516855327
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.37432788400967754
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8196305157166961
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8429433789847218
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7838391237861173
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8399351650308429
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7534635709052323
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8405394079004722
+       }
+      ],
+      "heldout_boundary_f1": [
+       {
+        "patient_index": 0,
+        "f1": 0.7836493640143383
+       },
+       {
+        "patient_index": 1,
+        "f1": 0.8757686001837076
+       },
+       {
+        "patient_index": 2,
+        "f1": 0.3945517014072321
+       },
+       {
+        "patient_index": 3,
+        "f1": 0.8010191164138821
+       },
+       {
+        "patient_index": 4,
+        "f1": 0.7191732437386534
+       },
+       {
+        "patient_index": 5,
+        "f1": 0.701053117499126
+       },
+       {
+        "patient_index": 6,
+        "f1": 0.823272565390718
+       },
+       {
+        "patient_index": 7,
+        "f1": 0.6903201348560076
+       },
+       {
+        "patient_index": 8,
+        "f1": 0.44624195786792636
+       },
+       {
+        "patient_index": 9,
+        "f1": 0.8455474634747665
+       }
+      ]
+     },
+     "original": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.037652928795322456
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07945595597555785
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.04019428770714677
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.040444386395504704
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.0654787995632225
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7031594079842335
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8176397390446576
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.4482523705483082
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7623216477413169
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6942978036077291
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6206175778199959
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7212925023889722
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.675825842211372
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.3646572948287004
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7914399781601332
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8469483395250328
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8021365318142756
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.818573941789429
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7250424724867588
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.7996980689729343
+       }
+      ]
+     },
+     "finetune": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.03215634171798496
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07688713043187488
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.03879579690093261
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.03836709813515252
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.05929321726472998
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7189245178114874
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8317703250563372
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.4778071053406668
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.785762612396998
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6939996777251967
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6692852807686046
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7714089429357528
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.6851105987456388
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.3703412003399203
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8122407019701443
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8489061482498711
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8043201891879872
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8465124021973525
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7705028657678881
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8491734141564188
+       }
+      ]
+     },
+     "neggrad": {
+      "forget_mae": [
+       {
+        "patient_index": 0,
+        "mae": 0.03204420682364349
+       },
+       {
+        "patient_index": 1,
+        "mae": 0.07081499662032677
+       },
+       {
+        "patient_index": 2,
+        "mae": 0.03641153834611639
+       },
+       {
+        "patient_index": 3,
+        "mae": 0.03845345398323232
+       },
+       {
+        "patient_index": 4,
+        "mae": 0.05563711965457552
+       }
+      ],
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7174796912852943
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.8279853127745064
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.4838806610798967
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7804366972584047
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6957947762268194
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.675890682281191
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7722518496225698
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.666142897915809
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.35070074356948194
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.8126147309274243
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.8483514212624271
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7775192453632722
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.8357418072834486
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7511940178774456
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.8376489598021896
+       }
+      ]
+     },
+     "retrain": {
+      "heldout_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7022791079822172
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.7914640732138091
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.5259199085009914
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.7655202120469308
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6412056250575705
+       },
+       {
+        "patient_index": 5,
+        "macro_dice": 0.6425996975038013
+       },
+       {
+        "patient_index": 6,
+        "macro_dice": 0.7340456624751123
+       },
+       {
+        "patient_index": 7,
+        "macro_dice": 0.5980548245538777
+       },
+       {
+        "patient_index": 8,
+        "macro_dice": 0.2680745794711367
+       },
+       {
+        "patient_index": 9,
+        "macro_dice": 0.7890055094548744
+       }
+      ],
+      "forget_dice": [
+       {
+        "patient_index": 0,
+        "macro_dice": 0.7752447758332743
+       },
+       {
+        "patient_index": 1,
+        "macro_dice": 0.6321264271904451
+       },
+       {
+        "patient_index": 2,
+        "macro_dice": 0.7526620890970926
+       },
+       {
+        "patient_index": 3,
+        "macro_dice": 0.662482178928536
+       },
+       {
+        "patient_index": 4,
+        "macro_dice": 0.6819910606188184
+       }
+      ]
+     }
+    },
+    "receipts": {
+     "profile": "production",
+     "rpc_calls_total": 113,
+     "rpc_budget": 160,
+     "reset_transcript_declared": [
+      1701
+     ],
+     "reset_transcript_sent": [
+      1701
+     ],
+     "predict_blocks": 25,
+     "deletion_seconds": 7.24431859399192,
+     "reference_updates": 400,
+     "baseline_updates": 80,
+     "reference_init_identity_sha256": "7abda4a922ff6e9720cb96db833116410a004fd9280f0b539ca5cce35a2b2568",
+     "data_identity_sha256": "37878fd106e3aae3085f8919d37fdc5bc460faefa0573e5c44a11ea777ca5c21",
+     "manifest_sha256": "005fa2312acd07fba9995cb371c0769637262bf83a10597e47f8615579502c79",
+     "upstream_snapshot_sha256": {
+      "models.py": "d76eeeb998be5596f3e8f52244b6bf078018f059d80ee2d75568bd4ed7c56d0f",
+      "losses.py": "615ff113aca6c0155ef0b1045e87e851c3d06f82160b9f9130a3e7461b7105d1",
+      "unlearning.py": "37a8b9bc23803eb2ec0791aff298285715eb5156b452661a4a645274f201a37c"
+     },
+     "model_config": {
+      "channels": [
+       16,
+       32,
+       64,
+       128
+      ],
+      "num_res_units": 1
+     },
+     "device": "cuda:0",
+     "evaluator_visible_cuda_devices": 1,
+     "productive_baseline_seconds": 20.332171143731102,
+     "enforced_limits": [
+      "offered_update_rpcs<=80",
+      "deletion_window<=180s",
+      "per_call_deadlines",
+      "wire_limit<64MiB",
+      "rpc_budget<=160"
+     ],
+     "advisory_limits": [
+      "candidate_internal_optimizer_steps_not_counted"
+     ],
+     "episode_seconds": {
+      "original_train": 8.637208155822009,
+      "retrain_train": 7.508905461989343,
+      "finetune": 1.5293886999133974,
+      "neggrad": 2.656668826006353,
+      "candidate_deletion": 7.24431859399192
+     }
+    },
+    "invocation_receipts": {
+     "profile": "production",
+     "rpc_budget_table": {
+      "per_episode": {
+       "reset": 1,
+       "weights_begin": 1,
+       "weights_chunk": 8,
+       "weights_commit": 1,
+       "update": 80,
+       "finalize": 1,
+       "predict": 25
+      },
+      "episodes": 1,
+      "total": 117,
+      "declared_max": 160,
+      "transfer_model": {
+       "export_start": 0,
+       "export_chunk": 0,
+       "import_start": 1,
+       "import_chunk": 8,
+       "import_commit": 1
+      }
+     },
+     "message_preflight_bytes": {
+      "update_request": 874024,
+      "predict_request": 1398255,
+      "predict_response": 5592509,
+      "weights_begin_request": 2115,
+      "weights_chunk_request": 349577,
+      "reset_request": 24,
+      "weights_commit_response": 88,
+      "max_message_bytes": 5592509,
+      "weight_buffer_bytes": 824836,
+      "weight_chunk_count_actual": 4
+     },
+     "reset_transcript_sent": [
+      1701
+     ],
+     "reset_transcript_ok": true,
+     "episodes_complete": true,
+     "run_failures": []
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+  "variant_id": "ablation_no_orthogonalization",
+  "variant_kind": "ablation",
+  "base_program": "best",
+  "title": "Ablation: remove PCGrad-style ascent/retain orthogonalisation",
+  "agent": "opencode",
+  "agent_model": "qwen-plan/qwen3.8-max",
+  "agent_profile": null,
+  "reasoning_effort": null,
+  "variant_dir": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/ablation_no_orthogonalization",
+  "task_bundle_dir": "/home/sunguanqun/AI-Scientist-v3/results/20261017_102054_544b6a4c/ablations_recovery_20261017_123203_f2e71b3f/variants/ablation_no_orthogonalization/task_bundle",
+  "expected_analysis_files": [
+    "analysis/run_summary.csv",
+    "analysis/metric_values.csv",
+    "analysis/timeseries.csv",
+    "rubric_status.json"
+  ],
+  "status": "running",
+  "created_at": "2026-10-17T04:44:24.223917+00:00",
+  "started_at": "2026-10-17T05:31:22.277559+00:00",
+  "completed_at": null,
+  "eval_count": 0
+}
