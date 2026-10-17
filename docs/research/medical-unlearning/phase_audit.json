@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T07:58:38.477791+08:00",
+  "checked_at": "2026-10-17T08:06:20.437355+08:00",
   "jobs_audited": [
     "20261016_221356_d7251131",
     "20261017_070528_ba5c6c51"
@@ -17,8 +17,12 @@
       "candidate_boundary": "pass"
     },
     "independent_validation": {
-      "status": "running",
-      "current_operation": "isolated runtime dependency installation before smoke"
+      "status": "isolated_smoke_and_production_entry_passed",
+      "gate": "acceptance-smoke",
+      "exit_code": 0,
+      "duration_seconds": 527,
+      "scaffold_fingerprint": "sha256:78bade6dbb6ffa7ea5ec7029affbf383d0d4c876875104b0e927e2fe5cf38399",
+      "current_operation": "independent scientific alignment review round0; full production baseline qualification pending"
     },
     "investigation": {
       "status": "not_started",
