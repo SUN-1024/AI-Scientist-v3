@@ -736,19 +736,36 @@ def test_revision_loop_stops_on_audit_artifact_failure(tmp_path: Path) -> None:
 
 
 def _run_concept_renderer(
-    tmp_path: Path, *, help_flag: str, prompt: str, agent: str = "codex", agent_model: str = ""
+    tmp_path: Path, *, help_flag: str, prompt: str, agent: str = "codex", agent_model: str = "",
+    agent_profile: str = "", headless_override: str | None = None, expected_return_code: int = 0,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    headless = tmp_path / "headless"
+    headless.write_text(
+        "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\n"
+        "if '--version' in sys.argv: print('headless 0.6.0');sys.exit()\n"
+        "Path('headless_args.json').write_text(json.dumps(sys.argv[1:]))\n"
+    )
+    headless.chmod(0o755)
     executable = tmp_path / "autoillustrate"
     executable.write_text(
-        "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\n"
+        "#!/usr/bin/env python3\nimport json,os,subprocess,sys\nfrom pathlib import Path\n"
         f"if '--help' in sys.argv: print({help_flag!r});sys.exit()\n"
+        f"if '--profile' in sys.argv and '--profile' not in {help_flag!r}: sys.exit(2)\n"
         "Path('args.json').write_text(json.dumps(sys.argv[1:]))\n"
+        "hook=os.environ['AUTOILLUSTRATE_HEADLESS_BIN']\n"
+        "Path('headless_hook.json').write_text(json.dumps(hook))\n"
+        "forwarded=['--agent',sys.argv[sys.argv.index('--agent')+1]]\n"
+        "for flag in ['--model','--profile']:\n"
+        "    if flag in sys.argv: forwarded.extend([flag,sys.argv[sys.argv.index(flag)+1]])\n"
+        "subprocess.run([hook,'--version'],check=True,capture_output=True)\n"
+        "subprocess.run([hook,*forwarded],check=True)\n"
     )
     executable.chmod(0o755)
     (tmp_path / "instructions.md").write_text(prompt)
     command = f"""source {CONCEPT_FIGURE_HELPER.resolve()}
 AGENT={agent}
-AGENT_MODEL={agent_model!r}
+AGENT_MODEL={shlex.quote(agent_model)}
+AGENT_PROFILE={shlex.quote(agent_profile)}
 CONCEPT_FIGURE_ENV_COMMANDS=:
 CONCEPT_FIGURE_BACKEND_FLAGS=""
 CONCEPT_FIGURE_MODE_FLAGS=""
@@ -760,13 +777,15 @@ bash -c "$CONCEPT_FIGURE_COMMAND"
     result = subprocess.run(
         ["bash", "-c", command],
         cwd=tmp_path,
-        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}",
+             "AUTOILLUSTRATE_HEADLESS_BIN": headless_override or str(headless)},
         capture_output=True,
         text=True,
         timeout=10,
     )
-    assert result.returncode == 0, result.stderr
-    return result, json.loads((tmp_path / "args.json").read_text())
+    assert result.returncode == expected_return_code, result.stderr
+    args_path = tmp_path / "args.json"
+    return result, json.loads(args_path.read_text()) if args_path.exists() else []
 
 
 def test_renderer_rejects_pending_artifacts_and_selects_prompt_flag_without_shell_expansion(
@@ -816,3 +835,37 @@ def test_renderer_receives_explicit_model(tmp_path: Path) -> None:
             assert "--model" not in args, case
         else:
             assert args[args.index("--model") + 1] == expected_model, case
+
+
+@pytest.mark.parametrize("supports_profile", [False, True])
+def test_renderer_preserves_profile_and_model_across_cli_versions(tmp_path: Path, supports_profile: bool) -> None:
+    profile = "research $(touch OWNED) `touch OWNED` 'quoted'"
+    model = "codex/gpt-6.1-sol"
+    result, args = _run_concept_renderer(
+        tmp_path, help_flag="--prompt --profile" if supports_profile else "--prompt",
+        prompt="method overview", agent_model=model, agent_profile=profile,
+    )
+    assert ("--profile" in args) is supports_profile
+    forwarded = json.loads((tmp_path / "headless_args.json").read_text())
+    assert forwarded[forwarded.index("--profile") + 1] == profile
+    assert forwarded[forwarded.index("--model") + 1] == model
+    assert forwarded[forwarded.index("--agent") + 1] == "codex"
+    assert not (tmp_path / "OWNED").exists()
+    hook = Path(json.loads((tmp_path / "headless_hook.json").read_text()))
+    if supports_profile:
+        assert hook == tmp_path / "headless"
+        assert "profile_transport=profile-flag" in result.stdout
+    else:
+        assert not hook.exists()
+        assert not hook.parent.exists()
+        assert "profile_transport=headless-wrapper" in result.stdout
+
+
+def test_renderer_does_not_drop_profile_when_headless_is_unavailable(tmp_path: Path) -> None:
+    result, args = _run_concept_renderer(
+        tmp_path, help_flag="--prompt", prompt="method overview", agent_profile="research",
+        headless_override=str(tmp_path / "missing-headless"), expected_return_code=125,
+    )
+    assert "cannot preserve agent profile" in result.stderr
+    assert args == []
+    assert not (tmp_path / "headless_args.json").exists()

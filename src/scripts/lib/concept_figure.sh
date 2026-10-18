@@ -690,7 +690,7 @@ build_concept_figure_command() {
   local workdir_flag=""
   local reasoning_effort_flag=""
   local model_flag=""
-  local profile_flag=""
+  local profile_assignment=""
   local probe_timeout=$((CONCEPT_FIGURE_TIMEOUT_SECONDS < 10 ? CONCEPT_FIGURE_TIMEOUT_SECONDS : 10))
   if [ -n "${AGENT_REASONING_EFFORT:-}" ]; then
     case "$AGENT_REASONING_EFFORT" in
@@ -710,26 +710,51 @@ build_concept_figure_command() {
   if [ -n "$concept_model" ]; then
     printf -v model_flag ' --model %q' "$concept_model"
   fi
-  if [ -n "${AGENT_PROFILE:-}" ]; then
-    printf -v profile_flag ' --profile %q' "$AGENT_PROFILE"
-  fi
+  printf -v profile_assignment 'renderer_profile=%q' "${AGENT_PROFILE:-}"
   printf -v workdir_flag ' --workdir %q' "./.autoillustrate/$metrics_name"
   printf -v CONCEPT_FIGURE_COMMAND '%s\n' \
     'set -o pipefail' \
     "$CONCEPT_FIGURE_ENV_COMMANDS" \
+    "$profile_assignment" \
     'autoillustrate_bin="$(command -v autoillustrate || true)"' \
     '[ -n "$autoillustrate_bin" ] || { echo "autoillustrate CLI not found" >&2; exit 127; }' \
-    "autoillustrate_args=(./paper.tex --output ./${output_rel} --placement ${placement} --agent ${AGENT}${model_flag}${profile_flag}${workdir_flag} ${reasoning_effort_flag} ${CONCEPT_FIGURE_BACKEND_FLAGS} ${CONCEPT_FIGURE_MODE_FLAGS})" \
+    "autoillustrate_args=(./paper.tex --output ./${output_rel} --placement ${placement} --agent ${AGENT}${model_flag}${workdir_flag} ${reasoning_effort_flag} ${CONCEPT_FIGURE_BACKEND_FLAGS} ${CONCEPT_FIGURE_MODE_FLAGS})" \
     'timeout_bin="$(command -v timeout || command -v gtimeout || true)"' \
     'if [ -z "$timeout_bin" ]; then' \
     '  echo "no timeout command found; skipping non-gating concept figure" >&2' \
     '  exit 125' \
     'fi' \
     'printf "renderer executable=%s\n" "$autoillustrate_bin"' \
-    'renderer_exit() { printf "renderer exit_code=%s\n" "$?"; }' \
+    'renderer_profile_dir=""' \
+    'renderer_exit() {' \
+    '  local renderer_status=$?' \
+    '  if [ -n "$renderer_profile_dir" ]; then' \
+    '    rm -f -- "$renderer_profile_dir/headless"' \
+    '    rmdir -- "$renderer_profile_dir" 2>/dev/null || true' \
+    '  fi' \
+    '  printf "renderer exit_code=%s\n" "$renderer_status"' \
+    '}' \
     'trap renderer_exit EXIT' \
     'renderer_started=$SECONDS' \
     "autoillustrate_help=\"\$(\"\$timeout_bin\" -k 1s ${probe_timeout}s \"\$autoillustrate_bin\" --help 2>&1)\" || { renderer_rc=\$?; echo \"renderer capability probe failed\" >&2; exit \"\$renderer_rc\"; }" \
+    'if [ -n "$renderer_profile" ]; then' \
+    '  if [[ "$autoillustrate_help" =~ --profile([^[:alnum:]_-]|$) ]]; then' \
+    '    autoillustrate_args+=(--profile "$renderer_profile")' \
+    '    echo "renderer profile_transport=profile-flag"' \
+    '  else' \
+    '    renderer_headless="$(command -v -- "${AUTOILLUSTRATE_HEADLESS_BIN:-headless}" || true)"' \
+    '    [ -n "$renderer_headless" ] && [ -x "$renderer_headless" ] || { echo "renderer cannot preserve agent profile: headless executable unavailable" >&2; exit 125; }' \
+    '    renderer_profile_dir="$(mktemp -d "${TMPDIR:-/tmp}/agsci-concept-profile.XXXXXXXX")" || exit 125' \
+    '    {' \
+    '      printf "%s\n" "#!/bin/bash"' \
+    '      printf "case \"\$1\" in --help|-h|--version|-V) exec %q \"\$@\" ;; esac\n" "$renderer_headless"' \
+    '      printf "exec %q --profile %q \"\$@\"\n" "$renderer_headless" "$renderer_profile"' \
+    '    } > "$renderer_profile_dir/headless" || exit 125' \
+    '    chmod 700 "$renderer_profile_dir/headless" || exit 125' \
+    '    export AUTOILLUSTRATE_HEADLESS_BIN="$renderer_profile_dir/headless"' \
+    '    echo "renderer profile_transport=headless-wrapper"' \
+    '  fi' \
+    'fi' \
     'if [[ "$autoillustrate_help" =~ --prompt-file([^[:alnum:]_-]|$) ]]; then' \
     "  autoillustrate_args+=(--prompt-file ./${instructions_name})" \
     '  echo "renderer prompt_flag=--prompt-file"' \
