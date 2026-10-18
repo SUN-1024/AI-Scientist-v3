@@ -4112,17 +4112,24 @@ def validate_latex_recorder_inputs(
 
 
 def _is_approved_latex_system_input(input_path: Path) -> bool:
+    if not any(input_path.is_relative_to(root) for root in LATEX_SYSTEM_INPUT_ROOTS):
+        return False
+    if not input_path.exists():
+        return True
+    try:
+        resolved_input = input_path.resolve(strict=True)
+    except OSError:
+        return False
+    # Distribution config files can link between trusted TeX trees, for example
+    # Debian's /usr/share/texmf/web2c/texmf.cnf -> /usr/share/texlive/texmf-dist/....
+    # Both the recorded path and its destination must remain in approved trees.
     for system_root in LATEX_SYSTEM_INPUT_ROOTS:
-        if not input_path.is_relative_to(system_root):
-            continue
-        if not input_path.exists():
-            return True
         try:
-            resolved_input = input_path.resolve(strict=True)
             resolved_root = system_root.resolve(strict=True)
         except OSError:
-            return False
-        return resolved_input.is_relative_to(resolved_root)
+            continue
+        if resolved_input.is_relative_to(resolved_root):
+            return True
     return False
 
 

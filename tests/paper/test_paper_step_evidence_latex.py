@@ -559,6 +559,25 @@ def test_validate_latex_recorder_inputs(tmp_path: Path) -> None:
         _check_recorder(root, f"PWD {root}\nINPUT alias/claim.tex\n")
 
 
+def test_recorder_allows_symlinks_between_approved_system_roots(tmp_path: Path) -> None:
+    root = _sub(tmp_path, "paper")
+    system_root = _sub(tmp_path, "texmf")
+    distribution_root = _sub(tmp_path, "texlive")
+    target = distribution_root / "texmf.cnf"
+    target.write_text("% distribution configuration\n", encoding="utf-8")
+    alias = system_root / "texmf.cnf"
+    alias.symlink_to(target)
+    unapproved_alias = tmp_path / "unapproved.cnf"
+    unapproved_alias.symlink_to(target)
+
+    with patch.object(
+        paper_step, "LATEX_SYSTEM_INPUT_ROOTS", (system_root, distribution_root)
+    ):
+        _check_recorder(root, f"PWD {root}\nINPUT {alias}\n")
+        with pytest.raises(RuntimeError, match="outside approved TeX roots"):
+            _check_recorder(root, f"PWD {root}\nINPUT {unapproved_alias}\n")
+
+
 # --------------------------------------------------------------------------------------------
 # validate_bibtex_dependencies / validate_bibtex_aux_dependencies
 # --------------------------------------------------------------------------------------------
