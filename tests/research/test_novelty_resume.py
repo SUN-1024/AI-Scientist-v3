@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import threading
 
 import pytest
 
@@ -155,14 +156,19 @@ def test_completed_agenda_resume_checks_prompts_and_configuration(study, tmp_pat
 
 def install_agent(monkeypatch, review, *, fail_second=False, same_session=False):
     calls = []
+    attempts = {}
+    lock = threading.Lock()
 
-    def run(prompt, *, work_dir, **settings):
-        calls.append(copy.deepcopy(settings))
+    def run(prompt, *, work_dir, cancel_event=None, **settings):
+        name = work_dir.parent.name
+        with lock:
+            calls.append(copy.deepcopy(settings))
+            attempt = attempts[name] = attempts.get(name, 0) + 1
         work_dir.mkdir()
-        if fail_second and len(calls) == 2:
+        if fail_second and name == "reviewer_2" and attempt == 1:
             (work_dir / "stdout.json").write_text("partial provider output")
             raise ValueError("interrupted reviewer")
-        native = "session-1" if same_session else f"session-{len(calls)}"
+        native = "session-1" if same_session else f"session-{name}-{attempt}"
         data = {"protocolVersion": 1, "type": "result", "exitCode": 0,
                 "data": {"finalMessage": json.dumps(review), "nativeSessionId": native}}
         raw = json.dumps(data)
@@ -235,6 +241,46 @@ def test_agent_resume_replays_success_and_preserves_raw_interruption(study, tmp_
     assert b"secret-must-not-be-saved" not in first_bytes
     result = review_novelty(task, agenda, cfg, output, reviewer_settings=settings, resume=True)
     assert result["status"] == "supported" and len(calls) == 3
+
+
+@pytest.mark.parametrize("agent_backend", [False, True])
+@pytest.mark.parametrize("published", [False, True])
+def test_interruption_at_receipt_publication_never_downgrades_a_completed_call(
+    study, tmp_path, monkeypatch, agent_backend, published,
+):
+    from src.research import novelty_review
+
+    task, cfg, agenda, _review = study
+    calls = install_agent(monkeypatch, agenda) if agent_backend else install_provider(monkeypatch, [agenda])
+    settings = {"agent": "codex", "model": "fixture"} if agent_backend else None
+    output = tmp_path / "agenda"
+    original = novelty_review._dump
+    interrupted = False
+
+    def dump(path, value):
+        nonlocal interrupted
+        if path.name == "receipt.json" and value.get("status") == "complete" and not interrupted:
+            interrupted = True
+            if published:
+                original(path, value)
+            raise KeyboardInterrupt
+        original(path, value)
+
+    monkeypatch.setattr(novelty_review, "_dump", dump)
+    with pytest.raises(KeyboardInterrupt):
+        draft_research_agenda(task, cfg, output, reviewer_settings=settings, num_reflections=1)
+    receipt_path = output / "agenda_draft/receipt.json"
+    before = receipt_path.read_bytes()
+    assert read(receipt_path)["status"] == ("complete" if published else "started")
+    assert len(calls) == 1
+    assert draft_research_agenda(task, cfg, output, reviewer_settings=settings,
+                                 num_reflections=1, resume=True) == agenda
+    assert len(calls) == (1 if published else 2)
+    if published:
+        assert receipt_path.read_bytes() == before
+        assert not (output / "retry_attempts").exists()
+    else:
+        assert next((output / "retry_attempts/agenda_draft").glob("*/receipt.json")).read_bytes() == before
 
 
 def test_resume_preflights_later_completed_calls_before_retry(study, tmp_path, monkeypatch):

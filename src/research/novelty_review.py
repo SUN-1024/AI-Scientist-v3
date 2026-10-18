@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import signal
+import threading
 import uuid
+from concurrent.futures import FIRST_COMPLETED, CancelledError, ThreadPoolExecutor, wait
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -21,6 +25,7 @@ from .whole_idea_policy import render_whole_idea_guidance
 
 PROMPTS = Path(__file__).resolve().parents[1] / "prompts" / "research_harness"
 MAX_PACKET_CHARS = 600_000
+logger = logging.getLogger(__name__)
 
 
 class InvalidReviewResume(ValueError):
@@ -293,7 +298,7 @@ def _preflight_resume(directories: list[Path], cfg: LiteratureConfig, phase: str
 
 def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
                 frozen: dict[str, Any], reviewer_settings: dict[str, Any] | None = None, *,
-                resume: bool = False) -> dict[str, Any]:
+                resume: bool = False, cancel_event: threading.Event | None = None) -> dict[str, Any]:
     if resume and (directory.exists() or directory.is_symlink()):
         _receipt, replay = _existing_call(directory, cfg, phase, frozen, reviewer_settings, prompt=prompt)
         if replay is not None:
@@ -305,9 +310,12 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
             raise InvalidReviewResume("Invalid retry archive directory")
         archive.mkdir(parents=True, exist_ok=True)
         directory.rename(archive / str(uuid.uuid4()))
+    if cancel_event is not None and cancel_event.is_set():
+        raise CancelledError("Independent novelty review cancelled")
     if reviewer_settings is not None:
         return _agent_call(prompt, directory, phase, frozen, reviewer_settings,
-                           configuration_sha256=_configuration_hash(cfg, reviewer_settings))
+                           configuration_sha256=_configuration_hash(cfg, reviewer_settings),
+                           cancel_event=cancel_event)
     session = SearchSession(cfg, directory)
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
@@ -327,18 +335,22 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
             raise ValueError("Provider call has no saved response receipt")
         response = responses[-1]
         _dump(directory / "assessment.json", result)
-        receipt.update(status="complete", response=response, response_sha256=_sha(directory / response),
-                       assessment_sha256=_sha(directory / "assessment.json"), calls=session.calls)
-        _dump(directory / "receipt.json", receipt)
-        return result
-    except (ValueError, OSError, TypeError, KeyError) as exc:
-        receipt.update(status="failed", error=str(exc), calls=session.calls)
+        completed = {**receipt, "status": "complete", "response": response,
+                     "response_sha256": _sha(directory / response),
+                     "assessment_sha256": _sha(directory / "assessment.json"), "calls": session.calls}
+    except BaseException as exc:
+        receipt.update(status="failed", error=str(exc) or type(exc).__name__, calls=session.calls)
         _dump(directory / "receipt.json", receipt)
         raise
+    # Atomic publication is the seal. An interruption before it leaves the
+    # started receipt; an interruption after it must not downgrade completion.
+    _dump(directory / "receipt.json", completed)
+    return result
 
 
 def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any],
-                settings: dict[str, Any], *, configuration_sha256: str) -> dict[str, Any]:
+                settings: dict[str, Any], *, configuration_sha256: str,
+                cancel_event: threading.Event | None = None) -> dict[str, Any]:
     from src.review_backend import run_fresh_agent_json
 
     allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment"}
@@ -355,23 +367,24 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
     }
     _dump(directory / "receipt.json", receipt)
     try:
-        parsed, transport = run_fresh_agent_json(prompt, work_dir=directory / "transport", **settings)
+        lifecycle = {"cancel_event": cancel_event} if cancel_event is not None else {}
+        parsed, transport = run_fresh_agent_json(prompt, work_dir=directory / "transport", **settings, **lifecycle)
         if transport.get("status") != "completed" or transport.get("independent_context") is not True:
             raise ValueError("Reviewer did not complete in an independent agent context")
         result = normalize_review(parsed) if phase == "novelty_review" else normalize_agenda(parsed)
         _dump(directory / "assessment.json", result)
-        receipt.update(status="complete", response="transport/stdout.json",
-                       response_sha256=_sha(directory / "transport/stdout.json"),
-                       assessment_sha256=_sha(directory / "assessment.json"),
-                       transport_receipt_sha256=_sha(directory / "transport/receipt.json"),
-                       provider=transport.get("observed_provider"),
-                       native_session_id=transport.get("native_session_id"))
-        _dump(directory / "receipt.json", receipt)
-        return result
-    except (ValueError, OSError, TypeError, KeyError) as exc:
-        receipt.update(status="failed", error=str(exc))
+        completed = {**receipt, "status": "complete", "response": "transport/stdout.json",
+                     "response_sha256": _sha(directory / "transport/stdout.json"),
+                     "assessment_sha256": _sha(directory / "assessment.json"),
+                     "transport_receipt_sha256": _sha(directory / "transport/receipt.json"),
+                     "provider": transport.get("observed_provider"),
+                     "native_session_id": transport.get("native_session_id")}
+    except BaseException as exc:
+        receipt.update(status="failed", error=str(exc) or type(exc).__name__)
         _dump(directory / "receipt.json", receipt)
         raise
+    _dump(directory / "receipt.json", completed)
+    return result
 
 
 def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *,
@@ -442,8 +455,15 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
                    output: Path, *, reviewer_count: int = 2,
                    reviewer_settings: dict[str, Any] | None = None,
                    candidate_packet: dict[str, Any] | None = None,
-                   resume: bool = False) -> dict[str, Any]:
-    """Review in separate contexts; errors remain evidence gaps, never positive reviews."""
+                   resume: bool = False,
+                   cancel_event: threading.Event | None = None) -> dict[str, Any]:
+    """Run independent reviewers together, after validating all shared inputs.
+
+    Agent calls stop their owned process trees before cancellation returns.
+    Non-main-thread callers can cancel with ``cancel_event``; this function does
+    not install signal handlers there. HTTP calls retain their transport timeout
+    and are joined before returning. Failed reviews remain evidence gaps.
+    """
     if type(reviewer_count) is not int or not 2 <= reviewer_count <= 4:
         raise ValueError("Use two to four independent novelty review contexts")
     output.mkdir(parents=True, exist_ok=True)
@@ -474,22 +494,100 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
         if len(prompt.encode("utf-8")) > 1800_000:
             raise ValueError("Novelty prompt exceeds 1.8 MB; split the study rather than truncating source or implementation evidence")
         prompts[f"reviewer_{index + 1}"] = prompt
+    pending = dict(prompts)
+    retries: list[Path] = []
     if resume:
         directories = sorted(output.glob("reviewer_*"))
         allowed = {f"reviewer_{index}" for index in range(1, reviewer_count + 1)}
         if any(path.name not in allowed for path in directories):
             raise InvalidReviewResume("Saved reviewer count differs from this invocation")
         _preflight_resume(directories, cfg, "novelty_review", frozen, reviewer_settings, prompts=prompts)
+        for directory in directories:
+            _receipt, result = _existing_call(directory, cfg, "novelty_review", frozen,
+                                               reviewer_settings, prompt=prompts[directory.name])
+            if result is not None:
+                pending.pop(directory.name)
+                logger.info("Novelty %s cache_reused", directory.name)
+                continue
+            archive = output / "retry_attempts" / directory.name
+            if any(path.is_symlink() or (path.exists() and not path.is_dir())
+                   for path in (archive.parent, archive)):
+                raise InvalidReviewResume("Invalid retry archive directory")
+            retries.append(directory)
+    cancellation = cancel_event if cancel_event is not None else threading.Event()
+    if cancellation.is_set():
+        raise CancelledError("Independent novelty review cancelled")
     if candidate_packet is not None:
         _dump(output / "candidate_packet.json", candidate_packet)
     _dump(output / "research_agenda.json", agenda)
-    for name, prompt in prompts.items():
+    # Archive only after the entire resume preflight succeeds. Each worker then
+    # owns one new directory; no worker mutates a shared retry parent or input.
+    for directory in retries:
+        archive = output / "retry_attempts" / directory.name
+        archive.mkdir(parents=True, exist_ok=True)
+        directory.rename(archive / str(uuid.uuid4()))
+    if pending:
+        executor = None
+        previous_handlers = {}
+        interrupted_signal = None
+        failure = None
+
+        def interrupt(signum: int, _frame: object) -> None:
+            nonlocal interrupted_signal
+            if interrupted_signal is None:
+                interrupted_signal = signum
+
         try:
-            _model_call(prompt, cfg, output / name, "novelty_review", frozen, reviewer_settings, resume=resume)
-        except InvalidReviewResume:
-            raise
-        except (ValueError, OSError, TypeError, KeyError):
-            continue
+            if threading.current_thread() is threading.main_thread():
+                for signum in (signal.SIGTERM, signal.SIGINT):
+                    previous_handlers[signum] = signal.getsignal(signum)
+                    signal.signal(signum, interrupt)
+            executor = ThreadPoolExecutor(max_workers=reviewer_count, thread_name_prefix="novelty-review")
+            futures = {}
+            for name, prompt in pending.items():
+                if interrupted_signal is not None:
+                    cancellation.set()
+                if cancellation.is_set():
+                    break
+                logger.info("Novelty %s start", name)
+                future = executor.submit(_model_call, prompt, cfg, output / name, "novelty_review",
+                                         frozen, reviewer_settings, cancel_event=cancellation)
+                futures[future] = name
+            remaining = set(futures)
+            while remaining:
+                if interrupted_signal is not None:
+                    cancellation.set()
+                done, remaining = wait(remaining, timeout=0.1, return_when=FIRST_COMPLETED)
+                for future in done:
+                    try:
+                        future.result()
+                    except InvalidReviewResume:
+                        raise
+                    except (ValueError, OSError, TypeError, KeyError):
+                        logger.info("Novelty %s failed", futures[future])
+                        continue
+                    logger.info("Novelty %s completed", futures[future])
+        except BaseException as exc:
+            failure = exc
+            cancellation.set()
+        finally:
+            # Signal handlers only record a flag, so they cannot jump out of
+            # thread registration, reenter Event.set's lock, or abort cleanup.
+            try:
+                if executor is not None:
+                    executor.shutdown(wait=True, cancel_futures=True)
+            finally:
+                for signum, handler in previous_handlers.items():
+                    signal.signal(signum, handler)
+        if interrupted_signal is not None:
+            cancellation.set()
+            if interrupted_signal == signal.SIGINT:
+                raise KeyboardInterrupt
+            raise SystemExit(128 + interrupted_signal)
+        if failure is not None:
+            raise failure
+        if cancellation.is_set():
+            raise CancelledError("Independent novelty review cancelled")
     if resume:
         _preflight_resume(sorted(output.glob("reviewer_*")), cfg, "novelty_review", frozen, reviewer_settings)
     report = evaluate_novelty(task_dir, agenda, review_dir=output,

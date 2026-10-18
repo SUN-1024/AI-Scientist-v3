@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import threading
 
 import pytest
 
@@ -72,11 +73,22 @@ def study(tmp_path):
 
 def install_provider(monkeypatch, values):
     calls = []
+    lock = threading.Lock()
+    novelty_start = None
     monkeypatch.setenv("AGSCI_LITERATURE_API_KEY", "fixture-key")
 
     def provider(_url, body, _headers, **_kwargs):
-        calls.append(copy.deepcopy(body))
-        value = values[min(len(calls) - 1, len(values) - 1)]
+        nonlocal novelty_start
+        with lock:
+            index = len(calls)
+            prompt = body["messages"][0]["content"]
+            if "\n\nFROZEN INPUT DATA:\n" in prompt:
+                if novelty_start is None:
+                    novelty_start = index
+                # Bind fixtures to reviewer identity, not thread scheduling.
+                index = novelty_start + int("Examine the strongest prior-art collision" in prompt)
+            calls.append(copy.deepcopy(body))
+            value = values[min(index, len(values) - 1)]
         return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(value)}}]}
 
     monkeypatch.setattr("src.research.model_search._http_json", provider)
@@ -239,7 +251,7 @@ def test_shared_fresh_agent_backend_and_transport_tamper(study, tmp_path, monkey
         raw = json.dumps(data)
         (work_dir / "stdout.json").write_text(raw)
         transport = {"status": "completed", "independent_context": True,
-                     "native_session_id": f"session-{len(calls)}", "observed_provider": "fixture",
+                     "native_session_id": f"session-{work_dir.parent.name}", "observed_provider": "fixture",
                      "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
                      "stdout_sha256": hashlib.sha256(raw.encode()).hexdigest()}
         (work_dir / "receipt.json").write_text(json.dumps(transport))
