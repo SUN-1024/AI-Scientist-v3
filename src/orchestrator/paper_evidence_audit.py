@@ -18,6 +18,10 @@ from itertools import chain
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+# paper.sh invokes this file from the paper workspace, without an editable install.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from src.orchestrator.paper_final_outcome import final_outcome_summary
