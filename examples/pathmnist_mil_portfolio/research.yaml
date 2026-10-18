@@ -49,8 +49,8 @@ harness:
     - control_best
     require_ablation: false
     require_positive_final: true
-    positive_effect_metric: candidate_minus_lme
-    positive_effect_interval_low_metric: paired_ci95_low
+    positive_effect_metric: candidate_minus_controls_min
+    positive_effect_interval_low_metric: paired_controls_ci95_low_min
     positive_effect_min: 0.0
     min_review_score: 6
 whole_idea_policy:

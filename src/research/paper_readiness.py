@@ -98,6 +98,44 @@ def _confirmation(workspace: Path, cfg: ResearchConfig) -> dict[str, Any]:
         return _result("missing_or_invalid", str(exc))
 
 
+def _portfolio_confirmation(workspace: Path, cfg: ResearchConfig) -> dict[str, Any] | None:
+    """Check the entire precommitted method set; preserve legacy single finals."""
+    from .portfolio_final_evidence import verify_portfolio_final_for_paper
+
+    workspace = workspace.absolute()
+    projection = verify_portfolio_final_for_paper(
+        {"results_dir": str(workspace / "run/investigation")}, task_dir=workspace / "run/task",
+        investigation_results_dir=workspace / "run/investigation",
+        final_evaluation_dir=workspace / "run/final_evaluation",
+    )
+    if projection is None:
+        return None
+    if projection["verification_status"] != "host_verified":
+        return _result("missing_or_invalid", projection["detail"],
+                       collection_complete=False, all_methods_qualified=False,
+                       gaps=projection["gaps"], provenance=projection["provenance"])
+    gaps = []
+    if not projection["collection_complete"] or not projection["all_methods_qualified"]:
+        gaps.append("The complete frozen final method set has not met its confirmation protocol")
+    for method in projection["methods"]:
+        count = len(method["observations"]["seeds"])
+        if count < cfg.harness.quality.min_confirmation_seeds:
+            gaps.append(f"{method['method_id']} has {count} confirmation seeds; declared minimum is "
+                        f"{cfg.harness.quality.min_confirmation_seeds}")
+        gaps.extend(f"{method['method_id']}: {detail}" for detail in method["observations"]["gaps"])
+    controls = [method for method in projection["methods"] if method["is_control"]]
+    return _result("verified" if not gaps else "incomplete",
+                   "All frozen final methods, host manifests and seed observations revalidated",
+                   collection_complete=projection["collection_complete"], all_methods_qualified=projection["all_methods_qualified"],
+                   selected_proposal_root_id=projection["selected_proposal_root_id"],
+                   observed_configurations_complete=projection["observed_configurations_complete"],
+                   tuned_controls_verified=bool(controls) and all(method["tuned"] is True
+                       and method["actual_evaluations"]["tuning"] > 0 for method in controls),
+                   methods=projection["methods"], paired_comparison=projection["paired_comparison"],
+                   gaps=gaps, evidence_gaps=projection["gaps"], provenance=projection["provenance"],
+                   matched_hpo_verified=False)
+
+
 def _paper(workspace: Path, state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     from src.pipeline.config import validate_review_input
     from src.orchestrator.paper_finalize import _paper_audit_is_current_and_passing
@@ -156,6 +194,9 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     checks = {"artifact": artifact, "experiment": _investigation(workspace),
               "comparison": _comparisons(workspace, state, cfg), "confirmation": _confirmation(workspace, cfg),
               "claim": claims, "review": _review(workspace, cfg, state)}
+    portfolio_confirmation = _portfolio_confirmation(workspace, cfg)
+    if portfolio_confirmation is not None:
+        checks["portfolio_final_comparison"] = portfolio_confirmation
     from .upstream.disclosure import load_integration_marker, inspect_pdf_disclosure
     try:
         disclosure_required = load_integration_marker(workspace / "input_task") is not None
@@ -200,19 +241,37 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
                            scientific_validity_certified=False)
         checks["methodology"] = methodology
     quality = cfg.harness.quality
-    effect = checks["confirmation"].get("metrics", {})
+    effect = (portfolio_confirmation.get("paired_comparison", {}).get("aggregate_metrics", {})
+              if portfolio_confirmation is not None else checks["confirmation"].get("metrics", {}))
     if not quality.require_positive_final:
         checks["scientific_effect"] = _result("not_required", "The declared study does not require a positive superiority result")
+    elif portfolio_confirmation is not None and (
+        portfolio_confirmation.get("status") != "verified"
+        or portfolio_confirmation.get("selected_proposal_root_id") is None
+        or portfolio_confirmation.get("tuned_controls_verified") is not True
+        or portfolio_confirmation.get("observed_configurations_complete") is not True
+        or portfolio_confirmation.get("paired_comparison", {}).get("status") != "verified"
+    ):
+        checks["scientific_effect"] = _result("not_qualified",
+            "Proposal superiority requires a complete qualified final set, a development-selected proposal, "
+            "every declared control's tuning trials, matching development/final configurations, and verified paired control comparisons. "
+            "Default diagnostic baseline metrics cannot satisfy this requirement.",
+            evidence_source="research_portfolio_final.paired_comparison")
     elif not quality.positive_effect_metric or not quality.positive_effect_interval_low_metric:
         checks["scientific_effect"] = _result("undeclared", "Declare a signed candidate-minus-reference metric and its uncertainty lower-bound metric before the study; correct=true is not evidence of improvement")
     elif quality.positive_effect_metric not in effect or quality.positive_effect_interval_low_metric not in effect:
-        checks["scientific_effect"] = _result("missing", "The sealed final manifest lacks the declared comparative effect and interval metrics")
+        checks["scientific_effect"] = _result("missing",
+            "The frozen portfolio paired-control summary lacks the declared effect and interval metrics; diagnostic metrics are not substitutes"
+            if portfolio_confirmation is not None else
+            "The sealed final manifest lacks the declared comparative effect and interval metrics")
     else:
         estimate, lower = effect[quality.positive_effect_metric], effect[quality.positive_effect_interval_low_metric]
         positive = estimate > quality.positive_effect_min and lower > quality.positive_effect_min
         checks["scientific_effect"] = _result("positive" if positive else "not_positive",
             "Signed comparative effect and prespecified interval bound, separate from executable correctness",
             estimate=estimate, interval_lower=lower, threshold=quality.positive_effect_min)
+        if portfolio_confirmation is not None:
+            checks["scientific_effect"]["evidence_source"] = "research_portfolio_final.paired_comparison"
     try:
         from .novelty_review import load_frozen_novelty_report
         from .harness_evidence import build_candidate_packet
@@ -235,6 +294,8 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
                 "scientific_effect": "positive" if quality.require_positive_final else "not_required"}
     if "methodology" in checks:
         expected["methodology"] = "declared"
+    if portfolio_confirmation is not None:
+        expected["portfolio_final_comparison"] = "verified"
     gaps = [{"check": key, "status": checks[key].get("status"), "detail": checks[key].get("detail", checks[key].get("gaps", []))}
             for key, status in expected.items() if checks[key].get("status") != status]
     target = state.get("quality_target", cfg.harness.quality_target)
@@ -248,6 +309,7 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
         "experiment": ("verify_development", "Recover host-scored development evaluations; do not infer success from model logs."),
         "comparison": ("controlled_comparisons", "Complete the declared controls, reference baselines, and mechanism ablations."),
         "confirmation": ("independent_confirmation", "Use the frozen one-time final evaluator and report all held-out seed observations."),
+        "portfolio_final_comparison": ("independent_confirmation", "Recover and report every method in the frozen final comparison set. Preserve all completed and failed final invocations; do not rerun completed methods or choose a new winner from final outcomes."),
         "scientific_effect": ("new_study", "Report the comparative effect and uncertainty honestly. A failed superiority criterion does not justify tuning on confirmation observations."),
         "claim": ("audit_claims", "Reconcile every numerical and causal claim with current evidence and rerun the manuscript audit."),
         "disclosure": ("repair_manuscript", "Add the required AI Scientist statement to a visible Disclosure, Abstract, or Methods section, recompile, and rerun validation."),
@@ -258,7 +320,7 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     }
     for gap in gaps:
         kind, instruction = action_text[gap["check"]]
-        new_study = final_opened and gap["check"] in {"experiment", "confirmation", "novelty", "scientific_effect"}
+        new_study = final_opened and gap["check"] in {"experiment", "confirmation", "portfolio_final_comparison", "novelty", "scientific_effect"}
         if gap["check"] == "confirmation" and final_opened:
             instruction = "Keep the completed confirmation result. Any method change requires a new study and a new frozen confirmation protocol."
         actions.append({"check": gap["check"], "kind": kind, "instruction": instruction,

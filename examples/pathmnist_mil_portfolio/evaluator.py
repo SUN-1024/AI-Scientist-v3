@@ -109,6 +109,7 @@ def evaluate(program_path, results_dir, *, plane, smoke=False):
     handle = shared.load_handle(program_path)
     configuration = None
     data = shared.read_data(root, plane)
+    data_manifest = json.loads((root / "data_manifest.json").read_text())
     if smoke:
         for split in ("train", "val", "test"):
             if split + "_y" in data:
@@ -164,6 +165,14 @@ def evaluate(program_path, results_dir, *, plane, smoke=False):
                     "paired_predictions": {"labels": data[target + "_y"].tolist(),
                                            "values": {name: np.asarray(values)[ids].tolist()
                                                       for name, values in predictions.items()}},
+                    "paired_comparison_spec": {
+                        "schema_version": 1, "metric": "mean_condition_worst_view_auc",
+                        "source_metric": "combined_score", "prediction_key": "candidate",
+                        "dataset_sha256": data_manifest[f"{plane}_sha256"],
+                        "sample_ids": [f"{target}:{index}" for index in range(len(data[target + "_y"]))],
+                        "condition_ids": list(noise_rates), "view_ids": list(p.BAG_SIZES),
+                        "bootstrap_draws": 2000, "bootstrap_seed": 7907,
+                    },
                     "selection_metric": "validation worst AUROC across paired views per condition; mean across conditions",
                     "ranking_score_space": "raw_logits",
                     "timing_scope": {"host_train_rpc_seconds": "candidate train RPC wall time, including transport and synchronization; excludes initialization and scoring",

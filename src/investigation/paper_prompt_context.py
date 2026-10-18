@@ -96,7 +96,8 @@ def paper_workspace_context_replacements(workspace_dir: Path) -> dict[str, str]:
     return {
         "RESEARCH_CONTEXT": render_context(workspace_dir / "task", for_paper=True)
                             + _render_selected_novelty_context(workspace_dir)
-                            + _render_portfolio_context(workspace_dir),
+                            + _render_portfolio_context(workspace_dir)
+                            + _render_portfolio_final_context(workspace_dir),
         "POSTHOC_ANALYSES_CONTEXT": _render_posthoc_analyses_context(workspace_dir),
         "POSTHOC_RANKING_PATH": "./posthoc_ranking.json",
         "DRAFT_REFERENCE_GAPS_PATH": "./draft_reference_gaps.md",
@@ -171,6 +172,34 @@ def _render_portfolio_context(workspace_dir: Path) -> str:
             "This host-revalidated projection covers development search and selection. Inspect its full "
             "ledger index for omitted trials and failures. It does not certify novelty, isolated component "
             "effects, independent final confirmation, or publication acceptance.\n"
+            + json.dumps(portfolio, ensure_ascii=False, indent=2))
+
+
+def _render_portfolio_final_context(workspace_dir: Path) -> str:
+    """Recheck the full frozen final set, including each declared control."""
+    from src.research.portfolio_final_evidence import FIELD, verify_portfolio_final_for_paper
+
+    path = workspace_dir / "paper_data.json"
+    if not path.exists() and not path.is_symlink():
+        return ""
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 64 * 1024 * 1024:
+            raise ValueError("Unsafe or oversized paper data")
+        paper_data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(paper_data, dict):
+            raise ValueError("Paper data must be a JSON object")
+        portfolio = verify_portfolio_final_for_paper(paper_data)
+    except (ValueError, OSError, TypeError) as exc:
+        # Existing legacy prompt handlers retain their exact error rendering.
+        if not isinstance(locals().get("paper_data"), dict) or FIELD not in paper_data:
+            return ""
+        portfolio = {"status": "needs_evidence", "gaps": [{"code": "paper_data_invalid", "detail": str(exc)}]}
+    if portfolio is None:
+        return ""
+    return ("\n\nFROZEN PORTFOLIO FINAL COMPARISON EVIDENCE:\n"
+            "This projection revalidates every retained final method, not only the development winner. "
+            "Use its complete method set and paired control contrasts; retain missing and negative outcomes. "
+            "Default diagnostic baselines do not stand in for tuned controls. Final results never select a new method.\n"
             + json.dumps(portfolio, ensure_ascii=False, indent=2))
 
 

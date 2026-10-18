@@ -1290,8 +1290,16 @@ def run_final_evaluation(
     _resolve_container_image: ResolveContainerImage = resolve_immutable_image,
     _remove_named_container: RemoveNamedContainer = _force_remove_named_container,
     _sleep: Callable[[float], None] = time.sleep,
+    _portfolio_method: tuple[Path, str] | None = None,
 ) -> dict[str, Any]:
     """Serialize final evaluation and recover retained broker containers first."""
+    if _portfolio_method is None:
+        from .comparison_set import SET_MANIFEST, portfolio_final_set_required
+
+        if ((output_dir / SET_MANIFEST).exists() or (output_dir / SET_MANIFEST).is_symlink()
+                or portfolio_final_set_required(task_dir=task_dir,
+                                                investigation_results_dir=investigation_results_dir)):
+            raise FinalEvaluationError("planned portfolio requires run_portfolio_final_evaluation before final access")
     output_dir = Path(os.path.abspath(output_dir.expanduser()))
     with _final_evaluation_lock(output_dir):
         return _run_final_evaluation_locked(
@@ -1308,6 +1316,7 @@ def run_final_evaluation(
             _resolve_container_image=_resolve_container_image,
             _remove_named_container=_remove_named_container,
             _sleep=_sleep,
+            _portfolio_method=_portfolio_method,
         )
 
 
@@ -1326,6 +1335,7 @@ def _run_final_evaluation_locked(
     _resolve_container_image: ResolveContainerImage = resolve_immutable_image,
     _remove_named_container: RemoveNamedContainer = _force_remove_named_container,
     _sleep: Callable[[float], None] = time.sleep,
+    _portfolio_method: tuple[Path, str] | None = None,
 ) -> dict[str, Any]:
     """Run the contract's final evaluator once, or reuse a completed manifest."""
     if timeout_seconds < 1:
@@ -1356,7 +1366,22 @@ def _run_final_evaluation_locked(
     expected_reset_seeds = contract.protocol.final_reset_sequence
     public_artifact_bundle = contract.resources.public_artifact_bundle
     evaluator = _safe_declared_file(task_dir, contract.evaluators.final, "final evaluator")
-    program_dir, entrypoint = resolve_frozen_incumbent(investigation_dir)
+    if _portfolio_method is None:
+        program_dir, entrypoint = resolve_frozen_incumbent(investigation_dir)
+    else:
+        # Only an immutable, host-revalidated set may select another root's
+        # program. This is an ID lookup, never an arbitrary program override.
+        from .comparison_set import _execution_settings, resolve_portfolio_final_method
+
+        program_dir, entrypoint = resolve_portfolio_final_method(
+            task_dir=task_dir, investigation_results_dir=investigation_dir,
+            output_dir=output_dir, set_dir=_portfolio_method[0],
+            method_id=_portfolio_method[1],
+            execution=_execution_settings(
+                task_dir=task_dir, python_bin=python_bin, timeout_seconds=timeout_seconds,
+                container_image=container_image, _allow_native_for_tests=_allow_native_for_tests,
+            ),
+        )
     program_digest = _tree_digest(program_dir)
     evaluator_digest = _file_digest(evaluator)
     if manifest_path.exists() or manifest_path.is_symlink():

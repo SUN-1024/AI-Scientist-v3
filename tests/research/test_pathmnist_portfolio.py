@@ -229,6 +229,8 @@ def test_template_contract_and_quality_metrics_are_frozen_and_separate():
     assert config.methodology.profile == "medical"
     assert config.whole_idea_policy.enabled is True
     assert config.harness.quality.require_ablation is False
+    assert config.harness.quality.positive_effect_metric == "candidate_minus_controls_min"
+    assert config.harness.quality.positive_effect_interval_low_metric == "paired_controls_ci95_low_min"
     assert "candidate_train_rpc_seconds" not in contract.protocol.promotion_rule
 
 
@@ -308,6 +310,7 @@ def test_full_host_output_shape_on_mock_rpc_and_synthetic_arrays(tmp_path, monke
     raw = json.loads((ROOT / "task_contract.json").read_text())
     raw["compute"][plane]["accelerator_model"] = "Fixture GPU"
     (tmp_path / "task_contract.json").write_text(json.dumps(raw))
+    (tmp_path / "data_manifest.json").write_text(json.dumps({"search_sha256": "a" * 64, "final_sha256": "b" * 64}))
     data = arrays()
     monkeypatch.setenv("TASK_SOURCE_DIR", str(tmp_path))
     monkeypatch.setenv("AGENTIC_CANDIDATE_SOCKET", "/synthetic-test.sock")
@@ -332,6 +335,8 @@ def test_full_host_output_shape_on_mock_rpc_and_synthetic_arrays(tmp_path, monke
     assert solution["smoke_only"] is smoke
     assert solution["evaluation_split"] == ("val" if plane == "search" else "test")
     assert solution["configuration"] == configuration()
+    assert solution["paired_comparison_spec"]["dataset_sha256"] == ("a" if plane == "search" else "b") * 64
+    assert solution["paired_comparison_spec"]["condition_ids"] == list(ev.p.NOISE_RATES[:1] if smoke else ev.p.NOISE_RATES)
     assert "source review required" in solution["capacity_and_device_status"]
     assert "not an equally tuned" in solution["reference_status"]
     assert "cross-device" in solution["timing_scope"]["comparability"]

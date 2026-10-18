@@ -12,6 +12,7 @@ from .runner import (
     FinalEvaluationInfrastructureError,
     run_final_evaluation,
 )
+from .comparison_set import portfolio_final_set_required, run_portfolio_final_evaluation
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -32,7 +33,14 @@ def main(argv: list[str] | None = None) -> int:
         print("--timeout-seconds must be positive", file=sys.stderr)
         return 2
     try:
-        result = run_final_evaluation(
+        evaluate = (
+            run_portfolio_final_evaluation
+            if portfolio_final_set_required(
+                task_dir=args.task_dir, investigation_results_dir=args.investigation_results_dir,
+            )
+            else run_final_evaluation
+        )
+        result = evaluate(
             task_dir=args.task_dir,
             investigation_results_dir=args.investigation_results_dir,
             output_dir=args.output_dir,

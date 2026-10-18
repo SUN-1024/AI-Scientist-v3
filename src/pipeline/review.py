@@ -48,6 +48,7 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     """Rebuild the selected review on the host before exposing it to a reviewer."""
     from src.research.evidence import verify_methodology_for_paper, verify_selected_novelty_for_paper
     from src.research.portfolio_evidence import verify_portfolio_for_paper
+    from src.research.portfolio_final_evidence import verify_portfolio_final_for_paper
 
     data_path = paths.paper_dir / "paper_data.json"
     if any(path.is_symlink() for path in (data_path, *data_path.parents)):
@@ -68,7 +69,10 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     portfolio = verify_portfolio_for_paper(
         paper_data, investigation_results_dir=paths.investigation_dir,
     )
-    if selected is None and methodology is None and portfolio is None:
+    portfolio_final = verify_portfolio_final_for_paper(
+        paper_data, investigation_results_dir=paths.investigation_dir,
+    )
+    if selected is None and methodology is None and portfolio is None and portfolio_final is None:
         return None
     packet = {
         "schema_version": 1,
@@ -85,6 +89,8 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
         packet["research_methodology"] = methodology
     if portfolio is not None:
         packet["research_portfolio"] = portfolio
+    if portfolio_final is not None:
+        packet["research_portfolio_final"] = portfolio_final
     body = (json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     if len(body) > 512 * 1024:
         raise ValueError("Selected novelty evidence exceeds the independent review packet limit")

@@ -76,6 +76,12 @@ def _merge_final_evaluation(
             f"Final evaluation directory must not be a symlink: {final_evaluation_dir}"
         )
     final_evaluation_dir = final_evaluation_dir.resolve()
+    from src.research.portfolio_final_evidence import merge_portfolio_final_evidence
+
+    merge_portfolio_final_evidence(
+        paper_data, task_dir=task_dir, investigation_results_dir=investigation_results_dir,
+        final_evaluation_dir=final_evaluation_dir,
+    )
     manifest_path = final_evaluation_dir / "final_manifest.json"
     if not manifest_path.exists() and not manifest_path.is_symlink():
         return
