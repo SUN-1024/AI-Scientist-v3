@@ -1,6 +1,6 @@
 """Host-owned receipts for explicitly native, non-contracted development runs.
 
-These receipts bind scores to code and evaluator bytes. They do not provide a
+These receipts bind scores to code, evaluator bytes, and declared task inputs. They do not provide a
 container boundary and are never accepted by the sealed evaluation path.
 """
 from __future__ import annotations
@@ -13,11 +13,13 @@ import subprocess
 import sys
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from .program_clone import clone_program_dir
 from .program_spec import entrypoint_relpath_from_spec, load_program_spec
+
+EVALUATION_INPUTS_DECLARATION = "native_evaluation_inputs.json"
 
 
 def _hash(path: Path) -> str:
@@ -48,17 +50,78 @@ def source_fingerprint(program_dir: Path) -> dict[str, str]:
     return records
 
 
-def _json(path: Path) -> dict[str, Any]:
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Duplicate native evaluation input declaration key: {key}")
+        result[key] = value
+    return result
+
+
+def _json(path: Path, *, unique_keys: bool = False) -> dict[str, Any]:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
         raise ValueError(f"Invalid native evaluation artifact: {path.name}")
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_json_object if unique_keys else None,
+    )
     if not isinstance(value, dict):
         raise ValueError(f"Expected a JSON object: {path.name}")
     return value
 
 
+def evaluation_inputs_fingerprint(evaluator: Path) -> dict[str, str | None] | None:
+    """Hash only task inputs declared as required or optional, including absence.
+
+    The declaration lives beside evaluate.py. Without it, legacy tasks keep the
+    evaluator-only receipt format. Declared paths are portable, task-relative
+    regular files; symlink components are rejected, even when their targets are
+    inside the task. Missing optional files are recorded so later creation also
+    invalidates the receipt.
+    """
+    task_root = evaluator.parent
+    declaration_path = task_root / EVALUATION_INPUTS_DECLARATION
+    if not declaration_path.exists() and not declaration_path.is_symlink():
+        return None
+    declaration_hash = _hash(declaration_path)
+    declaration = _json(declaration_path, unique_keys=True)
+    if (
+        set(declaration) - {"schema_version", "required", "optional"}
+        or type(declaration.get("schema_version")) is not int
+        or declaration["schema_version"] != 1
+    ):
+        raise ValueError("Invalid native evaluation input declaration schema")
+    records: dict[str, str | None] = {EVALUATION_INPUTS_DECLARATION: declaration_hash}
+    for kind in ("required", "optional"):
+        names = declaration.get(kind, [])
+        if not isinstance(names, list):
+            raise ValueError(f"Native evaluation inputs {kind} must be a list")
+        for name in names:
+            if not isinstance(name, str) or not name or "\\" in name or "\0" in name:
+                raise ValueError("Native evaluation inputs must be relative file paths")
+            relative = PurePosixPath(name)
+            if (
+                relative.is_absolute() or PureWindowsPath(name).drive or ".." in relative.parts
+                or not relative.parts or relative.as_posix() != name or name in records
+            ):
+                raise ValueError(f"Invalid or duplicate native evaluation input path: {name}")
+            path = task_root
+            for part in relative.parts:
+                path = path / part
+                if path.is_symlink():
+                    raise ValueError(f"Native evaluation input must not contain symlinks: {name}")
+            if kind == "optional" and not path.exists():
+                records[name] = None
+            else:
+                records[name] = _hash(path)
+    if _hash(declaration_path) != declaration_hash:
+        raise ValueError("Native evaluation input declaration changed while reading")
+    return records
+
+
 def validated_native_score(program_dir: Path, evaluator: Path) -> float | None:
-    """Read a successful receipt only when its code, evaluator and results match."""
+    """Read a successful receipt only when code, evaluation inputs, and results match."""
     try:
         manifest = _json(program_dir / "evaluation_manifest.json")
         if not (
@@ -69,6 +132,7 @@ def validated_native_score(program_dir: Path, evaluator: Path) -> float | None:
             and manifest.get("returncode") == 0
             and manifest.get("source_sha256") == source_fingerprint(program_dir)
             and manifest.get("evaluator_sha256") == _hash(evaluator)
+            and manifest.get("evaluation_inputs_sha256") == evaluation_inputs_fingerprint(evaluator)
             and manifest.get("result_sha256") == {
                 name: _hash(program_dir / name) for name in ("metrics.json", "correct.json")
             }
@@ -93,6 +157,7 @@ def run_native_evaluation(
     if entrypoint_rel is None:
         raise ValueError("Candidate has no entrypoint")
     source_before, evaluator_before = source_fingerprint(program_dir), _hash(evaluator)
+    evaluation_inputs_before = evaluation_inputs_fingerprint(evaluator)
     command = [python_bin, str(evaluator), "--program_path", str(program_dir / entrypoint_rel),
                "--results_dir", str(program_dir)]
     manifest: dict[str, Any] = {
@@ -100,6 +165,7 @@ def run_native_evaluation(
         "attempt_id": attempt_id, "idea_id": idea_id, "program_id": program_dir.name,
         "command": command, "started_at": datetime.now(timezone.utc).isoformat(),
         "source_sha256": source_before, "evaluator_sha256": evaluator_before,
+        "evaluation_inputs_sha256": evaluation_inputs_before,
     }
     manifest_path = program_dir / "evaluation_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -108,7 +174,15 @@ def run_native_evaluation(
                                 capture_output=True, text=True, timeout=timeout_seconds, check=False)
         returncode = result.returncode
         stdout, stderr = result.stdout or "", result.stderr or ""
-        if source_fingerprint(program_dir) != source_before or _hash(evaluator) != evaluator_before:
+        try:
+            inputs_changed = (
+                source_fingerprint(program_dir) != source_before
+                or _hash(evaluator) != evaluator_before
+                or evaluation_inputs_fingerprint(evaluator) != evaluation_inputs_before
+            )
+        except (OSError, ValueError, TypeError):
+            inputs_changed = True
+        if inputs_changed:
             returncode = 1
             stderr += "\nNative evaluation inputs changed during execution.\n"
     except subprocess.TimeoutExpired as exc:

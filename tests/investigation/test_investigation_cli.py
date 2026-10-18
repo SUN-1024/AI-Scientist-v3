@@ -1453,7 +1453,7 @@ def test_main_idea_generation_retries_and_failure_budget(tmp_path: Path) -> None
     attempt_lines = (results_dir / "attempts_history.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(attempt_lines) == 2
     first_log = Path(json.loads(attempt_lines[0])["wrapper_output_log"])
-    assert first_log.resolve() == (results_dir / "ideas" / "01_first" / "wrapper_output.log").resolve()
+    assert first_log.resolve() == (results_dir / "ideas" / "01_first" / "01_attempt" / "wrapper_output.log").resolve()
     assert first_log.is_file()
 
     # idea generation is retried, then fails without consuming a cycle

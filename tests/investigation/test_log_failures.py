@@ -157,7 +157,8 @@ def test_run_single_attempt_trusts_only_private_control_receipt(tmp_path, monkey
 
         def execute(**kwargs):
             descriptor = int(kwargs["env"][task_failure.TASK_FAILURE_FD_ENV])
-            assert kwargs["pass_fds"] == (descriptor,)
+            coding_descriptor = int(kwargs["env"]["AGENTIC_CODING_FAILURE_FD"])
+            assert kwargs["pass_fds"] == (descriptor, coding_descriptor)
             observed.append(descriptor)
             if trusted:
                 task_failure.write_task_failure(descriptor, "attempt", "idea")

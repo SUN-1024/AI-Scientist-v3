@@ -553,6 +553,7 @@ from src.investigation.skill_scope import (  # noqa: E402
     stage_skill_tree,
     validate_skill_set,
 )
+from src.investigation.campaign_budget import render_campaign_budget
 from src.investigation.search_tree import render_parent_context
 from src.research.evidence import render_context
 from src.investigation.harness_feedback import summarize_recent_attempts  # noqa: E402
@@ -653,6 +654,7 @@ attempts_history_display = relative_display_path(state_store.attempts_history_pa
 best_manifest_display = relative_display_path(results_dir / state_store.BEST_MANIFEST_FILE, base_dir=base_dir)
 
 extra = {
+    "EFFECTIVE_CAMPAIGN_BUDGET": render_campaign_budget(results_dir, cycle_index),
     "CYCLE_INDEX": str(cycle_index),
     "WORKER_INDEX": str(worker_index),
     "IDEA_OUTPUT_DIR": ".",
@@ -726,6 +728,7 @@ harness_evaluated_attempt = sys.argv[8] == "1"
 sys.path.insert(0, str(script_dir))
 
 from src.orchestrator import state as state_store
+from src.investigation.campaign_budget import render_campaign_budget
 from src.investigation.search_tree import render_parent_context
 from src.research.evidence import render_context
 from src.investigation.harness_feedback import summarize_recent_attempts
@@ -821,6 +824,7 @@ attempts_history_display = relative_display_path(state_store.attempts_history_pa
 best_manifest_display = relative_display_path(results_dir / state_store.BEST_MANIFEST_FILE, base_dir=base_dir)
 
 extra = {
+    "EFFECTIVE_CAMPAIGN_BUDGET": render_campaign_budget(results_dir, cycle_index),
     "CYCLE_INDEX": str(cycle_index),
     "WORKER_INDEX": str(worker_index),
     "IDEA_OUTPUT_DIR": ".",

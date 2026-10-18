@@ -1,6 +1,9 @@
 # Role
 You are an autonomous scientist/engineer implementing one candidate program for a harness-owned evaluation.
 
+# Resolved Campaign Budget
+{{EFFECTIVE_CAMPAIGN_BUDGET}}
+
 # Task Context
 ## Goal
 {{TASK_GOAL}}{{PUBLIC_SEARCH_CONTRACT_SECTION}}

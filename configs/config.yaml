@@ -41,10 +41,14 @@ execution:
   harness_evaluation_timeout_seconds: 7200
   idea_timeout_seconds: 3600
   max_idea_generation_attempts: 2
+  # Coding-agent provider retries are separate from task drafting repair budgets.
+  agent_transient_max_attempts: 3
+  agent_transient_backoff_seconds: 2.0
   run_timeout_grace_seconds: 30
   prune_every_n_cycles: 0
   parallel_fail_fast: false
   worker_index: 0
+  campaign_workers: 0
   cycle_offset: 0
   total_cycles: 0
   # Sync isolation for ablation; this does not sandbox host worker filesystem access.

@@ -562,6 +562,9 @@ fi
 validate_path_token "attempt directory name" "$ATTEMPT_DIR_NAME"
 
 EXPERIMENT_DIR="$RESULTS_DIR/ideas/$IDEA_DIR_NAME"
+if [ "$ATTEMPT_DIR_NAME" != "idea_root" ]; then
+  EXPERIMENT_DIR="$EXPERIMENT_DIR/$ATTEMPT_DIR_NAME"
+fi
 mkdir -p "$EXPERIMENT_DIR"
 if ls "$EXPERIMENT_DIR"/program_* >/dev/null 2>&1 || [ -f "$EXPERIMENT_DIR/rubric_status.json" ]; then
   echo "Idea directory already contains run artifacts: $EXPERIMENT_DIR" >&2
@@ -866,6 +869,7 @@ sys.path.insert(0, str(script_dir))
 from src.orchestrator import state as state_store
 from src.investigation.skill_scope import skills_for_step, stage_skill_tree, validate_skill_set
 from src.investigation.files import load_instructions, relative_display_path
+from src.investigation.campaign_budget import render_campaign_budget
 
 skills_src = script_dir / "src" / "agents" / "skills"
 if not skills_src.is_dir():
@@ -940,6 +944,7 @@ def summarize_jsonl_entries(entries, keys):
 base_dir = Path(".").resolve()
 
 extra = {
+    "EFFECTIVE_CAMPAIGN_BUDGET": render_campaign_budget(results_dir),
     "REPO_ROOT": str(script_dir),
     "ACTIVE_IDEA_JSON": active_idea,
     "ACTIVE_RUBRICS_JSON": active_rubrics,
@@ -999,6 +1004,7 @@ sys.path.insert(0, str(script_dir))
 from src.orchestrator import state as state_store
 from src.investigation.public_task_contract import public_search_contract_section
 from src.investigation.files import load_instructions, relative_display_path
+from src.investigation.campaign_budget import render_campaign_budget
 
 active_idea = Path("active_idea.json").read_text(encoding="utf-8").strip() or "{}"
 active_rubrics = Path("active_rubrics.json").read_text(encoding="utf-8").strip() or "[]"
@@ -1073,6 +1079,7 @@ def summarize_jsonl_entries(entries, keys):
 base_dir = Path(".").resolve()
 
 extra = {
+    "EFFECTIVE_CAMPAIGN_BUDGET": render_campaign_budget(results_dir),
     "REPO_ROOT": str(script_dir),
     "ACTIVE_IDEA_JSON": active_idea,
     "ACTIVE_RUBRICS_JSON": active_rubrics,
@@ -1324,6 +1331,10 @@ TEE_PID=$!
     exec {AGENTIC_TASK_FAILURE_FD}>&-
     unset AGENTIC_TASK_FAILURE_FD
   fi
+  if [ -n "${AGENTIC_CODING_FAILURE_FD:-}" ]; then
+    exec {AGENTIC_CODING_FAILURE_FD}>&-
+    unset AGENTIC_CODING_FAILURE_FD
+  fi
   AGENT_PROMPT_FILE="prompt.md" \
   run_agent_prompt \
     "$AGENT" \
@@ -1390,6 +1401,11 @@ fi
 if [ "$AGENT_EXIT_CODE" -ne 0 ] && ! {
   [ "$HARNESS_EVALUATED_ATTEMPT" -eq 1 ] && [ "$AGENT_EXIT_CODE" -eq 124 ];
 }; then
+  if [ "$HARNESS_EVALUATED_ATTEMPT" -eq 1 ] && [ -n "${AGENTIC_CODING_FAILURE_FD:-}" ]; then
+    "$PYTHON_BIN" -m src.investigation.campaign_retry \
+      --fd "$AGENTIC_CODING_FAILURE_FD" --attempt-id "$ATTEMPT_ID" \
+      --log "$LOG_FILE" --experiment "$EXPERIMENT_DIR"
+  fi
   exit "$AGENT_EXIT_CODE"
 fi
 if [ "$AGENT_EXIT_CODE" -eq 124 ]; then

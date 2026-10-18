@@ -13,6 +13,7 @@ class RunAttemptResult:
     experiment_dir: Path | None
     task_failure_category: str | None = None
     infrastructure_failure_category: str | None = None
+    agent_failure_kind: str | None = None
 
 
 @dataclass

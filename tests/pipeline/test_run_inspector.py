@@ -210,6 +210,30 @@ def test_discover_single_and_parallel_runs_with_performance_and_graph(tmp_path: 
 # ---------------------------------------------------------------------------
 
 
+def test_nested_attempt_logs_and_artifacts_remain_inspectable(tmp_path: Path) -> None:
+    root = tmp_path / "runs"
+    run_dir = root / "task" / "codex"
+    idea_dir = run_dir / "ideas" / "01_retry"
+    _markers(run_dir)
+    _idea(idea_dir, "idea_0001", "Retry")
+    for number in (1, 2):
+        attempt = idea_dir / f"{number:02d}_attempt"
+        _program(attempt / "program_1", score=float(number), correct=True)
+        for name in ("prompt.md", "rubric_status.json", "wrapper_output.log", "agent_codex.log"):
+            (attempt / name).write_text("{}", encoding="utf-8")
+    (idea_dir / "agent_legacy.log").write_text("legacy", encoding="utf-8")
+    [run] = _single_run(root)
+    graph = build_graph(run, agentlens_base_url=AGENTLENS)
+    [node] = [node for node in graph.nodes if node.type == "idea"]
+    detail = graph.details[node.id]
+    paths = {artifact.path for artifact in detail["artifacts"] if artifact.exists}
+    for number in (1, 2):
+        for name in ("prompt.md", "rubric_status.json", "wrapper_output.log", "agent_codex.log"):
+            assert f"ideas/01_retry/{number:02d}_attempt/{name}" in paths
+    assert "ideas/01_retry/agent_legacy.log" in paths
+    assert "02_attempt" in detail["agentlens_url"]
+
+
 def test_idea_timeline_entries_and_correct_without_rubric_is_not_any_pass(tmp_path: Path) -> None:
     # timeline entries
     root = tmp_path / "entries"

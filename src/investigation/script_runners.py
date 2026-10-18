@@ -30,6 +30,7 @@ from .evaluation_artifact_cleanup import (
     ExperimentDirectoryGuard,
     cleanup_unmanaged_evaluation_outputs,
 )
+from .campaign_retry import AGENT_FAILURE_FD_ENV, read_agent_failure
 from .temp_storage import temporary_directory
 from .files import parse_paper_dir
 from .task_failure import (
@@ -710,9 +711,11 @@ def run_single_attempt(
         container_session_name=container_session_name,
         container_mount_root=container_mount_root,
     )
-    directory_guard = ExperimentDirectoryGuard.prepare(results_dir, idea_dir_name)
+    directory_guard = ExperimentDirectoryGuard.prepare(results_dir, idea_dir_name, attempt_dir_name)
     experiment_fd: int | None = None
     control = None
+    coding_control = None
+    agent_failure_kind = None
     expected_idea_id = "idea_unknown"
     try:
         idea_payload = json.loads(idea_file.read_text(encoding="utf-8"))
@@ -722,9 +725,12 @@ def run_single_attempt(
         if isinstance(idea_payload, dict) and isinstance(idea_payload.get("idea_id"), str):
             expected_idea_id = idea_payload["idea_id"].strip() or expected_idea_id
     env.pop(TASK_FAILURE_FD_ENV, None)
+    env.pop(AGENT_FAILURE_FD_ENV, None)
     task_failure_category = None
     try:
         control = tempfile.TemporaryFile(mode="w+b", dir=temporary_directory())
+        coding_control = tempfile.TemporaryFile(mode="w+b", dir=temporary_directory())
+        env[AGENT_FAILURE_FD_ENV] = str(coding_control.fileno())
         env[TASK_FAILURE_FD_ENV] = str(control.fileno())
         output, exit_code = _execute_script_command(
             cmd=cmd,
@@ -742,8 +748,9 @@ def run_single_attempt(
             terminate_process_group=terminate_process_group,
             ensure_text=ensure_text,
             env=env,
-            pass_fds=(control.fileno(),) if control is not None else (),
+            pass_fds=(control.fileno(), coding_control.fileno()),
         )
+        agent_failure_kind = read_agent_failure(coding_control.fileno(), attempt_id)
         if control is not None:
             task_failure_category = read_task_failure(control.fileno(), attempt_id, expected_idea_id)
         if task_failure_category is not None:
@@ -784,6 +791,8 @@ def run_single_attempt(
         raise
     finally:
         try:
+            if coding_control is not None:
+                coding_control.close()
             if control is not None:
                 control.close()
         finally:
@@ -797,6 +806,7 @@ def run_single_attempt(
         exit_code=exit_code,
         experiment_dir=experiment_dir,
         task_failure_category=task_failure_category,
+        agent_failure_kind=agent_failure_kind,
     )
 
 

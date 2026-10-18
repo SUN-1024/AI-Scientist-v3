@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .agentlens_link import build_agentlens_placeholder_url, build_agentlens_trace_file_url
-from .discovery import DiscoveredRun, Idea, ProgramEval, Worker, idea_node_id, idea_rel_path
+from .discovery import ATTEMPT_DIR_RE, DiscoveredRun, Idea, ProgramEval, Worker, idea_node_id, idea_rel_path
 from .models import ArtifactRef, GraphEdge, GraphNode
 
 from src.investigation.program_spec import (
@@ -211,18 +211,26 @@ def _program_src_artifacts(
     return artifacts
 
 
-def _latest_agent_log(idea: Idea) -> Path | None:
-    logs = sorted(
-        [
-            item
-            for item in idea.path.iterdir()
-            if item.is_file() and item.name.startswith("agent_") and item.suffix == ".log"
-        ],
-        key=lambda item: item.name,
+def _idea_execution_roots(idea: Idea) -> list[Path]:
+    attempts = sorted(
+        (item for item in idea.path.iterdir()
+         if not item.is_symlink() and item.is_dir() and ATTEMPT_DIR_RE.fullmatch(item.name)),
+        key=lambda item: int(item.name.split("_", 1)[0]),
     )
-    if not logs:
-        return None
-    return logs[-1]
+    return [idea.path, *attempts]
+
+
+def _idea_agent_logs(idea: Idea) -> list[Path]:
+    return [
+        item for root in _idea_execution_roots(idea)
+        for item in sorted(root.glob("agent_*.log"), key=lambda path: path.name)
+        if item.is_file() and not item.is_symlink()
+    ]
+
+
+def _latest_agent_log(idea: Idea) -> Path | None:
+    logs = _idea_agent_logs(idea)
+    return logs[-1] if logs else None
 
 
 def _idea_generation_roots(worker: Worker) -> list[Path]:
@@ -501,6 +509,15 @@ def _idea_details(
         ),
     ]
 
+    for attempt in _idea_execution_roots(idea)[1:]:
+        for name in ("active_idea.json", "active_rubrics.json", "target_rubrics.json",
+                     "rubric_status.json", "prompt.md", "task.md", "memory.md", "wrapper_output.log"):
+            path = attempt / name
+            if path.is_file() and not path.is_symlink():
+                artifacts.append(_to_artifact(
+                    run, path, f"{attempt.name}/{name}", agentlens_base_url=agentlens_base_url,
+                ))
+
     for program in idea.programs:
         artifacts.append(
             _to_artifact(
@@ -543,12 +560,12 @@ def _idea_details(
                 agentlens_base_url=agentlens_base_url,
             )
         )
-    if agent_log is not None:
+    for log in _idea_agent_logs(idea):
         artifacts.append(
             _to_artifact(
                 run,
-                agent_log,
-                agent_log.name,
+                log,
+                log.relative_to(idea.path).as_posix(),
                 agentlens_base_url=agentlens_base_url,
             )
         )

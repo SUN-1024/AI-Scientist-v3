@@ -446,6 +446,7 @@ class InvestigationConfig(PhasePassthrough):
         "versioning.",
         "execution.task_only",
         "execution.worker_index",
+        "execution.campaign_workers",
         "paper.",
     )
     rewritten = frozenset({"execution.draft_task_if_missing"})
@@ -459,6 +460,8 @@ class InvestigationConfig(PhasePassthrough):
     harness_evaluated_attempts = _Key[bool]("execution.harness_evaluated_attempts")
     gpu_evaluation = _Key[bool]("execution.gpu_evaluation")
     max_idea_generation_attempts = _Key[int]("execution.max_idea_generation_attempts")
+    agent_transient_max_attempts = _Key[int]("execution.agent_transient_max_attempts")
+    agent_transient_backoff_seconds = _Key[float]("execution.agent_transient_backoff_seconds")
     idea_timeout_seconds = _Key[int]("execution.idea_timeout_seconds")
     run_timeout_seconds = _Key[int]("execution.run_timeout_seconds")
     harness_evaluation_timeout_seconds = _Key[int](
@@ -1013,6 +1016,24 @@ def validate_pipeline_config(cfg: PipelineConfig) -> list[str]:
     if "task_drafting" in selected and cfg.investigation.resume:
         errors.append("task_drafting cannot be combined with investigation.execution.resume=true")
     if selected.intersection({"task_drafting", "investigation"}):
+        if (
+            type(cfg.investigation.agent_transient_max_attempts) is not int
+            or not 1 <= cfg.investigation.agent_transient_max_attempts <= 10
+        ):
+            errors.append(
+                "investigation.execution.agent_transient_max_attempts "
+                "must be an integer from 1 to 10"
+            )
+        backoff = cfg.investigation.agent_transient_backoff_seconds
+        if (
+            isinstance(backoff, bool)
+            or not isinstance(backoff, (int, float))
+            or not 0 <= backoff <= 60
+        ):
+            errors.append(
+                "investigation.execution.agent_transient_backoff_seconds "
+                "must be a finite number from 0 to 60"
+            )
         minimums = {
             "max_idea_cycles": 1,
             "workers": 1,

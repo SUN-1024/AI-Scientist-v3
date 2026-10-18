@@ -8,6 +8,8 @@ import subprocess
 import sys
 
 from src.investigation.search_tree import SearchTree
+from src.investigation.campaign_budget import write_campaign_budget
+from src.investigation.config import InvestigationConfig
 from src.research.config import LiteratureConfig
 from src.research.literature import prepare_literature
 from tests.e2e.test_agent_execution_pipeline import _write_fake_agent, _write_task_dir
@@ -21,6 +23,11 @@ def test_real_idea_wrapper_receives_literature_and_the_selected_branch(tmp_path)
     }]), offline=True)
     results = tmp_path / "results"
     results.mkdir()
+    cfg = InvestigationConfig()
+    cfg.execution.max_idea_cycles = 12
+    cfg.execution.search_strategy = "tree"
+    cfg.execution.harness_evaluated_attempts = True
+    write_campaign_budget(results, cfg, cycle=1, max_program_evals_per_attempt=4, outer_state={"current_cycle": 0})
     SearchTree(results, task).choose(1, {"combined_score": 1, "correct": True}, task / "program_0")
     agent_bin = tmp_path / "bin"
     agent_bin.mkdir()
@@ -38,6 +45,10 @@ def test_real_idea_wrapper_receives_literature_and_the_selected_branch(tmp_path)
     ], env=environment, capture_output=True, text=True, timeout=30)
     assert completed.returncode == 0, completed.stdout + completed.stderr
     prompt = (output / "idea_prompt.md").read_text()
+    assert '"global_total": 12' in prompt
+    assert '"max_evaluator_calls_per_attempt": 1' in prompt
+    assert "overrides stale campaign round counts" in prompt
+    assert "{{EFFECTIVE_CAMPAIGN_BUDGET}}" not in prompt
     assert "Fixture comparison source" in prompt
     assert "research_basis" in prompt
     assert "prior_method:chars_" in prompt

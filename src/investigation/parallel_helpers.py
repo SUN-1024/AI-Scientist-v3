@@ -308,6 +308,8 @@ def build_parallel_worker_command(
         f"execution.harness_evaluation_timeout_seconds={cfg.execution.harness_evaluation_timeout_seconds}",
         f"execution.idea_timeout_seconds={cfg.execution.idea_timeout_seconds}",
         f"execution.max_idea_generation_attempts={cfg.execution.max_idea_generation_attempts}",
+        f"execution.agent_transient_max_attempts={cfg.execution.agent_transient_max_attempts}",
+        f"execution.agent_transient_backoff_seconds={cfg.execution.agent_transient_backoff_seconds}",
         f"execution.run_timeout_grace_seconds={cfg.execution.run_timeout_grace_seconds}",
         f"execution.max_program_evals_per_attempt={cfg.execution.max_program_evals_per_attempt}",
         f"execution.harness_evaluated_attempts={'true' if cfg.execution.harness_evaluated_attempts else 'false'}",
@@ -319,6 +321,7 @@ def build_parallel_worker_command(
         "logging.show_run_header=false",
         "execution.workers=1",
         f"execution.worker_index={worker_index}",
+        f"execution.campaign_workers={cfg.execution.campaign_workers or cfg.execution.workers}",
         # Worker subtrees are never checkpointed: the parent commits the run
         # root once every worker has joined.
         "versioning.enabled=false",
@@ -767,7 +770,8 @@ def _best_manifest_from_worker_round_dir(
         return None
 
     best: tuple[dict[str, Any], float] | None = None
-    for program_dir in ideas_dir.glob("*/program_*"):
+    program_dirs = list(ideas_dir.glob("*/program_*")) + list(ideas_dir.glob("*/*_attempt/program_*"))
+    for program_dir in program_dirs:
         if not program_dir.is_dir():
             continue
         candidate = _scan_program_manifest(program_dir, seed_program_dir=seed_program_dir)

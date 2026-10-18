@@ -158,6 +158,22 @@ def _sealed_program_evaluation(
     return _TrustedProgramEvaluation(score, True) if score is not None else None
 
 
+
+def validated_harness_candidate_score(
+    program_dir: Path, *, attempt_id: str, idea_id: str,
+    native_evaluator: Path | None = None,
+) -> float | None:
+    """Require the current attempt's completed host receipt before live promotion."""
+    manifest = _read_harness_json(program_dir / "evaluation_manifest.json")
+    if not manifest or manifest.get("attempt_id") != attempt_id or manifest.get("idea_id") != idea_id:
+        return None
+    evaluation = _sealed_program_evaluation(
+        program_dir, baseline_program_dir=program_dir,
+        baseline_score=None, baseline_correct=None, native_evaluator=native_evaluator,
+    )
+    return evaluation.score if evaluation is not None and evaluation.correct else None
+
+
 def _legacy_program_dir(best_manifest: dict[str, Any]) -> Path | None:
     program_dir_raw = best_manifest.get("program_dir")
     if isinstance(program_dir_raw, str) and program_dir_raw.strip():

@@ -35,11 +35,16 @@ class ExperimentDirectoryGuard:
     experiment_dir: Path
     _results_fd: int
     _ideas_fd: int
+    _attempt_parent_fd: int | None = None
 
     @classmethod
-    def prepare(cls, results_dir: Path, idea_dir_name: str) -> ExperimentDirectoryGuard:
+    def prepare(
+        cls, results_dir: Path, idea_dir_name: str, attempt_dir_name: str | None = None,
+    ) -> ExperimentDirectoryGuard:
         if not _IDEA_DIR_NAME_RE.fullmatch(idea_dir_name):
             raise ValueError(f"Unsafe idea directory name: {idea_dir_name!r}")
+        if attempt_dir_name and not _IDEA_DIR_NAME_RE.fullmatch(attempt_dir_name):
+            raise ValueError(f"Unsafe attempt directory name: {attempt_dir_name!r}")
         results_root = results_dir.expanduser().resolve()
         results_root.mkdir(parents=True, exist_ok=True)
         results_fd = _open_directory(results_root)
@@ -64,20 +69,42 @@ class ExperimentDirectoryGuard:
             os.close(ideas_fd)
             os.close(results_fd)
             raise
+        attempt_parent_fd = None
+        if attempt_dir_name and attempt_dir_name != "idea_root":
+            try:
+                try:
+                    os.mkdir(idea_dir_name, mode=0o700, dir_fd=ideas_fd)
+                except FileExistsError:
+                    pass
+                attempt_parent_fd = _open_child_directory(ideas_fd, idea_dir_name)
+                experiment_dir = experiment_dir / attempt_dir_name
+                _require_optional_child_directory(
+                    attempt_parent_fd, attempt_dir_name, path=experiment_dir,
+                    label="attempt directory",
+                )
+            except BaseException:
+                if attempt_parent_fd is not None:
+                    os.close(attempt_parent_fd)
+                os.close(ideas_fd)
+                os.close(results_fd)
+                raise
         return cls(
             results_dir=results_root,
             ideas_dir=results_root / "ideas",
             experiment_dir=experiment_dir,
             _results_fd=results_fd,
             _ideas_fd=ideas_fd,
+            _attempt_parent_fd=attempt_parent_fd,
         )
 
     def open_experiment(self) -> int | None:
         _require_same_directory(self.results_dir, self._results_fd)
         _require_same_directory(self.ideas_dir, self._ideas_fd)
+        if self._attempt_parent_fd is not None:
+            _require_same_directory(self.experiment_dir.parent, self._attempt_parent_fd)
         try:
             experiment_fd = _open_child_directory(
-                self._ideas_fd,
+                self._attempt_parent_fd if self._attempt_parent_fd is not None else self._ideas_fd,
                 self.experiment_dir.name,
             )
         except FileNotFoundError:
@@ -90,6 +117,8 @@ class ExperimentDirectoryGuard:
         return experiment_fd
 
     def close(self) -> None:
+        if self._attempt_parent_fd is not None:
+            os.close(self._attempt_parent_fd)
         os.close(self._ideas_fd)
         os.close(self._results_fd)
 

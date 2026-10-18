@@ -332,10 +332,15 @@ def _dict_to_config(d: dict) -> InvestigationConfig:
             max_idea_generation_attempts=int(
                 execution_d.get("max_idea_generation_attempts", 2)
             ),
+            agent_transient_max_attempts=execution_d.get("agent_transient_max_attempts", 3),
+            agent_transient_backoff_seconds=execution_d.get(
+                "agent_transient_backoff_seconds", 2.0
+            ),
             run_timeout_grace_seconds=int(execution_d.get("run_timeout_grace_seconds", 30)),
             prune_every_n_cycles=int(execution_d.get("prune_every_n_cycles", 0)),
             parallel_fail_fast=bool(execution_d.get("parallel_fail_fast", False)),
             worker_index=int(execution_d.get("worker_index", 0)),
+            campaign_workers=execution_d.get("campaign_workers", 0),
             cycle_offset=int(execution_d.get("cycle_offset", 0)),
             total_cycles=int(execution_d.get("total_cycles", 0)),
             isolate_worker_memory=bool(

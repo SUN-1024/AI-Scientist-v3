@@ -19,6 +19,7 @@ _TRANSIENT_PATTERNS = (
     re.compile(r"\b(?:service|provider|upstream)\b.{0,80}\b(?:overloaded|at capacity)\b", re.IGNORECASE),
     re.compile(r"\b(?:provider|upstream)\b.{0,80}\b(?:502|503|504)\b", re.IGNORECASE),
     re.compile(r"\b(?:502|503|504)\b.{0,80}\bservice unavailable\b", re.IGNORECASE),
+    re.compile(r"\b502\b.{0,30}\bbad gateway\b", re.IGNORECASE),
     re.compile(r"\bconnection (?:reset|closed) by peer\b", re.IGNORECASE),
     re.compile(r"\b(?:request|connection) timed out\b.{0,80}\b(?:model|provider|upstream)\b", re.IGNORECASE),
     re.compile(r"\b(?:model|provider|upstream)\b.{0,80}\brequest timed out\b", re.IGNORECASE),

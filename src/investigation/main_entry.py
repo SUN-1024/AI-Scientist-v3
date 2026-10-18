@@ -764,6 +764,7 @@ def run_main_flow(
         "paths.idea_instruct": idea_instruct_path,
         "execution.resume": cfg.execution.resume,
         "execution.workers": cfg.execution.workers,
+        "execution.campaign_workers": cfg.execution.campaign_workers or cfg.execution.workers,
         "execution.max_idea_cycles": cfg.execution.max_idea_cycles,
         "execution.max_program_evals_per_attempt": (
             cfg.execution.max_program_evals_per_attempt
@@ -774,6 +775,10 @@ def run_main_flow(
         ),
         "execution.idea_timeout_seconds": cfg.execution.idea_timeout_seconds,
         "execution.max_idea_generation_attempts": cfg.execution.max_idea_generation_attempts,
+        "execution.agent_transient_max_attempts": cfg.execution.agent_transient_max_attempts,
+        "execution.agent_transient_backoff_seconds": (
+            cfg.execution.agent_transient_backoff_seconds
+        ),
         "execution.run_timeout_grace_seconds": cfg.execution.run_timeout_grace_seconds,
         "paper.enabled": cfg.paper.enabled,
         "container.enabled": containerize,

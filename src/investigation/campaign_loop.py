@@ -15,8 +15,11 @@ from src.orchestrator import rubrics, state as state_store
 logger = logging.getLogger(__name__)
 from .agent_selection import resolve_agent_model, resolve_cycle_agent
 from .config import InvestigationConfig
+from .campaign_budget import write_campaign_budget
+from .campaign_retry import has_evaluation_artifacts
 from .files import confirm_prune_warning
 from .idea_generation import IdeaArtifactsError, load_idea_artifacts
+from .harness_incumbent import validated_harness_candidate_score
 from .idea_retry_feedback import sanitize_validation_feedback, validation_feedback_from_output
 from .models import IdeaGenerationResult, PaperGenerationResult, RunAttemptResult
 from .search_tree import SearchTree
@@ -136,6 +139,12 @@ def run_cycles_and_finalize(
             assignments_before.get(str(cycle_idx)) if isinstance(assignments_before, dict) else None
         )
         cycle_agent = resolve_cycle_agent(cfg, outer_state, cycle_index=cycle_idx)
+        write_campaign_budget(
+            results_dir, cfg, cycle=cycle_idx,
+            max_program_evals_per_attempt=max_program_evals_per_attempt,
+            outer_state=outer_state,
+            selected_agent=cycle_agent.agent, selected_model=cycle_agent.model,
+        )
         assignments_after = outer_state.get("agent_cycle_assignments")
         selected_after = (
             assignments_after.get(str(cycle_idx)) if isinstance(assignments_after, dict) else None
@@ -495,56 +504,93 @@ def run_cycles_and_finalize(
             target_rubric_ids=target_ids,
         )
 
-        attempt_number = 1
-        attempt_id = f"{idea_id}_attempt_{attempt_number:02d}"
-        attempt_started_at = log_step_start_fn(
-            "attempt",
-            cycle=cycle_idx,
-            **cycle_position,
-            idea_id=idea_id,
-            attempt_id=attempt_id,
-            attempt_number=attempt_number,
-            seed_program_dir=cycle_seed,
-            agent=cycle_agent.agent,
-            agent_model=cycle_agent.model,
-        )
+        for attempt_number in range(1, cfg.execution.agent_transient_max_attempts + 1):
+            attempt_id = f"{idea_id}_attempt_{attempt_number:02d}"
+            attempt_started_at = log_step_start_fn(
+                "attempt",
+                cycle=cycle_idx,
+                **cycle_position,
+                idea_id=idea_id,
+                attempt_id=attempt_id,
+                attempt_number=attempt_number,
+                seed_program_dir=cycle_seed,
+                agent=cycle_agent.agent,
+                agent_model=cycle_agent.model,
+            )
 
-        attempt_result = run_single_attempt_fn(
-            agent=cycle_agent.agent,
-            agent_model=cycle_agent.model,
-            agent_profile=agent_profile if cycle_agent.agent == "codex" else None,
-            reasoning_effort=reasoning_effort,
-            task_dir=task_dir,
-            results_dir=results_dir,
-            global_memory_dir=global_memory_dir,
-            conclusions_dir=conclusions_dir,
-            worker_index=worker_index,
-            seed_program_dir=cycle_seed,
-            idea_file=idea_file,
-            rubrics_file=rubrics_file,
-            attempt_id=attempt_id,
-            idea_dir_name=idea_dir_name,
-            instruct_path=instruct_path,
-            timeout_seconds=cfg.execution.run_timeout_seconds,
-            timeout_grace_seconds=cfg.execution.run_timeout_grace_seconds,
-            max_program_evals_per_attempt=max_program_evals_per_attempt,
-            harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts,
-            gpu_evaluation=cfg.execution.gpu_evaluation,
-            harness_evaluation_timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
-            containerize=containerize,
-            container_image=container_image,
-            container_network=container_network,
-            container_auth_root=container_auth_root,
-            container_env_file=container_env_file,
-            container_session_name=container_session_name,
-            container_mount_root=container_mount_root,
-        )
+            attempt_result = run_single_attempt_fn(
+                agent=cycle_agent.agent,
+                agent_model=cycle_agent.model,
+                agent_profile=agent_profile if cycle_agent.agent == "codex" else None,
+                reasoning_effort=reasoning_effort,
+                task_dir=task_dir,
+                results_dir=results_dir,
+                global_memory_dir=global_memory_dir,
+                conclusions_dir=conclusions_dir,
+                worker_index=worker_index,
+                seed_program_dir=cycle_seed,
+                idea_file=idea_file,
+                rubrics_file=rubrics_file,
+                attempt_id=attempt_id,
+                idea_dir_name=idea_dir_name,
+                attempt_dir_name=f"{attempt_number:02d}_attempt",
+                instruct_path=instruct_path,
+                timeout_seconds=cfg.execution.run_timeout_seconds,
+                timeout_grace_seconds=cfg.execution.run_timeout_grace_seconds,
+                max_program_evals_per_attempt=max_program_evals_per_attempt,
+                harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts,
+                gpu_evaluation=cfg.execution.gpu_evaluation,
+                harness_evaluation_timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
+                containerize=containerize,
+                container_image=container_image,
+                container_network=container_network,
+                container_auth_root=container_auth_root,
+                container_env_file=container_env_file,
+                container_session_name=container_session_name,
+                container_mount_root=container_mount_root,
+            )
+
+            retry_workspace = attempt_result.experiment_dir or idea_dir / f"{attempt_number:02d}_attempt"
+            retryable = (
+                cfg.execution.harness_evaluated_attempts
+                and attempt_result.exit_code != 0
+                and attempt_result.agent_failure_kind == "transient_provider"
+                and attempt_result.task_failure_category is None
+                and attempt_result.infrastructure_failure_category is None
+                and not has_evaluation_artifacts(retry_workspace)
+            )
+            if not retryable or attempt_number >= cfg.execution.agent_transient_max_attempts:
+                break
+            retry_log_path = retry_workspace / "wrapper_output.log"
+            retry_log_path.parent.mkdir(parents=True, exist_ok=True)
+            state_store.write_private_text(retry_log_path, attempt_result.output)
+            retry_record = {
+                "timestamp": utc_now_fn(), "cycle_index": cycle_idx,
+                "idea_id": idea_id, "idea_dir_name": idea_dir_name,
+                "attempt_id": attempt_id, "attempt_number": attempt_number,
+                "run_exit_code": attempt_result.exit_code, "attempt_status": "fail",
+                "failure_category": "transient_provider", "retry_scheduled": True,
+                "evaluation_performed": False, "best_updated": False,
+                "experiment_dir": str(retry_workspace), "wrapper_output_log": str(retry_log_path),
+                "agent": cycle_agent.agent, "agent_model": cycle_agent.model,
+            }
+            state_store.append_jsonl(state_store.attempts_history_path(results_dir), retry_record)
+            log_step_end_fn("attempt", attempt_started_at, **retry_record)
+            delay = min(60.0, cfg.execution.agent_transient_backoff_seconds * 2 ** (attempt_number - 1))
+            log_event_fn(
+                "coding_agent_retry_scheduled", cycle=cycle_idx, idea_id=idea_id,
+                attempt_id=attempt_id, next_attempt=attempt_number + 1,
+                max_attempts=cfg.execution.agent_transient_max_attempts,
+                backoff_seconds=delay, failure_category="transient_provider",
+            )
+            if delay:
+                time.sleep(delay)
 
         output_tail = attempt_result.output[-1200:] if attempt_result.output else ""
         attempt_workspace = (
             attempt_result.experiment_dir
             if attempt_result.experiment_dir is not None
-            else state_store.idea_dir(results_dir, idea_dir_name)
+            else state_store.idea_dir(results_dir, idea_dir_name) / f"{attempt_number:02d}_attempt"
         )
         attempt_log_path = attempt_workspace / "wrapper_output.log"
         failure_category = (
@@ -621,6 +667,26 @@ def run_cycles_and_finalize(
         candidate = None
         if attempt_result.experiment_dir is not None:
             candidate = find_best_program_in_experiment_fn(attempt_result.experiment_dir)
+            if candidate is not None and cfg.execution.harness_evaluated_attempts:
+                native_evaluator = (
+                    task_dir / "evaluate.py"
+                    if not containerize and not (task_dir / ".agentic_runtime.json").is_file()
+                    and not (task_dir / "task_contract.json").is_file()
+                    else None
+                )
+                trusted_score = validated_harness_candidate_score(
+                    candidate[0], attempt_id=attempt_id, idea_id=idea_id,
+                    native_evaluator=native_evaluator,
+                )
+                if attempt_result.exit_code != 0 or trusted_score is None or trusted_score != candidate[2]:
+                    log_event_fn("candidate_score_rejected", attempt_id=attempt_id,
+                                 reason="missing_valid_current_host_evaluation_receipt")
+                    candidate = None
+                    status_data = None
+                    validation = rubrics.RubricStatusValidation(
+                        valid=False, overall_pass=False,
+                        error="candidate has no valid current host evaluation receipt", status=None,
+                    )
             if candidate is not None:
                 candidate_dir, candidate_entrypoint, candidate_score, candidate_correct = candidate
                 evaluated_score = candidate_score
@@ -667,6 +733,11 @@ def run_cycles_and_finalize(
             "idea_dir_name": idea_dir_name,
             "attempt_id": attempt_id,
             "attempt_number": attempt_number,
+            "failure_category": attempt_result.agent_failure_kind,
+            "retry_scheduled": False,
+            "evaluation_performed": candidate is not None or (
+                isinstance(status_data, dict) and validation.valid and attempt_result.exit_code == 0
+            ),
             "run_exit_code": attempt_result.exit_code,
             "attempt_status": attempt_status,
             "experiment_dir": (
@@ -684,7 +755,9 @@ def run_cycles_and_finalize(
             "reasoning_effort": reasoning_effort,
         }
         metrics: dict[str, Any] | None = None
-        if isinstance(status_data, dict):
+        if isinstance(status_data, dict) and (
+            not cfg.execution.harness_evaluated_attempts or attempt_result.exit_code == 0
+        ):
             metrics = status_data.get("metrics")
             if isinstance(metrics, dict):
                 attempt_record["metrics"] = metrics

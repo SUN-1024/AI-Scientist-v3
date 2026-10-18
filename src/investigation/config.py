@@ -177,6 +177,14 @@ class ExecutionConfig:
         default=DEFAULT_MAX_IDEA_GENERATION_ATTEMPTS,
         metadata={"help": "Maximum fresh idea-generation attempts per cycle"},
     )
+    agent_transient_max_attempts: int = field(
+        default=3,
+        metadata={"help": "Maximum host-harness coding attempts for transient provider failures before evaluation (1-10)"},
+    )
+    agent_transient_backoff_seconds: float = field(
+        default=2.0,
+        metadata={"help": "Coding-agent transient retry backoff in seconds (0-60)"},
+    )
     run_timeout_grace_seconds: int = field(
         default=DEFAULT_RUN_TIMEOUT_GRACE_SECONDS,
         metadata={"help": "Grace period after timeout in seconds"},
@@ -192,6 +200,10 @@ class ExecutionConfig:
     worker_index: int = field(
         default=0,
         metadata={"help": "1-based worker index when running as a parallel worker. 0 for solo runs (set automatically by parallel runner)."},
+    )
+    campaign_workers: int = field(
+        default=0,
+        metadata={"help": "Original campaign worker count; 0 uses workers (set automatically by parallel runner)."},
     )
     cycle_offset: int = field(
         default=0,
@@ -487,6 +499,22 @@ def validate(cfg: InvestigationConfig) -> None:
         raise ConfigValidationError("execution.idea_timeout_seconds must be > 0")
     if cfg.execution.max_idea_generation_attempts <= 0:
         raise ConfigValidationError("execution.max_idea_generation_attempts must be > 0")
+    if (
+        type(cfg.execution.agent_transient_max_attempts) is not int
+        or not 1 <= cfg.execution.agent_transient_max_attempts <= 10
+    ):
+        raise ConfigValidationError(
+            "execution.agent_transient_max_attempts must be an integer from 1 to 10"
+        )
+    backoff = cfg.execution.agent_transient_backoff_seconds
+    if (
+        isinstance(backoff, bool)
+        or not isinstance(backoff, (int, float))
+        or not 0 <= backoff <= 60
+    ):
+        raise ConfigValidationError(
+            "execution.agent_transient_backoff_seconds must be a finite number from 0 to 60"
+        )
     if cfg.execution.run_timeout_grace_seconds <= 0:
         raise ConfigValidationError("execution.run_timeout_grace_seconds must be > 0")
     if cfg.execution.max_program_evals_per_attempt <= 0:
@@ -571,6 +599,8 @@ def validate(cfg: InvestigationConfig) -> None:
         raise ConfigValidationError("execution.prune_every_n_cycles must be >= 0")
     if cfg.execution.worker_index < 0:
         raise ConfigValidationError("execution.worker_index must be >= 0")
+    if type(cfg.execution.campaign_workers) is not int or cfg.execution.campaign_workers < 0:
+        raise ConfigValidationError("execution.campaign_workers must be an integer >= 0")
     if cfg.execution.cycle_offset < 0:
         raise ConfigValidationError("execution.cycle_offset must be >= 0")
     if cfg.execution.total_cycles < 0:
