@@ -13,6 +13,14 @@ AGENT_FAILURE_FD_ENV = "AGENTIC_CODING_FAILURE_FD"
 _MAX_RECEIPT_BYTES = 4096
 
 
+def has_evaluation_failure(experiment: Path) -> bool:
+    """A retained host failure requires evaluation recovery, never another coder run."""
+    return any(
+        path.name != "program_0" and (path / "evaluation_failure.json").exists()
+        for path in experiment.glob("program_*")
+    )
+
+
 def has_evaluation_artifacts(experiment: Path) -> bool:
     """Any candidate evaluation evidence disables transport retry, including failures."""
     if (experiment / "rubric_status.json").exists():
@@ -20,7 +28,7 @@ def has_evaluation_artifacts(experiment: Path) -> bool:
     for path in experiment.glob("program_*"):
         if path.name == "program_0":
             continue
-        if any((path / name).exists() for name in ("metrics.json", "correct.json", "rubric_status.json", "evaluation.json", "evaluation_receipt.json", "evaluation_manifest.json", "runs")):
+        if any((path / name).exists() for name in ("metrics.json", "correct.json", "rubric_status.json", "evaluation.json", "evaluation_receipt.json", "evaluation_manifest.json", "evaluation_failure.json", "runs")):
             return True
     # Agent-managed evaluation may have failed before producing final metrics.
     return any(experiment.glob(".dev_eval_program_*"))

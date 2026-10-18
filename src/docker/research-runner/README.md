@@ -97,6 +97,40 @@ file, log its contents, or inherit all host API keys. `container.env_file` is a
 separate pipeline setting for inner coding-agent containers. The Magpie profile
 used here requires no API key file.
 
+If a portfolio stops after `CandidateContainerCleanupError`, preserve the failed
+attempt and its source before recovery. An `evaluation_failure.json` records that
+evaluation started; it must not cause the coding agent to run again. Wait until
+the coordinator and affected worker have stopped, then use the same native
+workspace, task, runtime image, and GPU allocation:
+
+```bash
+study_root="$native_root/workspaces/pathmnist-development"
+scripts/run-research-harness-container.sh --native-state --exec \
+  python -m src.investigation.portfolio_recovery \
+  --results-dir "$study_root/run/investigation" \
+  --task-dir "$study_root/run/task" \
+  --lease-id idea_0002_tuning_001 \
+  --evidence-file /absolute/path/to/preserved-failure-evidence.json
+```
+
+The evidence file is a host-captured JSON snapshot with a `captured_at` timestamp.
+Its `files` list contains
+the original lease, attempt history, and failure diagnostic as `source`, `sha256`,
+and `text`; `candidate_source_files` lists each source `path` and `sha256`. The
+command checks those records against the failed attempt. This snapshot records
+the source observed after failure and before recovery; it does not establish a
+source binding before the original evaluation. Keep it outside the candidate
+directory. The recovery ledger and diagnostic archive remain in
+`run/investigation/portfolio_recovery/<lease-id>/`.
+
+Recovery first accepts an existing valid receipt without repeating evaluation.
+Otherwise, it evaluates the preserved candidate through the sealed search
+runtime. It does not call the coding agent, use final data, clear failure counts,
+or increase the frozen scientific budget. Omit `--evidence-file` only when a valid
+receipt already exists. The controller reopens only after the failed leases have
+valid receipts. Then continue with the original `research harness --resume`
+command. A later transport failure still follows the original failure limit.
+
 After a study stops, export an inspection snapshot to a **new** host directory:
 
 ```bash

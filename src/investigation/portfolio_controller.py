@@ -181,6 +181,21 @@ def _validate_state(data: dict[str, Any]) -> None:
         raise ValueError("Portfolio receipt or reservation ledger is inconsistent")
     if data["receipt_ids"] != {row["receipt_id"]: key for key, row in outcomes.items()} or len(data["receipt_ids"]) != len(outcomes):
         raise ValueError("Portfolio receipt ledger contains duplicates")
+    recoveries = data.get("transport_recoveries", [])
+    if not isinstance(recoveries, list):
+        raise ValueError("Invalid portfolio transport recovery journal")
+    for sequence, recovery in enumerate(recoveries):
+        count = recovery.get("transport_failures")
+        if (recovery.get("sequence") != sequence or type(count) is not int
+                or not 0 < count <= data["transport_failures"]
+                or recovery.get("failure_sequences") != list(range(count))
+                or recovery.get("receipt_ids") != {
+                    row["lease_id"]: outcomes.get(row["lease_id"], {}).get("receipt_id")
+                    for row in data["failures"][:count]}
+                or any(row["lease_id"] not in outcomes for row in data["failures"][:count])
+                or type(recovery.get("valid_evaluations")) is not int
+                or not 0 < recovery["valid_evaluations"] <= data["valid_evaluations"]):
+            raise ValueError("Portfolio recovery journal differs from retained failures or receipts")
     if len({leases[key]["root_idea_id"] for key in pending}) != len(pending):
         raise ValueError("Portfolio has multiple active leases for one idea")
     if len({leases[key]["worker_id"] for key in pending}) != len(pending):
@@ -392,6 +407,7 @@ class PortfolioController:
         with self._transaction():
             score = manifest.get("combined_score", manifest.get("score"))
             self._validate_score(score, manifest.get("correct"))
+            assert isinstance(score, (int, float))
             if manifest.get("correct") is not True:
                 raise ValueError("Portfolio requires a host-qualified correct baseline")
             baseline = {"score": float(score), "correct": True, "program_dir": str(Path(program_dir).absolute()),
@@ -622,6 +638,49 @@ class PortfolioController:
         with self._transaction():
             if self.data["status"] != "ready_for_validation":
                 self._transition(self.data["stage"], reason, status="incomplete")
+
+    def resume_after_transport_recovery(self) -> bool:
+        """Resume only after every failed lease has a fresh, valid host receipt.
+
+        This explicit transaction never refunds failures or scientific work.
+        Ordinary resume still respects an incomplete campaign. In particular,
+        the next transport failure still trips an exhausted transport budget.
+        """
+        from .portfolio_campaign import _receipt_for_lease
+
+        with self._transaction():
+            previous = self.data.get("transport_recoveries", [])
+            if self.data["status"] != "incomplete":
+                if previous and previous[-1]["transport_failures"] == self.data["transport_failures"]:
+                    return False
+                raise ValueError("Transport recovery requires an incomplete campaign")
+            if self.data["transition_reason"] not in {
+                "transport_failure_budget_exhausted",
+                "nonretryable_failure:evaluation_only_recovery_required",
+            }:
+                raise ValueError("Campaign did not stop for a recoverable transport failure")
+            failed = sorted({row["lease_id"] for row in self.data["failures"]})
+            if not failed:
+                raise ValueError("Transport recovery requires a retained failure ledger")
+            if any(key not in self.data["outcomes"] for key in failed):
+                return False
+            receipts = {}
+            for key in failed:
+                lease = self.data["leases"][key]
+                self._check_parent(lease["parent"])
+                verified = _receipt_for_lease(lease, self.task_dir, _context(self.data, lease))
+                if verified is not None and "plan_sha256" in self.data:
+                    verified.update({field: lease.get(field) for field in ("plan_sha256", "card_sha256", "role")})
+                if verified is None or verified != self.data["outcomes"][key]:
+                    raise ValueError("Transport recovery requires revalidated receipts for every failed lease")
+                receipts[key] = verified["receipt_id"]
+            recovery = {"sequence": len(previous), "transport_failures": self.data["transport_failures"],
+                        "failure_sequences": [row["sequence"] for row in self.data["failures"]],
+                        "receipt_ids": receipts, "valid_evaluations": self.data["valid_evaluations"]}
+            self.data.setdefault("transport_recoveries", []).append(recovery)
+            self._transition(self.data["stage"], "transport_failures_recovered_from_validated_receipts")
+            self._advance()
+            return True
 
     def _handoff(self) -> dict[str, Any] | None:
         if self.data["status"] != "ready_for_validation":

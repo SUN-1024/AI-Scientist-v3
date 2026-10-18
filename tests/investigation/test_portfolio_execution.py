@@ -304,6 +304,61 @@ def test_invalid_completed_receipt_stops_instead_of_repeating_scientific_evaluat
     assert not (fixture.results/'validation_handoff.json').exists()
 
 
+@pytest.mark.parametrize('failure_already_present', [False, True])
+def test_host_failure_preserves_attempt_and_requires_eval_only_recovery(
+    tmp_path, monkeypatch, failure_already_present,
+):
+    fixture = CampaignFixture(tmp_path, monkeypatch)
+    launches = []
+    artifacts = []
+    original_best = dict(fixture.best)
+
+    def retain_failure(worker_dir, root_idea_id):
+        attempt = worker_dir/'ideas'/root_idea_id/'01_attempt'
+        program = attempt/'program_1'
+        make_program_dir(program, content="print('candidate ready')\n")
+        failure = program/'evaluation_failure.json'
+        failure.write_text('{"outcome":"failed","rpc_calls":1}')
+        log = attempt/'wrapper_output.log'
+        log.write_text('coder completed\nCandidateContainerCleanupError: cleanup timed out\n')
+        artifacts.extend([(failure, failure.read_bytes()), (log, log.read_bytes())])
+
+    if failure_already_present:
+        controller = PortfolioController(fixture.results, fixture.task, fixture.cfg.portfolio)
+        controller.qualify_baseline(fixture.best, fixture.seed)
+        lease = controller.reserve_next(1, gpu_selector=campaign._slot_gpu_selector(fixture.cfg, 1))
+        retain_failure(Path(lease['result_dir']), lease['root_idea_id'])
+
+    def failed_host_worker(plan):
+        lease = json.loads((plan.results_dir/campaign.LEASE_FILE).read_text())['lease']
+        launches.append(lease['lease_id'])
+        retain_failure(plan.results_dir, lease['root_idea_id'])
+        return ParallelWorkerResult(plan, 1, plan.results_dir/'log', 0, 'host evaluation failed')
+
+    assert fixture.run(failed_host_worker) == 2
+    assert len(launches) == (0 if failure_already_present else fixture.cfg.execution.workers)
+    assert len(launches) == len(set(launches))
+    state = read_portfolio_state(fixture.results, fixture.task)
+    assert state['status'] == 'incomplete'
+    assert state['valid_evaluations'] == 0
+    assert not state['outcomes']
+    assert state['failures'] and all(
+        failure['category'] == 'evaluation_only_recovery_required'
+        and failure['retryable'] is False for failure in state['failures']
+    )
+    assert fixture.best == original_best
+    assert not (fixture.results/'validation_handoff.json').exists()
+    assert not state_store.tail_jsonl(state_store.attempts_history_path(fixture.results), max_lines=100)
+    before_resume = len(launches)
+    assert fixture.run(failed_host_worker) == 2
+    assert len(launches) == before_resume
+    for path, original in artifacts:
+        assert path.read_bytes() == original
+        if path.name == 'evaluation_failure.json':
+            assert not (path.parent/'metrics.json').exists()
+            assert not (path.parent/'correct.json').exists()
+
+
 def test_truncated_process_marker_recovers_valid_receipt_without_worker_rerun(tmp_path, monkeypatch):
     fixture = CampaignFixture(tmp_path, monkeypatch)
     publish = campaign._publish_outcome

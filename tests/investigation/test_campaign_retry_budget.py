@@ -11,7 +11,9 @@ import pytest
 
 from src.investigation import cli, campaign_loop
 from src.investigation.campaign_budget import BUDGET_FILE, render_campaign_budget, write_campaign_budget
-from src.investigation.campaign_retry import read_agent_failure, report_agent_failure
+from src.investigation.campaign_retry import (
+    has_evaluation_artifacts, has_evaluation_failure, read_agent_failure, report_agent_failure,
+)
 from src.investigation.config import InvestigationConfig
 from src.investigation.files import find_best_program_in_experiment
 from src.investigation.models import IdeaGenerationResult, RunAttemptResult
@@ -171,6 +173,30 @@ def test_classifier_private_receipt_rejects_evaluation_and_permanent_failure(tmp
         with tempfile.TemporaryFile() as channel:
             report_agent_failure(channel.fileno(), "attempt_1", log, experiment)
             assert read_agent_failure(channel.fileno(), "attempt_1") == expected
+
+
+def test_host_failure_without_receipt_disables_coding_transport_retry(tmp_path):
+    experiment = tmp_path / "experiment"
+    seed = experiment / "program_0"
+    seed.mkdir(parents=True)
+    diagnostic = '{"outcome":"failed","rpc_calls":1}'
+    (seed / "evaluation_failure.json").write_text(diagnostic)
+    assert not has_evaluation_artifacts(experiment)
+    assert not has_evaluation_failure(experiment)
+
+    candidate = experiment / "program_1"
+    candidate.mkdir()
+    failure = candidate / "evaluation_failure.json"
+    failure.write_text(diagnostic)
+    log = experiment / "agent.log"
+    log.write_text('{"type":"turn.failed","error":{"message":"502 Bad Gateway"}}')
+    with tempfile.TemporaryFile() as channel:
+        report_agent_failure(channel.fileno(), "attempt_1", log, experiment)
+        assert read_agent_failure(channel.fileno(), "attempt_1") is None
+    assert has_evaluation_artifacts(experiment)
+    assert has_evaluation_failure(experiment)
+    assert failure.read_text() == diagnostic
+    assert sorted(path.name for path in candidate.iterdir()) == ["evaluation_failure.json"]
 
 
 def test_resolved_budget_refreshes_on_resume_and_does_not_multiply_parallel_cycles(tmp_path):

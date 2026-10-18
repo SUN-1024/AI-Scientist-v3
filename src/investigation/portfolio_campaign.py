@@ -19,7 +19,7 @@ from typing import Any, Callable, Iterator
 
 from src.orchestrator import state as state_store
 from .adaptive_runtime import validated_development_outcome
-from .campaign_retry import has_evaluation_artifacts
+from .campaign_retry import has_evaluation_artifacts, has_evaluation_failure
 from .container_gpus import GPU_SELECTOR_ENV
 from .models import ParallelWorkerPlan, ParallelWorkerResult
 from .parallel_helpers import portfolio_process_identity, worker_gpu_environment
@@ -296,6 +296,7 @@ def _recorded_process_is_live(process: dict[str, Any]) -> bool:
     pid = process.get("pid")
     if not _pid_exists(pid):
         return False
+    assert isinstance(pid, int)
     expected = process.get("process_identity")
     if not isinstance(expected, dict):
         # A legacy live PID alone cannot prove either continued ownership or
@@ -516,8 +517,11 @@ def run_portfolio_campaign(*, cfg: Any, task_dir: Path, results_dir: Path, globa
                         publish(lease, outcome)
                         continue
                     if any(has_evaluation_artifacts(path) for path in worker_dir.glob("ideas/*/*_attempt")):
-                        controller.record_failure(lease["lease_id"], "unrecoverable_evaluation_receipt", retryable=False)
-                        log_event_fn("portfolio_worker_failed", lease_id=lease["lease_id"], reason="unrecoverable_evaluation_receipt")
+                        category = ("evaluation_only_recovery_required"
+                            if any(has_evaluation_failure(path) for path in worker_dir.glob("ideas/*/*_attempt"))
+                            else "unrecoverable_evaluation_receipt")
+                        controller.record_failure(lease["lease_id"], category, retryable=False)
+                        log_event_fn("portfolio_worker_failed", lease_id=lease["lease_id"], reason=category)
                         continue
                     plan = build_portfolio_worker_plan(cfg=cfg, task_dir=task_dir, results_dir=results_dir,
                         instruct_path=instruct_path, lease=lease, context=controller.context(lease),
@@ -554,6 +558,8 @@ def run_portfolio_campaign(*, cfg: Any, task_dir: Path, results_dir: Path, globa
                     else:
                         category = "worker_exit_" + str(result.exit_code) if result.exit_code else "missing_host_receipt"
                         evidence_exists = any(has_evaluation_artifacts(path) for path in plan.results_dir.glob("ideas/*/*_attempt"))
+                        if any(has_evaluation_failure(path) for path in plan.results_dir.glob("ideas/*/*_attempt")):
+                            category = "evaluation_only_recovery_required"
                         controller.record_failure(lease["lease_id"], category,
                                                   retryable=result.exit_code not in HOST_FAILURES and not evidence_exists)
                         log_event_fn("portfolio_worker_failed", lease_id=lease["lease_id"], reason=category)

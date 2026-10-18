@@ -200,11 +200,15 @@ class _FakeProcess:
         return None
 
 
-def _docker_rm(monkeypatch: pytest.MonkeyPatch, returncode: int, stderr: str) -> None:
-    monkeypatch.setattr(
-        f"{BROKER_MODULE}.subprocess.run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(["docker", "rm"], returncode, "", stderr),
-    )
+def _docker_rm(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, stderr: str, *, absent: bool = False
+) -> None:
+    def run(command, **_kwargs):
+        if command[1:3] == ["container", "ls"] and absent:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, returncode, "", stderr)
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", run)
 
 
 # --- reset sequence and RPC budget ---------------------------------------------------------
@@ -535,7 +539,7 @@ def test_container_removal_on_exit_outcomes(tmp_path: Path, monkeypatch: pytest.
     # candidate removal tolerates recoverable outcomes
     for index, (name, returncode, stderr, process) in enumerate(RECOVERABLE_REMOVAL_CASES):
         with monkeypatch.context() as m:
-            _docker_rm(m, returncode, stderr)
+            _docker_rm(m, returncode, stderr, absent=name == "already-removed")
             broker = _echo_broker(tmp_path / f"r{index}")
             with broker:
                 broker._process = process()  # type: ignore[assignment]
@@ -570,6 +574,236 @@ def test_container_removal_on_exit_outcomes(tmp_path: Path, monkeypatch: pytest.
     assert broker.socket_dir.is_dir()
     assert (broker.socket_dir / "scoring-mask").is_dir()
     assert not broker.socket_path.exists()
+
+
+@pytest.mark.parametrize("failure", ["timeout", "nonzero"])
+def test_failed_removal_requires_successful_exact_id_absence_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    container_id = "a" * 64
+    broker.cid_path.write_text(container_id)
+    broker._process = _FakeProcess()  # type: ignore[assignment]
+    commands = []
+
+    def docker(command, **kwargs):
+        commands.append(command)
+        assert 0 < kwargs["timeout"] <= 10
+        if command[1] == "rm":
+            if failure == "timeout":
+                raise subprocess.TimeoutExpired(command, kwargs["timeout"], stderr=b"slow daemon")
+            return subprocess.CompletedProcess(command, 17, "", "No such container")
+        assert command == [
+            "docker", "container", "ls", "--all", "--no-trunc", "--filter",
+            f"id={container_id}", "--format", "{{.ID}}",
+        ]
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    broker.__exit__(None)
+    assert len(commands) == 2  # One rm and one check; a verified CID needs no retry.
+    assert broker.shutdown_verified
+    assert not broker.socket_dir.exists()
+
+
+@pytest.mark.parametrize("inspection", ["present", "daemon-error", "timeout", "unknown"])
+def test_failed_removal_keeps_metadata_until_absence_is_proven(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inspection: str
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    container_id = "a" * 64
+    broker.cid_path.write_text(container_id)
+    (broker.socket_dir / "scoring-mask").mkdir()
+    broker._process = _FakeProcess()  # type: ignore[assignment]
+    commands = []
+
+    def docker(command, **kwargs):
+        commands.append(command)
+        if command[1] == "rm":
+            # Neither candidate-influenced text nor process exit proves removal.
+            return subprocess.CompletedProcess(command, 23, "", "No such container\n" + "x" * 2000)
+        assert f"id={container_id}" in command
+        if inspection == "timeout":
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"], stderr=b"query timed out")
+        if inspection == "daemon-error":
+            return subprocess.CompletedProcess(command, 9, "", "cannot connect to daemon")
+        return subprocess.CompletedProcess(
+            command, 0, container_id + "\n" if inspection == "present" else "unexpected output", ""
+        )
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    with pytest.raises(CandidateContainerCleanupError) as raised:
+        broker.__exit__(None)
+    assert not broker.shutdown_verified
+    assert broker.cid_path.read_text() == container_id
+    assert (broker.socket_dir / "scoring-mask").is_dir()
+    assert len(commands) == 4  # Two bounded attempts, each followed by one check.
+    assert "operation=container_remove" in str(raised.value)
+    assert "returncode=23" in str(raised.value)
+    assert "stderr_untrusted=" in str(raised.value)
+    assert "stderr_truncated=true" in str(raised.value)
+    assert "x" * 200 not in str(raised.value)
+    failure = raised.value.__cause__.__cause__
+    assert isinstance(failure.__cause__, subprocess.CalledProcessError)
+    assert failure.__cause__.returncode == 23
+    notes = "\n".join(failure.__notes__)
+    assert "operation=container_absence_check" in notes
+    if inspection == "daemon-error":
+        assert "returncode=9" in notes
+        assert "cannot connect to daemon" in notes
+    elif inspection == "timeout":
+        assert "TimeoutExpired" in notes
+        assert "timeout_seconds=" in notes
+    else:
+        assert "container_still_present_or_unknown" in notes
+
+
+def test_failed_removal_retains_known_id_when_cid_file_disappears(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    container_id = "a" * 64
+    broker.cid_path.write_text(container_id)
+    process = _FakeProcess(on_wait=lambda *_: broker.cid_path.unlink())
+    removed = []
+
+    def docker(command, **_kwargs):
+        if command[1] == "rm":
+            removed.append(command[-1])
+            return subprocess.CompletedProcess(command, 1, "", "daemon busy")
+        assert f"id={container_id}" in command
+        return subprocess.CompletedProcess(command, 0, container_id + "\n", "")
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    with pytest.raises(CandidateContainerCleanupError):
+        broker._stop_process(process)
+    assert removed == [container_id, container_id]
+
+
+@pytest.mark.parametrize("action", ["reset", "cancel"])
+def test_failed_cleanup_then_exit_keeps_known_container_after_cid_disappears(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, action: str
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    container_id = "a" * 64
+    broker.cid_path.write_text(container_id)
+    (broker.socket_dir / "scoring-mask").mkdir()
+    broker._process = _FakeProcess(  # type: ignore[assignment]
+        on_wait=lambda *_: broker.cid_path.unlink(missing_ok=True)
+    )
+    commands = []
+    absent = False
+
+    def docker(command, **_kwargs):
+        commands.append(command)
+        if command[1] == "rm":
+            assert command[-1] == container_id
+            return subprocess.CompletedProcess(command, 1, "", "daemon busy")
+        assert f"id={container_id}" in command
+        return subprocess.CompletedProcess(command, 0, "" if absent else container_id + "\n", "")
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    with pytest.raises(CandidateContainerCleanupError):
+        if action == "reset":
+            broker._restart_process(time.monotonic() + 10)
+        else:
+            broker._cancel_operation()
+    assert not broker.cid_path.exists()
+    commands.clear()
+    with pytest.raises(CandidateContainerCleanupError):
+        broker.__exit__(None)
+    assert len(commands) == 4
+    assert not broker.shutdown_verified
+    assert (broker.socket_dir / "scoring-mask").is_dir()
+    # A subsequent successful exact-ID query can finally discharge that same state.
+    absent = True
+    broker.__exit__(None)
+    assert broker.shutdown_verified
+    assert not broker.socket_dir.exists()
+    assert not broker._container_cleanup_states
+
+
+def test_cleanup_does_not_remove_a_changed_cid_or_mask_an_unstopped_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A successful first rm must not authorize deleting a different CID after wait.
+    broker = _bare_broker(tmp_path / "changed", mkdir=True)
+    broker.cid_path.write_text("a" * 64)
+    process = _FakeProcess(on_wait=lambda *_: broker.cid_path.write_text("b" * 64))
+    docker = Mock(return_value=subprocess.CompletedProcess(["docker", "rm"], 0, "", ""))
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    with pytest.raises(CandidateContainerCleanupError, match="metadata changed"):
+        broker._stop_process(process)
+    assert docker.call_count == 1
+    assert docker.call_args.args[0] == ["docker", "rm", "-f", "a" * 64]
+    assert broker.cid_path.read_text() == "b" * 64
+
+    # Confirming container absence does not prove that its launcher has stopped.
+    broker = _bare_broker(tmp_path / "live-process", mkdir=True)
+    broker.cid_path.write_text("a" * 64)
+    process = Mock(wait=Mock(side_effect=subprocess.TimeoutExpired("docker run", 1)))
+    _docker_rm(monkeypatch, 1, "No such container", absent=True)
+    with pytest.raises(CandidateContainerCleanupError, match="TimeoutExpired"):
+        broker._stop_process(process)
+    assert broker.cid_path.exists()
+
+
+def test_cleanup_probe_does_not_extend_reset_deadline_or_lose_first_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    broker.cid_path.write_text("a" * 64)
+    broker._process = _FakeProcess()  # type: ignore[assignment]
+    now = [10.0]
+    commands = []
+    timeout = subprocess.TimeoutExpired("docker rm", 0.25, stderr=b"daemon removal timed out")
+
+    def docker(command, **kwargs):
+        commands.append(command)
+        assert kwargs["timeout"] == 0.25
+        now[0] = 10.25
+        raise timeout
+
+    monkeypatch.setattr(f"{BROKER_MODULE}.time.monotonic", lambda: now[0])
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    start = Mock()
+    monkeypatch.setattr(broker, "_start_process", start)
+    with pytest.raises(CandidateContainerCleanupError) as raised:
+        broker._restart_process(10.25)
+    assert len(commands) == 1
+    start.assert_not_called()
+    assert broker.cid_path.exists()
+    assert "TimeoutExpired" in str(raised.value)
+    assert "timeout_seconds=0.25" in str(raised.value)
+    assert "daemon removal timed out" in str(raised.value)
+    assert raised.value.__cause__.__cause__ is timeout
+    assert "container_absence_check" in "\n".join(raised.value.__cause__.__notes__)
+
+
+def test_cid_read_failure_retains_cause_and_never_runs_docker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = _bare_broker(tmp_path, mkdir=True)
+    broker.cid_path.write_text("a" * 64)
+    broker._process = _FakeProcess()  # type: ignore[assignment]
+    cause = PermissionError(errno.EACCES, "private message", "/private/candidate.cid")
+
+    def read(_path):
+        raise CandidateBrokerInfrastructureError("candidate container recovery metadata is unsafe") from cause
+
+    docker = Mock()
+    monkeypatch.setattr(f"{BROKER_MODULE}.read_container_id", read)
+    monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", docker)
+    with pytest.raises(CandidateContainerCleanupError) as raised:
+        broker.__exit__(None)
+    docker.assert_not_called()
+    assert broker.cid_path.exists()
+    assert not broker.shutdown_verified
+    assert "operation=candidate_cid_read" in str(raised.value)
+    assert "PermissionError" in str(raised.value)
+    assert f"errno={errno.EACCES}" in str(raised.value)
+    assert "private" not in str(raised.value)
+    assert raised.value.__cause__.__cause__.__cause__.__cause__ is cause
 
 
 # --- bounded teardown diagnostics (recovery artifacts retained, paths redacted) --------------
@@ -714,9 +948,11 @@ def test_restart_and_stop_process_preserve_shutdown_certainty(
         broker._process = Mock(returncode=125)
         broker._stderr_total_bytes = 10
         broker._stderr_tail.extend(b"private stderr")
-        error = broker._error_with_diagnostic(error_type("safe diagnostic"))
+        original_error = error_type("safe diagnostic")
+        error = broker._error_with_diagnostic(original_error)
         assert type(error) is error_type
         assert str(error) == "safe diagnostic", error_type
+        assert error.__cause__ is original_error
 
     # restart preserves uncertain shutdown type
     broker = _bare_broker(tmp_path / "restart")
@@ -752,7 +988,7 @@ def test_restart_and_stop_process_preserve_shutdown_certainty(
     monkeypatch.setattr(f"{BROKER_MODULE}.subprocess.run", remove)
     with pytest.raises(CandidateContainerCleanupError):
         broker._stop_process(process)
-    assert remove.call_count == 1
+    assert remove.call_count == 2  # Failed rm plus a failed exact-ID absence query.
     assert broker.cid_path.exists()
 
 

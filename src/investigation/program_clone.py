@@ -36,6 +36,7 @@ _NONOVERRIDABLE_EXCLUDES: set[str] = {
     "stdout.log",
     "stderr.log",
     "evaluation_manifest.json",
+    "evaluation_failure.json",
     "harness_evaluate_stdout.log",
     "harness_evaluate_stderr.log",
 }

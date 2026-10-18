@@ -28,6 +28,7 @@ MAX_RPC_BYTES = 64 * 1024 * 1024
 MAX_CANDIDATE_STDERR_BYTES = 64 * 1024
 MAX_CANDIDATE_STDERR_TOTAL_BYTES = 1024 * 1024
 MAX_CANDIDATE_CLEANUP_SECONDS = 30.0
+MAX_CLEANUP_STDERR_DIAGNOSTIC_CHARS = 192
 _CONTAINER_ID = re.compile(r"[0-9a-f]{12,64}\Z")
 
 
@@ -58,7 +59,37 @@ def _cleanup_diagnostic(error: BaseException, operation: str) -> str:
     if isinstance(error, OSError):
         errno_name = errno.errorcode.get(error.errno) if type(error.errno) is int else None
         diagnostic += f" errno={error.errno} ({errno_name})" if errno_name else " errno=unknown"
+    if isinstance(error, subprocess.TimeoutExpired):
+        diagnostic += f" timeout_seconds={error.timeout}"
     return diagnostic
+
+
+def _container_cleanup_failure(
+    error: BaseException, operation: str
+) -> CandidateContainerCleanupError:
+    diagnostic = _cleanup_diagnostic(error, operation)
+    if isinstance(error, CandidateBrokerError):
+        diagnostic = f"operation={operation} " + diagnostic
+    if error.__cause__ is not None:
+        diagnostic += "; cause=" + _cleanup_diagnostic(error.__cause__, operation)
+    if isinstance(error, subprocess.CalledProcessError):
+        diagnostic += f" returncode={error.returncode}"
+    stderr = getattr(error, "stderr", None)
+    if isinstance(stderr, (str, bytes)):
+        text = stderr.decode("utf-8", errors="replace") if isinstance(stderr, bytes) else stderr
+        captured = text[:MAX_CLEANUP_STDERR_DIAGNOSTIC_CHARS]
+        # Quote control characters and label runtime output as data, never instructions.
+        while len(json.dumps(captured, ensure_ascii=True)) > MAX_CLEANUP_STDERR_DIAGNOSTIC_CHARS:
+            captured = captured[:-1]
+        diagnostic += (
+            f" stderr_untrusted={json.dumps(captured, ensure_ascii=True)}"
+            f" stderr_truncated={str(len(captured) < len(text)).lower()}"
+        )
+    failure = CandidateContainerCleanupError(
+        "candidate container runtime could not remove container; " + diagnostic
+    )
+    failure.__cause__ = error
+    return failure
 
 
 def read_container_id(cid_path: Path) -> str | None:
@@ -178,6 +209,13 @@ class CandidateDiagnostic:
         )
 
 
+@dataclass
+class _ContainerCleanupState:
+    container_id: str | None = None
+    removed: bool = False
+    error: CandidateContainerCleanupError | None = None
+
+
 class CandidateBroker:
     def __init__(
         self,
@@ -257,6 +295,7 @@ class CandidateBroker:
         self.peer_disconnects = 0
         self.calls_before_first_reset = 0
         self._reset_required = False
+        self._container_cleanup_states: dict[subprocess.Popen[bytes], _ContainerCleanupState] = {}
 
     @property
     def reset_seeds(self) -> tuple[object, ...]:
@@ -410,32 +449,69 @@ class CandidateBroker:
     def _stop_process(
         self, process: subprocess.Popen[bytes], *, deadline: float | None = None
     ) -> None:
+        if deadline is None:
+            deadline = time.monotonic() + MAX_CANDIDATE_CLEANUP_SECONDS
         cleanup_errors: list[BaseException] = []
+        state = self._container_cleanup_states.setdefault(process, _ContainerCleanupState())
+        previous_removal_error = state.error
+
+        def docker(arguments: list[str], operation: str) -> subprocess.CompletedProcess[str]:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(f"docker {operation}", 0)
+            result = subprocess.run(
+                ["docker", *arguments],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=min(10.0, remaining),
+                check=False,
+            )
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    result.returncode, result.args, stderr=result.stderr
+                )
+            return result
 
         def remove_container() -> CandidateContainerCleanupError | None:
-            if not (self.cid_path.exists() or self.cid_path.is_symlink()):
+            try:
+                observed_id = read_container_id(self.cid_path)
+                if observed_id is not None:
+                    if state.container_id is not None and observed_id != state.container_id:
+                        raise CandidateBrokerInfrastructureError(
+                            "candidate container recovery metadata changed during cleanup"
+                        )
+                    state.container_id = observed_id
+            except BaseException as exc:
+                return _container_cleanup_failure(exc, "candidate_cid_read")
+            # A disappearing CID file does not discharge a previously observed container.
+            container_id = state.container_id
+            if container_id is None:
+                return previous_removal_error
+            if state.removed:
                 return None
             try:
-                container_id = read_container_id(self.cid_path)
-                assert container_id is not None
-                result = subprocess.run(
-                    ["docker", "rm", "-f", container_id],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=_remaining_timeout(deadline, 10),
-                    check=False,
-                )
-                if result.returncode != 0 and "no such container" not in result.stderr.lower():
-                    raise CandidateContainerCleanupError(
-                        "candidate container runtime could not remove container"
+                docker(["rm", "-f", container_id], "container_remove")
+            except BaseException as exc:
+                failure = _container_cleanup_failure(exc, "container_remove")
+                try:
+                    inspection = docker(
+                        ["container", "ls", "--all", "--no-trunc", "--filter",
+                         f"id={container_id}", "--format", "{{.ID}}"],
+                        "container_absence_check",
                     )
-            except CandidateBrokerInfrastructureError as exc:
-                return CandidateContainerCleanupError(_cleanup_diagnostic(exc, "container_remove"))
-            except BaseException:
-                return CandidateContainerCleanupError(
-                    "candidate container runtime could not remove container"
-                )
+                    # A successful, empty query proves absence. Error text cannot do so.
+                    if not isinstance(inspection.stdout, str) or inspection.stdout.strip():
+                        raise CandidateBrokerInfrastructureError(
+                            "returncode=0 container_still_present_or_unknown"
+                        )
+                except BaseException as inspection_error:
+                    diagnostic = _container_cleanup_failure(
+                        inspection_error, "container_absence_check"
+                    )
+                    failure.add_note(str(diagnostic))
+                    return failure
+            state.removed = True
             return None
 
         try:
@@ -443,7 +519,7 @@ class CandidateBroker:
         except BaseException as exc:
             if process.poll() is None:
                 cleanup_errors.append(exc)
-        remove_container()
+        previous_removal_error = remove_container()
         try:
             process.wait(timeout=_remaining_timeout(deadline, 5))
             cleanup_errors.clear()
@@ -457,8 +533,14 @@ class CandidateBroker:
         except BaseException as exc:
             cleanup_errors.append(exc)
         removal_error = remove_container()
+        state.error = None
         if removal_error is not None:
-            cleanup_errors.append(removal_error)
+            if previous_removal_error is not None and removal_error is not previous_removal_error:
+                previous_removal_error.add_note("final removal attempt: " + str(removal_error))
+                for note in getattr(removal_error, "__notes__", ()):
+                    previous_removal_error.add_note(note)
+            state.error = previous_removal_error or removal_error
+            cleanup_errors.append(state.error)
         metadata_error = None
         if self._stderr_thread is not None:
             try:
@@ -478,6 +560,7 @@ class CandidateBroker:
             raise CandidateContainerCleanupError(
                 _cleanup_diagnostic(cause, "process_stop")
             ) from cause
+        self._container_cleanup_states.pop(process, None)
         if metadata_error is not None:
             raise ContainerMetadataCleanupError(
                 _cleanup_diagnostic(metadata_error, "stderr_thread_join")
@@ -495,7 +578,9 @@ class CandidateBroker:
                 if operation in {"process_stop", "thread_join"} and not isinstance(
                     exc, (CandidateContainerCleanupError, ContainerMetadataCleanupError)
                 ):
-                    exc = CandidateContainerCleanupError(_cleanup_diagnostic(exc, operation))
+                    wrapped = CandidateContainerCleanupError(_cleanup_diagnostic(exc, operation))
+                    wrapped.__cause__ = exc
+                    exc = wrapped
                 cleanup_errors.append((operation, exc))
                 return False
             return True
@@ -686,7 +771,9 @@ class CandidateBroker:
 
     def _error_with_diagnostic(self, error: BaseException) -> CandidateBrokerError:
         if isinstance(error, (CandidateContainerCleanupError, ContainerMetadataCleanupError)):
-            return type(error)(str(error)[:1024])
+            enriched = type(error)(str(error)[:1024])
+            enriched.__cause__ = error
+            return enriched
         if self._process is not None and self._process.poll() is not None:
             if self._stderr_thread is not None:
                 self._stderr_thread.join(timeout=0.2)
@@ -776,7 +863,7 @@ def _write_operation_request(stream: IO[bytes], payload: bytes, deadline: float)
 def _remaining_timeout(deadline: float | None, maximum: float) -> float:
     if deadline is None:
         return maximum
-    return max(0.001, min(maximum, deadline - time.monotonic()))
+    return max(0.0, min(maximum, deadline - time.monotonic()))
 
 
 def _stderr_category(payload: bytes) -> str:

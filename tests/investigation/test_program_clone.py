@@ -357,6 +357,36 @@ def test_clone_rejects_overlap_and_copies_with_excludes_and_symlinks(tmp_path: P
     assert os.readlink(copied_link_dir) == "../../outside_dir"
 
 
+def test_host_failure_diagnostic_is_not_source_or_clone_input(tmp_path: Path) -> None:
+    from src.investigation.harness_incumbent import _program_source_records
+    from src.investigation.search_tree import _fingerprint
+
+    source = _write_program(
+        tmp_path / "program_1", _spec_toml(include=["evaluation_failure.json"]),
+    )
+    original_records = _program_source_records(source)
+    original_fingerprint = _fingerprint(source)
+    failure = source / "evaluation_failure.json"
+    diagnostic = '{"outcome":"failed","rpc_calls":1}'
+    failure.write_text(diagnostic)
+    assert _program_source_records(source) == original_records
+    assert _fingerprint(source) == original_fingerprint
+
+    clone = tmp_path / "recovery" / "program_1"
+    clone_program_dir(src_dir=source, dst_dir=clone)
+    assert not (clone / "evaluation_failure.json").exists()
+    assert _program_source_records(clone) == original_records
+    assert failure.read_text() == diagnostic
+    # Host evaluation removes the stale diagnostic before starting the recovery.
+    # This must not look like a candidate-source mutation.
+    (clone / "evaluation_failure.json").write_text(diagnostic)
+    before_recovery = _fingerprint(clone)
+    (clone / "evaluation_failure.json").unlink()
+    assert _fingerprint(clone) == before_recovery == original_fingerprint
+    (clone / "src/program.py").write_text("print('changed candidate')\n")
+    assert _fingerprint(clone) != original_fingerprint
+
+
 # ---------------------------------------------------------------------------
 # Packaged search runtime
 # ---------------------------------------------------------------------------
