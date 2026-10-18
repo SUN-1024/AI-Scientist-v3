@@ -8,6 +8,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from src.investigation import script_runners
 from src.investigation.final_ai_review import FinalAiReviewResult, run_final_ai_review
@@ -45,7 +46,7 @@ def _review_env_file(cfg: PipelineConfig, *, repo_root: Path) -> Path | None:
 
 def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     """Rebuild the selected review on the host before exposing it to a reviewer."""
-    from src.research.evidence import verify_selected_novelty_for_paper
+    from src.research.evidence import verify_methodology_for_paper, verify_selected_novelty_for_paper
 
     data_path = paths.paper_dir / "paper_data.json"
     if any(path.is_symlink() for path in (data_path, *data_path.parents)):
@@ -60,7 +61,10 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     selected = verify_selected_novelty_for_paper(
         paper_data, investigation_results_dir=paths.investigation_dir,
     )
-    if selected is None:
+    methodology = verify_methodology_for_paper(
+        paper_data, investigation_results_dir=paths.investigation_dir,
+    )
+    if selected is None and methodology is None:
         return None
     packet = {
         "schema_version": 1,
@@ -72,6 +76,8 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
         ),
         "selected_novelty_review": selected,
     }
+    if methodology is not None:
+        packet["research_methodology"] = methodology
     body = (json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     if len(body) > 512 * 1024:
         raise ValueError("Selected novelty evidence exceeds the independent review packet limit")
@@ -120,12 +126,12 @@ def run_pipeline_review(
             env=environment,
         )
 
-    reviewer_options = None
+    evidence_paths = []
+    for item in cfg.review.evidence_paths:
+        path = Path(item).expanduser()
+        evidence_paths.append(path if path.is_absolute() else paths.run_dir / path)
+    reviewer_options: dict[str, Any] | None = {"evidence_paths": evidence_paths} if evidence_paths else None
     if cfg.review.backend == "agent":
-        evidence_paths = []
-        for item in cfg.review.evidence_paths:
-            path = Path(item).expanduser()
-            evidence_paths.append(path if path.is_absolute() else paths.run_dir / path)
         reviewer_options = {
             "backend": "agent",
             "agent": cfg.review.agent_name or cfg.agent.name,
@@ -146,5 +152,5 @@ def run_pipeline_review(
         artifact_stem=artifact_stem,
         manifest_key=manifest_key,
         reviewer_options=reviewer_options,
-        reviewer_evidence_builder=(lambda: _selected_novelty_evidence(paths)) if reviewer_options else None,
+        reviewer_evidence_builder=lambda: _selected_novelty_evidence(paths),
     )

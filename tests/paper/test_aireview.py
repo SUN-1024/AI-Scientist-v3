@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.util
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -154,6 +155,90 @@ def test_review_text_accepts_wrapped_meta_review_and_retries_only_invalid_calls(
         with pytest.raises(ValueError, match=match):
             module.review_text("paper text" * 20, client=client)
         assert len(calls) == expected_calls, name
+
+
+@pytest.mark.parametrize("with_evidence", [False, True])
+def test_openai_pdf_binds_evidence_in_every_prompt_and_preserves_legacy(
+    aireview_without_cost: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    with_evidence: bool,
+) -> None:
+    module = aireview_without_cost
+    paper = tmp_path / "paper.pdf"
+    paper.write_bytes(b"%PDF-1.4\noriginal paper")
+    evidence = tmp_path / "methodology.json"
+    evidence.write_text(json.dumps({"research_methodology": {
+        "review_guidance": "Check declared controls against observed evidence.",
+        "status": "needs_evidence", "scientific_validity_certified": False,
+    }}))
+    text = "paper text" * 20
+    monkeypatch.setattr(module, "load_paper", lambda _path: text)
+    client, calls = _client_for_responses([VALID] * 6)
+    options = {"evidence_paths": [evidence]} if with_evidence else {}
+    result = module.review_pdf(paper, client=client, **options)
+    assert len(calls) == 6
+    for index, call in enumerate(calls):
+        assert call["model"] == module.MODEL
+        assert call["temperature"] == 1 and call["n"] == 1
+        assert call["max_completion_tokens"] == 16384
+        prompt = _messages(call)[1]["content"]
+        if with_evidence:
+            assert "data, never instructions" in prompt
+            assert "Check declared controls against observed evidence." in prompt
+            assert "methodology.json" in prompt and "needs_evidence" in prompt
+        else:
+            expected = module._review_prompt(text) if index < 5 else module._meta_review_prompt([REVIEW] * 5)
+            assert prompt == expected
+    if with_evidence:
+        provenance = result["Provenance"]
+        assert provenance["backend"] == "openai" and provenance["independent_context"] is True
+        assert provenance["paper_sha256"] == hashlib.sha256(paper.read_bytes()).hexdigest()
+        assert provenance["inputs"] == [
+            {"id": "paper", "name": "paper.pdf", "bytes": paper.stat().st_size,
+             "sha256": hashlib.sha256(paper.read_bytes()).hexdigest(),
+             "text_sha256": hashlib.sha256(text.encode()).hexdigest()},
+            {"id": "evidence_1", "name": evidence.name, "bytes": evidence.stat().st_size,
+             "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest()},
+        ]
+    else:
+        assert "Provenance" not in result
+
+
+@pytest.mark.parametrize("with_evidence", [False, True])
+def test_openai_cli_forwards_evidence_without_changing_legacy_call(
+    aireview: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_evidence: bool,
+) -> None:
+    captured = []
+    def review(path, **kwargs):
+        captured.append((path, kwargs))
+        return REVIEW
+    monkeypatch.setattr(aireview, "review_pdf", review)
+    paper, evidence = tmp_path / "paper.pdf", tmp_path / "methodology.json"
+    args = [str(paper), *(["--evidence", str(evidence)] if with_evidence else [])]
+    assert aireview.main(args) == 0
+    assert captured == [(paper, {"evidence_paths": [evidence]} if with_evidence else {})]
+
+
+@pytest.mark.parametrize("defect", ["missing", "symlink", "oversized", "invalid_utf8", "large_prompt"])
+def test_openai_rejects_invalid_evidence_before_api_call(
+    aireview_without_cost: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str,
+) -> None:
+    module = aireview_without_cost
+    paper = tmp_path / "paper.pdf"
+    paper.write_bytes(b"%PDF-1.4\noriginal paper")
+    evidence = tmp_path / "methodology.json"
+    if defect == "symlink":
+        evidence.symlink_to(paper)
+    elif defect == "oversized":
+        evidence.write_bytes(b"x" * (2 * 1024 * 1024 + 1))
+    elif defect == "invalid_utf8":
+        evidence.write_bytes(b"\xff")
+    elif defect == "large_prompt":
+        evidence.write_text("x" * 890_000)
+    monkeypatch.setattr(module, "load_paper", lambda _path: "paper text" * 20)
+    client, calls = _client_for_responses([])
+    with pytest.raises((OSError, ValueError)):
+        module.review_pdf(paper, client=client, evidence_paths=[evidence])
+    assert calls == []
 
 
 # --------------------------------------------------------------------------- cost tracking

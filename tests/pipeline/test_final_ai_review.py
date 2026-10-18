@@ -686,9 +686,11 @@ REVIEW_GATE_CASES = [
 
 @pytest.mark.usefixtures("stub_image_leases")
 class TestPipelineReviewPhase:
-    def test_agent_review_receives_host_revalidated_selected_novelty(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("backend", ["agent", "openai"])
+    @pytest.mark.parametrize("methodology_enabled", [False, True])
+    def test_review_receives_host_revalidated_selected_novelty(self, tmp_path: Path, methodology_enabled: bool, backend: str) -> None:
         cfg, repo_root = _cfg(tmp_path)
-        cfg.review.backend = "agent"
+        cfg.review.backend = backend
         paths = derive_paths(cfg)
         paths.paper_dir.mkdir(parents=True, exist_ok=True)
         forged = {"selected_novelty_review": {"status": "supported", "publication_acceptance": True}}
@@ -698,6 +700,12 @@ class TestPipelineReviewPhase:
             "gaps": ["Current selected candidate differs from the review receipt"],
             "publication_acceptance": False,
         }
+        method = ({
+            "status": "needs_evidence", "assessment_scope": "frozen_initial_agenda",
+            "policy_version": 1, "rules_sha256": "a" * 64,
+            "review_guidance": "Check the declared controls against observed evidence.",
+            "scientific_validity_certified": False,
+        } if methodology_enabled else None)
         captured = []
 
         def execute(**kwargs):
@@ -706,20 +714,25 @@ class TestPipelineReviewPhase:
 
         with (
             patch("src.research.evidence.verify_selected_novelty_for_paper", return_value=verified) as verify,
+            patch("src.research.evidence.verify_methodology_for_paper", return_value=method) as verify_method,
             patch("src.pipeline.review.run_final_ai_review", side_effect=execute),
         ):
             run_pipeline_review(cfg=cfg, paths=paths, repo_root=repo_root)
         verify.assert_called_once_with(forged, investigation_results_dir=paths.investigation_dir)
+        verify_method.assert_called_once_with(forged, investigation_results_dir=paths.investigation_dir)
         evidence = captured
         assert len(evidence) == 1
         packet = json.loads(evidence[0].read_text(encoding="utf-8"))
         assert packet["selected_novelty_review"] == verified
+        assert packet.get("research_methodology") == method
+        assert ("research_methodology" in packet) is methodology_enabled
         assert evidence[0].parent == paths.run_dir / "harness_review_evidence"
         assert evidence[0].stat().st_mode & 0o222 == 0
 
-    def test_agent_review_without_harness_does_not_invent_novelty_evidence(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("backend", ["agent", "openai"])
+    def test_review_without_harness_does_not_invent_novelty_evidence(self, tmp_path: Path, backend: str) -> None:
         cfg, repo_root = _cfg(tmp_path)
-        cfg.review.backend = "agent"
+        cfg.review.backend = backend
         paths = derive_paths(cfg)
         with (
             patch("src.research.evidence.verify_selected_novelty_for_paper", return_value=None),
@@ -727,11 +740,13 @@ class TestPipelineReviewPhase:
         ):
             run_pipeline_review(cfg=cfg, paths=paths, repo_root=repo_root)
             assert review.call_args.kwargs["reviewer_evidence_builder"]() is None
-        assert review.call_args.kwargs["reviewer_options"]["evidence_paths"] == []
+        options = review.call_args.kwargs["reviewer_options"]
+        assert options["evidence_paths"] == [] if backend == "agent" else options is None
 
-    def test_agent_review_rejects_symlinked_paper_data_before_provider(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("backend", ["agent", "openai"])
+    def test_review_rejects_symlinked_paper_data_before_provider(self, tmp_path: Path, backend: str) -> None:
         cfg, repo_root = _cfg(tmp_path)
-        cfg.review.backend = "agent"
+        cfg.review.backend = backend
         paths = derive_paths(cfg)
         paths.paper_dir.mkdir(parents=True, exist_ok=True)
         outside = tmp_path / "outside.json"

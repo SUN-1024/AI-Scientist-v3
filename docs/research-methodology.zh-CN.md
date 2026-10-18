@@ -146,3 +146,5 @@ idea、coding 和 paper 走现有 agent 提示路径。查看对应运行保存�
 实现位于 [`src/research/methodology.py`](../src/research/methodology.py)。它使用本项目编写的简明规则，并记录所参考材料的版本哈希；运行时不读取用户机器上的完整技能目录。`paper-writer` 及所参考附属材料的来源许可证记录为 `CC-BY-NC-SA-4.0`。来源记录不代表把该许可证套用于本项目全部代码。
 
 这次集成没有安装整套医疗工具库，也不表示其中所有工具可用。方法学单元测试、保存提示检查或模拟 agent 路径检查，只验证实现与传递关系。它们不能替代真实 provider 调用，也不能证明研究质量已提高；需要另做预算匹配的实际案例比较。
+
+本次接入的真实调用与自动检查结果见[验证记录](research-methodology-validation.zh-CN.md)。

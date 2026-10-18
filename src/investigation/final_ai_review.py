@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -30,14 +29,18 @@ from src.investigation.pinned_files import (
     read_regular_at,
 )
 from src.investigation.review_summary import ReviewDecision, parse_review_summary as _review_summary
+from src.review_inputs import (
+    PAPER_PDF_MAX_BYTES as _PAPER_PDF_MAX_BYTES,
+    REVIEW_EVIDENCE_MAX_BYTES as _REVIEW_EVIDENCE_MAX_BYTES,
+    read_review_input as _read_review_input,
+    review_input_record as _review_input_record,
+)
 
 ReviewStatus = Literal["completed", "failed"]
 ExecuteCommand = Callable[[list[str], Path, dict[str, str]], tuple[str, int]]
 
 _ENV_FILE_MAX_BYTES = 1024 * 1024
 _PAPER_MANIFEST_MAX_BYTES = 1024 * 1024
-_PAPER_PDF_MAX_BYTES = 100 * 1024 * 1024
-_REVIEW_EVIDENCE_MAX_BYTES = 2 * 1024 * 1024
 _REVIEW_OUTPUT_MAX_BYTES = 4 * 1024 * 1024
 _REVIEW_LOG_MAX_BYTES = 16 * 1024 * 1024
 _OPENAI_ENVIRONMENT_KEYS = {
@@ -135,25 +138,6 @@ def _read_env_file_no_follow(path: Path) -> str:
         max_bytes=_ENV_FILE_MAX_BYTES,
         description="configured environment file",
     )
-
-
-def _read_review_input(path: Path, *, max_bytes: int) -> bytes:
-    """Read a bounded input without following any directory or file symlink."""
-    path = absolute_path(path)
-    directory_fd = open_directory_tree_no_follow(path.parent)
-    try:
-        return read_regular_at(
-            directory_fd, path.name, max_bytes=max_bytes, description="review input"
-        )
-    finally:
-        os.close(directory_fd)
-
-
-def _review_input_record(content: bytes, *, source_id: str, name: str) -> dict[str, object]:
-    return {
-        "id": source_id, "name": name,
-        "sha256": hashlib.sha256(content).hexdigest(), "bytes": len(content),
-    }
 
 
 def _validate_review_input_receipt(
@@ -537,6 +521,7 @@ def _run_pinned_final_ai_review(
             latest_log_path=latest_log_path,
         )
     agent_backend = bool(reviewer_options and reviewer_options.get("backend") == "agent")
+    bound_inputs = agent_backend or bool((reviewer_options or {}).get("evidence_paths"))
     executable = (
         sys.executable if agent_backend
         else shutil.which("uv") if uv_executable is None else uv_executable
@@ -613,7 +598,7 @@ def _run_pinned_final_ai_review(
             )
         evidence_snapshots: list[tuple[Path, Path, dict[str, object]]] = []
         expected_inputs: list[dict[str, object]] = []
-        if agent_backend:
+        if bound_inputs:
             try:
                 expected_inputs.append(_review_input_record(
                     _read_review_input(temporary_pdf, max_bytes=_PAPER_PDF_MAX_BYTES),
@@ -664,7 +649,7 @@ def _run_pinned_final_ai_review(
                     command.extend([flag, str(value)])
             evidence_paths = (
                 [snapshot for _, snapshot, _ in evidence_snapshots]
-                if agent_backend else reviewer_options.get("evidence_paths", [])
+                if bound_inputs else reviewer_options.get("evidence_paths", [])
             )
             if not isinstance(evidence_paths, (list, tuple)):
                 raise ValueError("review evidence_paths must be a list of paths")
@@ -707,14 +692,14 @@ def _run_pinned_final_ai_review(
                 error = (
                     None if isinstance(payload, dict) else f"{review_name} must contain an object"
                 )
-        if error is None and agent_backend:
+        if error is None and bound_inputs:
             try:
-                from src.review_backend import validate_agent_review
+                backend = "agent" if agent_backend else "openai"
                 if not isinstance(payload, dict):
-                    raise ValueError("agent review must be an object")
+                    raise ValueError(f"{backend} review must be an object")
                 provenance = payload.get("Provenance")
-                if not isinstance(provenance, dict) or provenance.get("backend") != "agent" or provenance.get("independent_context") is not True:
-                    raise ValueError("agent review has no independent provenance")
+                if not isinstance(provenance, dict) or provenance.get("backend") != backend or provenance.get("independent_context") is not True:
+                    raise ValueError(f"{backend} review has no independent provenance")
                 _validate_review_input_receipt(provenance, expected_inputs)
                 paper_record = expected_inputs[0]
                 for content in (
@@ -725,7 +710,7 @@ def _run_pinned_final_ai_review(
                     ),
                 ):
                     if _review_input_record(content, source_id="paper", name="paper.pdf") != paper_record:
-                        raise ValueError("reviewed PDF changed during agent review")
+                        raise ValueError(f"reviewed PDF changed during {backend} review")
                 for source_path, snapshot_path, record in evidence_snapshots:
                     for input_path in (source_path, snapshot_path):
                         content = _read_review_input(
@@ -734,11 +719,16 @@ def _run_pinned_final_ai_review(
                         if _review_input_record(
                             content, source_id=str(record["id"]), name=source_path.name
                         ) != record:
-                            raise ValueError("configured evidence changed during agent review")
-                validate_agent_review(
-                    {key: value for key, value in payload.items() if key != "Provenance"},
-                    source_ids={str(item["id"]) for item in expected_inputs},
-                )
+                            raise ValueError(f"configured evidence changed during {backend} review")
+                if agent_backend:
+                    from src.review_backend import validate_agent_review
+                    validate_agent_review(
+                        {key: value for key, value in payload.items() if key != "Provenance"},
+                        source_ids={str(item["id"]) for item in expected_inputs},
+                    )
+                else:
+                    from src.aireview import _validate_review
+                    _validate_review(payload, context="OpenAI evidence review")
             except (OSError, ValueError) as exc:
                 error = str(exc)
         if error is not None:
