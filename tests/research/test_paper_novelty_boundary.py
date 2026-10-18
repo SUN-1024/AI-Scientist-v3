@@ -27,6 +27,9 @@ def boundary(request, tmp_path):
         "def verify_selected_novelty_for_paper(payload, *, investigation_results_dir):\n"
         "    assert str(investigation_results_dir) == os.environ['EXPECTED_INVESTIGATION']\n"
         "    return json.loads(Path(os.environ['HOST_PROJECTION']).read_text())\n"
+        "def verify_methodology_for_paper(payload, *, investigation_results_dir):\n"
+        "    assert str(investigation_results_dir) == os.environ['EXPECTED_INVESTIGATION']\n"
+        "    return json.loads(Path(os.environ['HOST_METHODOLOGY_PROJECTION']).read_text())\n"
     )
     (host / "src/research/harness_state.py").write_text(
         "import json\ndef read_json(path):\n"
@@ -39,11 +42,14 @@ def boundary(request, tmp_path):
     paper = tmp_path / "paper"
     paper.mkdir()
     projection = tmp_path / "host_projection.json"
+    methodology = tmp_path / "host_methodology_projection.json"
+    methodology.write_text("null")
     investigation = tmp_path / "managed/run"
     environment = {
         **os.environ, "PYTHON_BIN": sys.executable, "REPO_ROOT": str(host), "OUTPUT_DIR": str(paper),
         "SOURCE_RESULTS_DIR": str(investigation), "INVESTIGATION_RESULTS_DIR": "",
         "EXPECTED_INVESTIGATION": str(investigation), "HOST_PROJECTION": str(projection),
+        "HOST_METHODOLOGY_PROJECTION": str(methodology),
     }
     def run(mode="refresh"):
         return subprocess.run(["bash", "-c", function + '\nrefresh_selected_novelty_context "$CHECK_MODE"\n'],
@@ -83,6 +89,26 @@ def test_paper_boundary_leaves_nonharness_data_unchanged(boundary):
     projection.write_text("null")
     assert run().returncode == 0
     assert run("verify_current").returncode == 0
+    assert paper.read_bytes() == saved
+
+
+def test_paper_boundary_refreshes_and_rechecks_methodology_without_novelty(boundary):
+    paper, projection, run, _script = boundary
+    original = {"totals": {"evaluated_programs": 1}}
+    paper.write_text(json.dumps(original))
+    projection.write_text("null")
+    methodology_path = projection.with_name("host_methodology_projection.json")
+    methodology = {"status": "needs_evidence", "assessment_scope": "frozen_initial_agenda",
+                   "rules_sha256": "a" * 64}
+    methodology_path.write_text(json.dumps(methodology))
+    assert run().returncode == 0
+    assert json.loads(paper.read_text()) == {**original, "research_methodology": methodology}
+    saved = paper.read_bytes()
+    assert run("verify_current").returncode == 0
+    methodology_path.write_text(json.dumps({**methodology, "rules_sha256": "b" * 64}))
+    result = run("verify_current")
+    assert result.returncode != 0
+    assert "Frozen methodology evidence changed after paper review" in result.stderr
     assert paper.read_bytes() == saved
 
 

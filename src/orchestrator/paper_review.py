@@ -111,6 +111,7 @@ def _paper_data_summary(payload: Any) -> dict[str, Any]:
         "downstream_study": payload.get("downstream_study"),
         "final_evaluation": final_outcome_summary(payload),
         "selected_novelty_review": payload.get("selected_novelty_review"),
+        **({"research_methodology": payload["research_methodology"]} if "research_methodology" in payload else {}),
         "totals": totals if isinstance(totals, dict) else {},
         "idea_titles_preview": idea_titles[:10] if isinstance(idea_titles, list) else [],
         "grounding_source_count": grounding_source_count,

@@ -16,6 +16,7 @@ from .literature import CONTEXT_DIRECTORY
 from .model_search import SearchSession, parse_object, response_text
 from .novelty import ACTION_TYPES, REVIEW_CHECKS, content_hash, evaluate_novelty, freeze_evidence, validate_candidate_packet
 from .research_agenda import normalize_agenda
+from .methodology import render_methodology
 
 PROMPTS = Path(__file__).resolve().parents[1] / "prompts" / "research_harness"
 MAX_PACKET_CHARS = 600_000
@@ -397,7 +398,8 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
         _preflight_resume(directories, cfg, "research_agenda", frozen, reviewer_settings)
     if candidate_packet is not None:
         _dump(output / "candidate_packet.json", candidate_packet)
-    prompt = (PROMPTS / "research_agenda.md").read_text(encoding="utf-8") + "\n\nINPUT DATA:\n" + json.dumps({
+    guidance = render_methodology(task_dir, stage="agenda")
+    prompt = (PROMPTS / "research_agenda.md").read_text(encoding="utf-8") + ("\n\n" + guidance if guidance else "") + "\n\nINPUT DATA:\n" + json.dumps({
         "task": task, "selected_candidate_research_basis": research_basis,
         "selected_candidate_packet": candidate_packet, "frozen_evidence": frozen,
         "literature": source_packet(task_dir),
@@ -450,6 +452,9 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
         frozen["candidate_packet_sha256"] = content_hash(candidate_packet)
     packet = source_packet(task_dir, agenda)
     template = (PROMPTS / "novelty_review.md").read_text(encoding="utf-8")
+    guidance = render_methodology(task_dir, stage="novelty", agenda=agenda)
+    if guidance:
+        template += "\n\n" + guidance
     prompts = {}
     for index in range(reviewer_count):
         focus = ("Examine the strongest constructive case for a meaningful incremental contribution, then try to falsify it."

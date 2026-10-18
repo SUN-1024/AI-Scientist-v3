@@ -163,6 +163,42 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     except (OSError, ValueError, TypeError) as exc:
         disclosure_required = True
         checks["disclosure"] = _result("missing_or_invalid", str(exc))
+    from .methodology import assess_methodology
+
+    try:
+        methodology = assess_methodology(workspace / "input_task")
+        if ((cfg.methodology.enabled or methodology.get("enabled") is True)
+                and ((workspace / "harness_state.json").exists() or (workspace / "harness_state.json").is_symlink())):
+            from .evidence import verify_methodology_for_paper
+
+            verified = verify_methodology_for_paper(
+                {"results_dir": str(workspace.absolute() / "run")},
+                investigation_results_dir=workspace / "run",
+            )
+            if verified is not None:
+                methodology = {key: verified[key] for key in (
+                    "enabled", "status", "policy_version", "rules_sha256", "profile",
+                    "gaps", "actions", "scope", "detail", "verification_status", "provenance",
+                ) if key in verified}
+        if cfg.methodology.enabled and methodology.get("enabled") is not True:
+            methodology = _result(
+                "needs_evidence", "Enabled research methodology has no frozen marker", enabled=True,
+                policy_version=None, rules_sha256=None,
+                scope="Declared methodology coverage only; not scientific validity certification.",
+                actions=["Recover the unchanged frozen methodology marker for this enabled study before review."],
+            )
+    except (OSError, ValueError, TypeError) as exc:
+        methodology = _result(
+            "needs_evidence", str(exc), enabled=True,
+            policy_version=None, rules_sha256=None,
+            scope="Declared methodology coverage only; not scientific validity certification.",
+            actions=["Recover the frozen methodology rules and declared study design before review."],
+        )
+    if methodology.get("enabled") is True:
+        methodology.update(assessment_scope="frozen_initial_agenda",
+                           selected_candidate_design_assessed=False,
+                           scientific_validity_certified=False)
+        checks["methodology"] = methodology
     quality = cfg.harness.quality
     effect = checks["confirmation"].get("metrics", {})
     if not quality.require_positive_final:
@@ -197,6 +233,8 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
                 "claim": "verified", "review": "passed", "novelty": "supported",
                 "disclosure": "verified" if disclosure_required else "not_required",
                 "scientific_effect": "positive" if quality.require_positive_final else "not_required"}
+    if "methodology" in checks:
+        expected["methodology"] = "declared"
     gaps = [{"check": key, "status": checks[key].get("status"), "detail": checks[key].get("detail", checks[key].get("gaps", []))}
             for key, status in expected.items() if checks[key].get("status") != status]
     target = state.get("quality_target", cfg.harness.quality_target)
@@ -215,6 +253,7 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
         "disclosure": ("repair_manuscript", "Add the required AI Scientist statement to a visible Disclosure, Abstract, or Methods section, recompile, and rerun validation."),
         "review": ("resolve_review", "Resolve each independent reviewer concern; text edits must not invent missing experiments."),
         "novelty": ("verify_novelty", "Read the closest full methods, resolve source gaps, and test the stated discriminating hypothesis."),
+        "methodology": ("methodology_coverage", "Resolve the declared study-design gaps using existing evidence. Methodology coverage does not certify causal or clinical validity. Preserve the frozen confirmation protocol; design changes after confirmation require a new study."),
         "quality_target": ("new_study", "Declare a full research study before making a high-impact readiness claim."),
     }
     for gap in gaps:
@@ -230,25 +269,47 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     actions.extend({"check": "novelty", "kind": "novelty_followup", "request": item,
                     "requires_new_study": final_opened and item.get("kind") in {"discriminating_experiment", "reformulate_contribution"}}
                    for item in checks["novelty"].get("next_actions", []) if isinstance(item, dict))
+    actions.extend({"check": "methodology", "kind": "methodology_followup", "instruction": item,
+                    "requires_new_study": final_opened}
+                   for item in checks.get("methodology", {}).get("actions", []) if isinstance(item, str))
+    note = "All machine checks passing permits human scientific review. It does not promise novelty, journal acceptance, or authorize submission."
+    if "methodology" in checks:
+        actions.append({
+            "check": "methodology", "kind": "compare_selected_design",
+            "instruction": "Compare the selected implementation and actual controls with the frozen initial study design. This coverage check assesses the initial agenda only. Preserve the final protocol; changes after confirmation require a new study.",
+            "requires_new_study": False,
+        })
+        note += " Methodology coverage checks the frozen initial agenda only, not the selected candidate's actual design. It does not certify scientific, causal, or clinical validity."
     return {
         "schema_version": 1, "assessed_at": now(), "quality_target": target,
         "status": "ready_for_human_review" if complete else "evidence_gaps",
         "checks": checks, "gaps": gaps, "next_actions": actions,
         "confirmation_protocol_frozen": final_opened, "ready_for_human_review": complete,
         "submission_ready": False, "human_approval": "required", "submitted": False,
-        "note": "All machine checks passing permits human scientific review. It does not promise novelty, journal acceptance, or authorize submission.",
+        "note": note,
     }
 
 
 def write_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]) -> dict[str, Any]:
     report = assess_readiness(workspace, cfg, state)
     write_private_text(workspace / "paper_readiness.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    write_private_text(workspace / "research_next_actions.json", json.dumps({
+    next_actions: dict[str, Any] = {
         "schema_version": 1, "status": "proposed_not_executed", "confirmation_protocol_frozen": report["confirmation_protocol_frozen"],
         "actions": report["next_actions"], "automatic_confirmation_set_tuning": False,
-    }, ensure_ascii=False, indent=2) + "\n")
+    }
+    methodology = report["checks"].get("methodology")
+    if methodology is not None:
+        next_actions["methodology"] = {key: methodology.get(key) for key in (
+            "status", "policy_version", "rules_sha256", "scope", "assessment_scope",
+            "selected_candidate_design_assessed", "scientific_validity_certified",
+        )}
+    write_private_text(workspace / "research_next_actions.json", json.dumps(next_actions, ensure_ascii=False, indent=2) + "\n")
     rows = ["# Research harness evidence readiness", "", f"State: **{report['status']}**", "", "| Check | Status |", "|---|---|"]
     rows += [f"| {key} | {value.get('status', 'unknown')} |" for key, value in report["checks"].items()]
+    if methodology is not None:
+        rows += ["", f"Methodology policy: {methodology.get('policy_version', 'unverified')}; "
+                 f"rules SHA-256: `{methodology.get('rules_sha256', 'unverified')}`.",
+                 str(methodology.get("scope", "Declared methodology coverage only."))]
     rows += ["", report["note"], "", "## Evidence gaps", ""]
     rows += [f"- {item['check']}: {item['detail']}" for item in report["gaps"]] or ["- No machine-detected gaps. Human review is required."]
     rows += ["", "## Next actions", ""]

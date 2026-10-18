@@ -354,8 +354,8 @@ PAPER_REVIEW_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_review/review_json.md"
 PAPER_EVIDENCE_AUDIT_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_review/evidence_audit.md"
 PAPER_FIGURE_QUALITY_REPAIR_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_figure_quality_repair.md"
 
-# Refresh only the host-verified selected-method projection. Finalization checks
-# the same projection without rewriting evidence already seen by an auditor.
+# Refresh host-verified selected-method and frozen methodology projections.
+# Finalization checks both without rewriting evidence already seen by an auditor.
 refresh_selected_novelty_context() {
   local check_mode="${1:-refresh}"
   "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "${INVESTIGATION_RESULTS_DIR:-$SOURCE_RESULTS_DIR}" "$check_mode" <<'PY_SELECTED_NOVELTY'
@@ -363,7 +363,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 from src.research.harness_state import read_json
-from src.research.evidence import verify_selected_novelty_for_paper
+from src.research.evidence import verify_selected_novelty_for_paper, verify_methodology_for_paper
 from src.orchestrator.state import write_private_text
 import json
 
@@ -371,13 +371,20 @@ path = Path(sys.argv[2]) / "paper_data.json"
 if not path.exists() and not path.is_symlink():
     raise SystemExit(0)
 payload = read_json(path)
-selected = verify_selected_novelty_for_paper(payload, investigation_results_dir=Path(sys.argv[3]))
-if selected is None:
-    raise SystemExit(0)
-if payload.get("selected_novelty_review") != selected:
-    if sys.argv[4] == "verify_current":
-        raise SystemExit("Selected-candidate novelty evidence changed after paper review; refresh and repeat the evidence audit")
-    payload["selected_novelty_review"] = selected
+changed = False
+for field, verifier, label in (
+    ("selected_novelty_review", verify_selected_novelty_for_paper, "Selected-candidate novelty evidence"),
+    ("research_methodology", verify_methodology_for_paper, "Frozen methodology evidence"),
+):
+    current = verifier(payload, investigation_results_dir=Path(sys.argv[3]))
+    if current is None:
+        continue
+    if payload.get(field) != current:
+        if sys.argv[4] == "verify_current":
+            raise SystemExit(label + " changed after paper review; refresh and repeat the evidence audit")
+        payload[field] = current
+        changed = True
+if changed:
     write_private_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 PY_SELECTED_NOVELTY
 }

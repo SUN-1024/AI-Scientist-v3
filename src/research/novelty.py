@@ -77,17 +77,26 @@ def validate_candidate_packet(packet: object) -> dict[str, Any]:
 
 
 def freeze_evidence(task_dir: Path) -> dict[str, Any]:
+    from .methodology import load_methodology
+
     catalog = load_catalog(task_dir)
     if catalog is None:
         raise ValueError("No research_context/catalog.json is available")
     catalog_path = task_dir / CONTEXT_DIRECTORY / "catalog.json"
-    return {
+    frozen = {
         "catalog_sha256": hashlib.sha256(catalog_path.read_bytes()).hexdigest(),
         "sources": {row["id"]: {key: row.get(key) for key in (
             "text_sha256", "download_sha256", "availability", "origin", "url",
         )} for row in catalog["sources"]},
         "integrity_scope": "Saved source bytes and catalog; publisher identity and scientific truth are not authenticated.",
     }
+    marker = load_methodology(task_dir)
+    if marker is not None:
+        frozen["methodology"] = {
+            "policy_version": marker["policy_version"], "profile": marker["profile"],
+            "rules_sha256": marker["rules_sha256"],
+        }
+    return frozen
 
 
 def citation_text(task_dir: Path, sources: dict[str, dict], source_id: str,

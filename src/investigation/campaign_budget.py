@@ -73,9 +73,22 @@ def write_campaign_budget(
 
 def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) -> str:
     """One renderer for every prompt; direct standalone wrappers may lack a campaign."""
+    methodology = ""
+    # idea.sh supplies a cycle index and gets idea rules from render_context.
+    # run.sh omits it, so the coding prompt gets exactly one rules block here.
+    if cycle_index is None:
+        from src.research.methodology import load_methodology, render_methodology
+        from src.research.research_agenda import load_agenda
+
+        task_dir = results_dir / "task"
+        marker = load_methodology(task_dir)
+        if marker is not None:
+            methodology = render_methodology(
+                task_dir, stage="coding", agenda=load_agenda(task_dir), marker=marker,
+            )
     path = results_dir / BUDGET_FILE
     if not path.is_file():
-        return "No resolved campaign budget was supplied. Follow the explicit wrapper evaluation limit and the task's scientific constraints; do not infer total cycles."
+        return "No resolved campaign budget was supplied. Follow the explicit wrapper evaluation limit and the task's scientific constraints; do not infer total cycles." + methodology
     budget = json.loads(path.read_text(encoding="utf-8"))
     if cycle_index is not None and budget["cycle"]["local_index"] != cycle_index:
         raise ValueError("effective campaign budget does not match this idea cycle")
@@ -98,5 +111,5 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
         "It does not override hard data, supervision, training, compute, interface, or acceptance constraints. "
         "One scheduled cycle is not proof of one completed evaluation.\n\n```json\n"
         + json.dumps(budget, ensure_ascii=False, indent=2)
-        + "\n```\n\nStage action: " + stage_guidance
+        + "\n```\n\nStage action: " + stage_guidance + methodology
     )

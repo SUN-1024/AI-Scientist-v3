@@ -84,11 +84,20 @@ class HarnessConfig:
 
 
 @dataclass
+class MethodologyConfig:
+    """Portable research guidance, frozen when a new study is prepared."""
+
+    enabled: bool = True
+    profile: str = "general"
+
+
+@dataclass
 class ResearchConfig:
     schema_version: int = 1
     literature: LiteratureConfig = field(default_factory=LiteratureConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
     harness: HarnessConfig = field(default_factory=HarnessConfig)
+    methodology: MethodologyConfig = field(default_factory=MethodologyConfig)
 
 
 def _mapping(value: object, allowed: set[str], label: str) -> dict[str, Any]:
@@ -159,7 +168,7 @@ def load_config(task_dir: Path) -> ResearchConfig:
         raise ValueError(f"Missing {path}; use 'agsci research init' or copy the documented config")
     raw = _mapping(
         yaml.safe_load(path.read_text(encoding="utf-8")),
-        {"schema_version", "literature", "search", "harness"}, "research.yaml",
+        {"schema_version", "literature", "search", "harness", "methodology"}, "research.yaml",
     )
     if type(raw.get("schema_version", 1)) is not int or raw.get("schema_version", 1) != 1:
         raise ValueError("research.yaml schema_version must be 1")
@@ -173,8 +182,14 @@ def load_config(task_dir: Path) -> ResearchConfig:
     validate_model_config(model)
     harness = dict(_mapping(raw.get("harness", {}), set(HarnessConfig.__dataclass_fields__), "harness"))
     quality = _mapping(harness.pop("quality", {}), set(HarnessQualityConfig.__dataclass_fields__), "harness.quality")
+    methodology = _mapping(raw.get("methodology", {}), set(MethodologyConfig.__dataclass_fields__), "methodology")
     cfg = ResearchConfig(literature=LiteratureConfig(**{**literature, "model_search": model}), search=SearchConfig(**search),
-                         harness=HarnessConfig(**harness, quality=HarnessQualityConfig(**quality)))
+                         harness=HarnessConfig(**harness, quality=HarnessQualityConfig(**quality)),
+                         methodology=MethodologyConfig(**methodology))
+    if type(cfg.methodology.enabled) is not bool:
+        raise ValueError("methodology.enabled must be boolean")
+    if not isinstance(cfg.methodology.profile, str) or cfg.methodology.profile not in {"general", "medical"}:
+        raise ValueError("methodology.profile must be general or medical")
     if cfg.harness.quality_target not in {"high_impact", "development"}:
         raise ValueError("harness.quality_target must be high_impact or development")
     if type(cfg.harness.novelty_review) is not bool:

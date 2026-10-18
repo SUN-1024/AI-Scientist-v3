@@ -12,6 +12,47 @@ INTENTS = {"novel_contribution", "replication", "negative_result", "exploratory"
 EVIDENCE_ASPECTS = {"problem_setting", "method", "evaluation", "contribution_boundary"}
 
 
+def _optional_methodology_fields(result: dict[str, Any]) -> None:
+    """Validate declarations without creating missing fields or asserting facts."""
+    # Keep legacy alternatives/evidence_plan values intact for receipt replay.
+    # Their completeness is assessed downstream, not upgraded into schema errors.
+    if "study_design" in result:
+        design = result["study_design"]
+        if not isinstance(design, dict):
+            raise ValueError("agenda.study_design must be an object")
+        for field in ("observation_unit", "split_unit", "intervention", "fixed_factors", "matched_budget",
+                      "outcomes", "falsifier", "minimal_test", "stop_or_pivot"):
+            if field not in design:
+                continue
+            value = design[field]
+            if isinstance(value, str):
+                continue
+            if field in ("fixed_factors", "outcomes") and isinstance(value, list) and all(
+                isinstance(item, str) for item in value
+            ):
+                continue
+            raise ValueError(f"study_design.{field} must be text" +
+                             (" or a list of text" if field in ("fixed_factors", "outcomes") else ""))
+    if "medical_context" in result:
+        medical = result["medical_context"]
+        if not isinstance(medical, dict):
+            raise ValueError("agenda.medical_context must be an object")
+        for field in ("data_use_basis", "subject_isolation", "bias_and_population"):
+            if field not in medical:
+                continue
+            fact = medical[field]
+            if isinstance(fact, str):
+                continue
+            if not isinstance(fact, dict) or fact.get("status") not in ("known", "unknown", "not_applicable"):
+                raise ValueError(f"medical_context.{field} needs text or a fact with a valid status")
+            if "value" in fact and not isinstance(fact["value"], str):
+                raise ValueError(f"medical_context.{field}.value must be text")
+            if "evidence" in fact and (not isinstance(fact["evidence"], list) or not all(
+                isinstance(item, str) for item in fact["evidence"]
+            )):
+                raise ValueError(f"medical_context.{field}.evidence must be a list of source references")
+
+
 def normalize_agenda(raw: object) -> dict[str, Any]:
     """Reject malformed data, while retaining incomplete agendas for actionable review."""
     if not isinstance(raw, dict) or raw.get("schema_version", 1) != 1:
@@ -45,6 +86,7 @@ def normalize_agenda(raw: object) -> dict[str, Any]:
         result.setdefault(field, {})
         if not isinstance(result[field], dict):
             raise ValueError(f"agenda.{field} must be an object")
+    _optional_methodology_fields(result)
     return result
 
 

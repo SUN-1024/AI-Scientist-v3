@@ -14,7 +14,7 @@ from src.investigation.files import load_task_copy_ignore_patterns, task_copy_pa
 from src.orchestrator.state import write_private_text
 from src.pipeline.safe_fs import ensure_directory, open_directory, validate_tree_symlinks_fd
 from src.pipeline.task_tree import copy_task_tree_at, task_tree_manifest_at, verify_copied_task_tree
-from .config import ResearchConfig, load_config
+from .config import MethodologyConfig, ResearchConfig, load_config
 from .evidence import load_catalog
 from .literature import prepare_literature
 
@@ -52,6 +52,32 @@ PREPARATION_OUTPUTS = {
     "research_agenda.json", "research_context/harness_novelty.json",
     "research_context/upstream_integration.json",
 }
+
+
+def _matches_frozen_config(cfg: ResearchConfig, saved: object) -> bool:
+    """Normalize legacy defaults without enabling new guidance during resume."""
+    if not isinstance(saved, dict):
+        return False
+    saved = dict(saved)
+    if "harness" not in saved:
+        saved["harness"] = asdict(ResearchConfig().harness)
+    if "methodology" not in saved:
+        if cfg.methodology != MethodologyConfig():
+            return False
+        cfg.methodology = MethodologyConfig(enabled=False)
+        saved["methodology"] = asdict(cfg.methodology)
+    return asdict(cfg) == saved
+
+
+def _verify_methodology(task_dir: Path, cfg: ResearchConfig) -> None:
+    from .methodology import load_methodology
+
+    marker = load_methodology(task_dir)
+    if cfg.methodology.enabled:
+        if marker is None or marker["profile"] != cfg.methodology.profile:
+            raise ValueError("Frozen methodology does not match the research configuration")
+    elif marker is not None:
+        raise ValueError("Disabled methodology cannot contain a frozen guidance marker")
 
 
 def _records(path: Path, *, source: bool = False) -> dict[str, Any]:
@@ -139,8 +165,10 @@ def load_preparation(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
     else:
         _verify_preparation_inputs(workspace, journal)
         cfg = load_config(workspace / "input_task")
-    if asdict(cfg) != journal.get("research_config"):
+    if not _matches_frozen_config(cfg, journal.get("research_config")):
         raise ValueError("Research preparation configuration changed")
+    if journal["state"] in {"initial_review", "finalizing", "prepared"}:
+        _verify_methodology(workspace / "input_task", cfg)
     return cfg, journal
 
 
@@ -188,7 +216,8 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
             raise ValueError("Source task changed during preparation; create a new workspace")
         journal["state"] = "literature"
         _save_preparation(workspace, journal)
-    if asdict(load_config(staged)) != journal["research_config"]:
+    staged_cfg = load_config(staged)
+    if not _matches_frozen_config(staged_cfg, journal["research_config"]):
         raise ValueError("Research configuration changed during preparation")
     for relative in ("research_context", "research_context/catalog.json"):
         if task_copy_path_is_ignored(
@@ -212,6 +241,14 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
             journal["literature_error"] = "Literature retrieval failed with no usable sources; resume to retry preparation"
             _save_preparation(workspace, journal)
             raise ValueError(journal["literature_error"])
+        if cfg.methodology.enabled:
+            from .methodology import MARKER_PATH, write_methodology
+
+            if task_copy_path_is_ignored(str(MARKER_PATH), is_dir=False,
+                                         patterns=load_task_copy_ignore_patterns(staged)):
+                raise ValueError(".agentic_task_ignore must retain the frozen methodology")
+            write_methodology(staged, cfg.methodology.profile)
+        _verify_methodology(staged, cfg)
         journal.pop("literature_error", None)
         journal["literature_records"] = {name: value for name, value in _records(staged).items()
                                          if name == "research_context" or name.startswith("research_context/")}
@@ -238,7 +275,7 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
     manifest = {
         "schema_version": 1, "created_at": journal["created_at"],
         "source_task": journal["source_task"], "input_task_sha256": task_digest(staged),
-        "research_config": asdict(cfg), "pipeline_overrides": overrides,
+        "research_config": journal["research_config"], "pipeline_overrides": overrides,
         "literature_status": journal["literature_status"], "state": "prepared",
     }
     write_private_text(workspace / "research_manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
@@ -259,17 +296,14 @@ def resume(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
     if task_digest(staged) != manifest.get("input_task_sha256"):
         raise ValueError("Prepared research inputs changed; create a new workspace to change the study")
     cfg = load_config(staged)
-    saved_config = manifest.get("research_config")
-    if isinstance(saved_config, dict) and "harness" not in saved_config:
-        # Schema-v1 research workspaces created before the harness extension.
-        saved_config = {**saved_config, "harness": asdict(ResearchConfig().harness)}
-    if asdict(cfg) != saved_config:
+    if not _matches_frozen_config(cfg, manifest.get("research_config")):
         raise ValueError("Prepared research configuration does not match its manifest")
     if not isinstance(manifest.get("pipeline_overrides"), list) or not all(
         isinstance(value, str) for value in manifest["pipeline_overrides"]
     ):
         raise ValueError("Invalid saved pipeline overrides")
     load_catalog(staged)
+    _verify_methodology(staged, cfg)
     return cfg, manifest
 
 
