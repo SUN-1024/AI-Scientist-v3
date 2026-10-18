@@ -58,6 +58,81 @@ def _plan(workspace):
                                        cycle_budget=read_run_idea_cycle_budget(workspace / "run"))
 
 
+def _baseline_initialization_failure(workspace):
+    path = workspace / "run/investigation/events.jsonl"
+    failure = json.loads(path.read_text())
+    failure["fields"].update(failure_stage="baseline_validation", failure_category="evaluation_failed")
+    steps = []
+    for step in ("runtime_capacity", "runtime_create", "tooling_build", "tooling_install", "dependency_install", "baseline_evaluation"):
+        steps.append({**failure, "event": "preparation_step", "phase": None,
+                      "fields": {"step": step, "state": "started"}})
+        if step == "dependency_install":
+            steps.append({**failure, "event": "heartbeat", "phase": None,
+                          "fields": {"step": step, "state": "started"}})
+        steps.append({**failure, "event": "preparation_step", "phase": None,
+                      "fields": {"step": step, "state": "failed" if step == "baseline_evaluation" else "completed"}})
+    events = [*steps, failure]
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    return path, events
+
+
+def test_failed_initialization_baseline_retries_without_claiming_zero_execution(tmp_path, monkeypatch, capsys):
+    workspace = _failed_startup(tmp_path, monkeypatch)
+    path, _ = _baseline_initialization_failure(workspace)
+    plan = _plan(workspace)
+    assert plan["failure_classification"] == "baseline_validation_infrastructure_failure"
+    assert plan["scientific_result_status"] == "not_retained_or_verified"
+    original = path.read_bytes()
+    capsys.readouterr()
+    assert cli.main(["harness", "--resume", str(workspace), "--dry-run"]) == 0
+    assert json.loads(capsys.readouterr().out)["initial_runtime_retry"] is True
+    state = read_json(workspace / "harness_state.json")
+    harness._archive_startup_failure(workspace, state, plan)
+    archive = workspace / state["startup_recoveries"][-1]["archive"]
+    assert (archive / "investigation/events.jsonl").read_bytes() == original
+    assert read_json(archive / "recovery.json")["scientific_result_status"] == "not_retained_or_verified"
+    assert task_snapshot_is_complete(workspace / "run/task")
+
+
+@pytest.mark.parametrize("mutation", ["authored_failure", "baseline_completed", "no_baseline_start", "missing_build_step", "reordered_steps", "unbound_heartbeat", "repeat_baseline", "final_step"])
+def test_baseline_initialization_retry_requires_exact_host_step_sequence(tmp_path, monkeypatch, mutation):
+    workspace = _failed_startup(tmp_path, monkeypatch)
+    path, events = _baseline_initialization_failure(workspace)
+    if mutation == "authored_failure":
+        events[-1]["fields"]["result_kind"] = "authored_failure"
+    elif mutation == "baseline_completed":
+        events[-2]["fields"]["state"] = "completed"
+    elif mutation == "no_baseline_start":
+        del events[-3]
+    elif mutation == "missing_build_step":
+        del events[2:4]
+    elif mutation == "reordered_steps":
+        events[2:6] = [*events[4:6], *events[2:4]]
+    elif mutation == "unbound_heartbeat":
+        next(event for event in events if event["event"] == "heartbeat")["fields"]["step"] = "tooling_install"
+    elif mutation == "repeat_baseline":
+        events[-1:-1] = events[-3:-1]
+    else:
+        events[-3]["fields"]["step"] = "final_evaluation"
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    with pytest.raises(ValueError, match="unsafe"):
+        _plan(workspace)
+    assert not (workspace / "startup_recovery").exists()
+
+
+@pytest.mark.parametrize("artifact", [".venv", ".agentic_runtime.json", "program_0/metrics.json", "program_0/evaluation_manifest.json"])
+def test_existing_baseline_runtime_or_receipts_are_never_discarded(tmp_path, monkeypatch, artifact):
+    workspace = _failed_startup(tmp_path, monkeypatch)
+    _baseline_initialization_failure(workspace)
+    path = workspace / "run/task" / artifact
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("retained runtime or result")
+    with pytest.raises(ValueError, match="published task runtime|baseline result evidence"):
+        _plan(workspace)
+    assert path.read_text() == "retained runtime or result"
+    assert not (workspace / "startup_recovery").exists()
+
+
 def test_resume_archives_only_failed_startup_and_reuses_preparation(tmp_path, monkeypatch):
     workspace = _failed_startup(tmp_path, monkeypatch)
     initial = sha256(workspace / "novelty/initial/novelty_report.json")

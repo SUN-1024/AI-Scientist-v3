@@ -61,7 +61,11 @@ def test_runner_keeps_paths_and_private_host_config(tmp_path: Path) -> None:
     mounts = [args[index + 1] for index, value in enumerate(args) if value == "--mount"]
     assert f"type=bind,source={root},target={root}" in mounts
     assert f"type=bind,source={common},target={common},readonly" in mounts
-    assert len(mounts) == 3  # checkout, Docker socket, read-only Git metadata
+    assert len(mounts) == 4  # checkout, Docker socket, broker storage, Git metadata
+    broker_parent = root / "scratch/research-runner/broker-storage"
+    assert f"type=bind,source={broker_parent},target=/agsci-state" in mounts
+    assert f"AGENTIC_BROKER_ROOT=/agsci-state/broker-{os.getuid()}" in args
+    assert f"AGENTIC_BROKER_HOST_ROOT={broker_parent}/broker-{os.getuid()}" in args
     config_path = Path(args[args.index("--config") + 1])
     assert json.loads((config_path / "config.json").read_text()) == {"auths": {}}
     assert config_path.is_relative_to(root / "scratch/research-runner")

@@ -20,7 +20,7 @@ from typing import Any, Callable, Mapping
 
 from src.pipeline.downstream_selection import resolve_downstream_program
 
-from .broker_storage import broker_root, ensure_broker_root, reject_legacy_broker_directory
+from .broker_storage import broker_host_path, broker_root, ensure_broker_root, reject_legacy_broker_directory
 from .candidate_broker import (
     CandidateBroker,
     CandidateBrokerError,
@@ -560,7 +560,7 @@ def _evaluation_command(
     command.extend(
         (
             "--mount",
-            f"type=bind,src={broker_dir},dst=/broker",
+            f"type=bind,src={broker_host_path(broker_dir)},dst=/broker",
             "--env",
             "AGENTIC_CANDIDATE_SOCKET=/broker/candidate.sock",
             "--env",
@@ -975,7 +975,7 @@ def _candidate_command(
         "--mount",
         f"type=bind,src={Path(__file__).parent},dst=/broker-code,readonly",
         "--mount",
-        (f"type=bind,src={broker_dir / 'scoring-mask'},dst=/task-venv/{scoring_relative},readonly"),
+        (f"type=bind,src={broker_host_path(broker_dir / 'scoring-mask')},dst=/task-venv/{scoring_relative},readonly"),
     ]
     if compute.candidate_gpu_count:
         selector = _exact_gpu_selector(

@@ -158,7 +158,7 @@ def _startup_events(path: Path) -> list[dict[str, Any]]:
 
 def _startup_retry_plan(workspace: Path, prior: dict[str, Any], *, cycle_budget: int,
                         _runtime_lock_held: bool = False) -> dict[str, Any] | None:
-    """Recognize only a sealed, host-observed bootstrap failure before research."""
+    """Recognize sealed initialization failures before an investigation checkpoint."""
     from src.investigation.task_alignment import task_tree_fingerprint
     from src.pipeline.resume_config import read_run_idea_cycle_budget
     from src.pipeline.safe_fs import open_directory
@@ -228,19 +228,58 @@ def _startup_retry_plan(workspace: Path, prior: dict[str, Any], *, cycle_budget:
         raise ValueError(reason + ": missing or ambiguous runtime failure")
     failure = failures[0]
     session = failure.get("session_id")
-    for event in events:
-        if (event.get("source") != "wrapper" or not session or event.get("session_id") != session
-                or event.get("worker_index") != 0
-                or event.get("event") not in {"container_session_stopped", "preparation_step", "task_runtime_failed"}
-                or (event.get("event") == "preparation_step" and event.get("fields", {}).get("step") != "runtime_capacity")):
-            raise ValueError(reason + ": journal is not limited to runtime startup")
+    fields = failure.get("fields", {})
+    baseline_retry = (fields.get("failure_stage") == "baseline_validation"
+                      and fields.get("failure_category") == "evaluation_failed")
+    build_steps = ("runtime_capacity", "runtime_create", "tooling_build", "tooling_install", "dependency_install")
+    allowed_steps = {*build_steps, "baseline_evaluation"} if baseline_retry else {"runtime_capacity"}
+    active_step = None
+    completed_steps: list[str] = []
+    failed_steps: list[str] = []
     if any(event.get("event") != "container_session_stopped" for event in events[events.index(failure) + 1:]):
         raise ValueError(reason + ": activity continued after the runtime failure")
-    fields = failure.get("fields", {})
+    for event in events:
+        event_name = event.get("event")
+        progress = event.get("fields", {})
+        if (event.get("source") != "wrapper" or not session or event.get("session_id") != session
+                or event.get("worker_index") != 0
+                or event_name not in {"container_session_stopped", "preparation_step", "heartbeat", "task_runtime_failed"}):
+            raise ValueError(reason + ": journal is not limited to runtime startup")
+        if event_name in {"preparation_step", "heartbeat"}:
+            step, status = progress.get("step"), progress.get("state")
+            if not isinstance(step, str) or step not in allowed_steps:
+                raise ValueError(reason + ": unknown runtime preparation step")
+            if event_name == "heartbeat":
+                if step != active_step or status != "started":
+                    raise ValueError(reason + ": heartbeat is not bound to an active preparation step")
+            elif status == "started":
+                if active_step is not None or step in completed_steps or failed_steps:
+                    raise ValueError(reason + ": preparation steps overlap or repeat")
+                active_step = step
+            elif status in {"completed", "failed"} and active_step == step:
+                (completed_steps if status == "completed" else failed_steps).append(step)
+                active_step = None
+            else:
+                raise ValueError(reason + ": invalid runtime preparation step sequence")
     if (failure.get("phase") != "task" or fields.get("task_dir") != str(run / "task")
             or fields.get("result_kind") != "infrastructure_failure"
-            or fields.get("failure_stage") != "runtime_preparation" or fields.get("failure_category") != "runtime_bootstrap"):
+            or not (baseline_retry or (fields.get("failure_stage") == "runtime_preparation"
+                                       and fields.get("failure_category") == "runtime_bootstrap"))):
         raise ValueError(reason + ": failure is not a verified runtime bootstrap error")
+    if baseline_retry:
+        # A failed initialization baseline is a development evaluation. Its
+        # temporary result directory may already have been cleaned, so absence
+        # of output must never be described as proof of zero execution.
+        if active_step is not None or completed_steps != list(build_steps) or failed_steps != ["baseline_evaluation"]:
+            raise ValueError(reason + ": baseline failure lacks a complete initialization step sequence")
+        for name in (".venv", ".agentic_runtime.json"):
+            path = run / "task" / name
+            if path.exists() or path.is_symlink():
+                raise ValueError(reason + ": a published task runtime must use its existing recovery path")
+        for name in ("metrics.json", "correct.json", "evaluation_manifest.json", "evaluation_evidence.json", "rubric_status.json"):
+            path = run / "task/program_0" / name
+            if path.exists() or path.is_symlink():
+                raise ValueError(reason + ": baseline result evidence must be inspected and retained in place")
     try:
         start = datetime.fromisoformat(phase_events[-2]["time"])
         end = datetime.fromisoformat(phase_events[-1]["time"])
@@ -273,6 +312,8 @@ def _startup_retry_plan(workspace: Path, prior: dict[str, Any], *, cycle_budget:
     if not _runtime_lock_held:
         os.close(_startup_runtime_lock(workspace))
     return {"schema_version": 1, "kind": "initial_runtime_failure", "identities": identities,
+            "failure_classification": "baseline_validation_infrastructure_failure" if baseline_retry else "runtime_bootstrap_failure",
+            "scientific_result_status": "not_retained_or_verified" if baseline_retry else "not_assessed",
             "failure": failure, "host_phase": phase_events[-2:], "cycle_budget": cycle_budget,
             "artifacts": {str(path.relative_to(workspace)): sha256(path) for path in (
                 investigation / "events.jsonl", run / "pipeline_events.jsonl",

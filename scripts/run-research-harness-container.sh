@@ -45,6 +45,7 @@ if [ -f "$config" ]; then
 fi
 source_mount="type=bind,source=$root,target=$root"
 native_mount=()
+broker_mount=()
 native_root=""
 if [ "$native" = 1 ]; then
   checkout_hash="$(printf '%s' "$root" | git hash-object --stdin)"
@@ -68,6 +69,10 @@ if [ "$native" = 1 ]; then
     "$(id -u)" "$(id -g)"
   source_mount="$source_mount,readonly"
   native_mount=(--mount "type=volume,source=$volume,target=$native_root")
+  # Socket addresses must stay short. Docker bind sources still use the daemon's
+  # canonical volume path; both aliases are visible to the trusted coordinator.
+  broker_mount=(--mount "type=volume,source=$volume,target=/agsci-state")
+  broker_host_root="$native_root/broker-$(id -u)"
   helper="$root/src/docker/research-runner/native_state.py"
   session="$("${docker_cmd[@]}" run --rm --network none --user "$(id -u):$(id -g)" \
     --mount "$source_mount" "${native_mount[@]}" --entrypoint /usr/local/bin/python "$image" \
@@ -101,6 +106,10 @@ else
   mkdir -p "$temp_root"
   temp_root="$(cd "$temp_root" && pwd -P)"
   case "$temp_root/" in "$root/"*) ;; *) echo 'AGENTIC_TEMP_ROOT must be inside this checkout.' >&2; exit 2 ;; esac
+  broker_storage="$state/broker-storage"
+  mkdir -p "$broker_storage"
+  broker_mount=(--mount "type=bind,source=$broker_storage,target=/agsci-state")
+  broker_host_root="$broker_storage/broker-$(id -u)"
 fi
 # The socket is root:root inside Docker Desktop. Supplemental group 0 grants
 # access without running the orchestrator as root. It is not sent to children.
@@ -124,10 +133,13 @@ args=(run --rm --init --user "$(id -u):$(id -g)" --group-add "$socket_group"
   --env "AGENTIC_TASK_PACKAGE_INDEX=${AGENTIC_TASK_PACKAGE_INDEX:-https://mirrors.aliyun.com/pypi/simple}"
   --env "RESEARCH_RUNNER_CODEX_PROFILE=$profile"
   --env "RESEARCH_RUNNER_NATIVE_ROOT=$native_root"
+  --env "AGENTIC_BROKER_ROOT=/agsci-state/broker-$(id -u)"
+  --env "AGENTIC_BROKER_HOST_ROOT=$broker_host_root"
   --env "RESEARCH_CPU_IMAGE=${RESEARCH_CPU_IMAGE:-unified-ai-scientist/research-cpu:2026.10}"
   --env HTTP_PROXY= --env HTTPS_PROXY= --env ALL_PROXY=
   --env http_proxy= --env https_proxy= --env all_proxy=)
 if [ "$native" = 1 ]; then args+=("${native_mount[@]}"); fi
+args+=("${broker_mount[@]}")
 if [ -n "${RESEARCH_RUNNER_ENV_FILE:-}" ]; then
   if [ ! -f "$RESEARCH_RUNNER_ENV_FILE" ] || [ ! -r "$RESEARCH_RUNNER_ENV_FILE" ]; then
     echo 'RESEARCH_RUNNER_ENV_FILE must be a readable file.' >&2

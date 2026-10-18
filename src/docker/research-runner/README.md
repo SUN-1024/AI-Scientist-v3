@@ -70,6 +70,16 @@ then bind the same source path and see the same files. The volume holds active
 HOME, temporary files, studies, managed environments, and checkpoint repositories.
 No writable runtime state needs to be placed on the macOS shared filesystem.
 
+The coordinator also mounts that volume at `/agsci-state` for short Unix socket
+addresses. `AGENTIC_BROKER_ROOT` names its private `broker-<uid>` directory;
+`AGENTIC_BROKER_HOST_ROOT` names the same directory at the daemon's canonical
+volume path. Broker Docker bind sources use the latter. Socket and cidfile paths
+use the former. Both aliases must have the same private parent inode, with no
+symlinks or unsafe ancestors. The wrapper sets both variables together. Without
+these variables, host execution keeps its existing private `/tmp` broker root.
+Non-native mode supplies the same alias mapping from private launcher storage;
+complete macOS runs still require native state for filesystem guarantees.
+
 Each invocation creates a private launcher directory under
 `scratch/research-runner/`. Native mode then creates its active HOME and Docker
 client config under the volume's `sessions/`. Only the named Codex profile is
