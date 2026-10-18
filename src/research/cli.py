@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from .config import ResearchConfig, load_config, write_config
+from .preflight import ensure_execution_ready
 from .providers import PROVIDERS
 from .workspace import copy_task, execution_overrides, prepare, record_execution, resume, write_report
 
@@ -59,7 +60,7 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--provider", choices=tuple(PROVIDERS), default="custom")
     init.add_argument("--model", default="", help="Model ID from your chosen provider")
     for name in ("prepare", "run"):
-        command = sub.add_parser(name, help="Prepare literature" if name == "prepare" else "Prepare literature and execute the V3 pipeline")
+        command = sub.add_parser(name, help="Prepare literature" if name == "prepare" else "Prepare literature and execute the V1–V3 fusion workflow")
         command.add_argument("task", type=Path, nargs="?")
         command.add_argument("--workspace", type=Path)
         command.add_argument("--resume", type=Path, help="Reuse immutable inputs and continue the saved run")
@@ -150,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
         # Compose before any retrieval or staging so typos cannot create a run.
         from src.pipeline.cli import config_error_message, load_pipeline_config
         try:
-            load_pipeline_config(command)
+            pipeline_cfg = load_pipeline_config(command)
         except Exception as exc:
             raise ValueError(config_error_message(exc)) from exc
         if args.dry_run:
@@ -163,6 +164,10 @@ def main(argv: list[str] | None = None) -> int:
                 "pipeline_argv": command, "note": "No agent, network request, training, or workspace creation occurred.",
             }, ensure_ascii=False, indent=2))
             return 0
+        # Resume performs no retrieval and can use a scaffold drafted in run/task.
+        # Its existing runtime checks remain owned by the execution pipeline.
+        if args.command == "run" and not args.resume:
+            ensure_execution_ready(pipeline_cfg, task_dir)
         if not args.resume:
             manifest = prepare(task_dir, workspace, offline=args.offline, overrides=overrides)
         write_report(workspace)

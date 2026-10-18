@@ -129,6 +129,7 @@ def test_schema_and_paths_reject_invalid_inputs(tmp_path):
 
 
 def test_cli_dry_run_is_read_only_and_dispatches_real_pipeline(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "ensure_execution_ready", Mock())
     task = make_task(tmp_path / "task")
     workspace = tmp_path / "workspace"
     assert agsci(["research", "run", str(task), "--workspace", str(workspace), "--dry-run", "agent.name=codex"]) == 0
@@ -226,6 +227,7 @@ def test_duplicate_local_sources_and_unknown_pipeline_options_fail_early(tmp_pat
 
 
 def test_pipeline_exception_is_recorded_as_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "ensure_execution_ready", Mock())
     task = make_task(tmp_path / "task")
     workspace = tmp_path / "workspace"
     monkeypatch.setattr("src.pipeline.cli.main", Mock(side_effect=RuntimeError("fixture failure")))
