@@ -34,6 +34,8 @@
 
 一次 Linux 联合回归完成 **569 passed、2 skipped**。覆盖研究入口、冻结与恢复、实际 shell 提示传递、方法卡与论文材料边界、运行时打包，以及 broker/final evaluation 相关检查。另有 Ruff 与 23 个源文件的 mypy 检查通过。
 
+随后，两个最终审稿 backend 的专项 Linux 回归完成 **87 passed**。验证 OpenAI 的五个 reviewer 与 meta-review 均收到证据正文，且源文件、快照、顺序、名称、字节数或哈希变化会使发布检查失败。无证据输入时，旧提示与 API 参数保持不变。此项使用捕获接口，不是 OpenAI 在线调用。
+
 关键检查包括：
 
 - 新研究在初始议程调用前冻结方法学规则。
