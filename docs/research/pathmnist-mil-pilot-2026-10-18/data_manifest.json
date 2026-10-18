@@ -1,0 +1,41 @@
+{
+  "dataset": "PathMNIST 28",
+  "source": "https://zenodo.org/records/10519652/files/pathmnist.npz?download=1",
+  "license": "CC BY 4.0",
+  "source_md5": "a8b06965200029087d5bd730944a56c1",
+  "source_sha256": "81823f52dc622e69db2db4c72f8e8e617938dd6864d3c1f23d4e49724a28ea72",
+  "counts": {
+    "train": {
+      "official": 89996,
+      "exact_unique_after_prior_splits": 89996
+    },
+    "val": {
+      "official": 10004,
+      "exact_unique_after_prior_splits": 10004
+    },
+    "test": {
+      "official": 7180,
+      "exact_unique_after_prior_splits": 7180
+    }
+  },
+  "feature_recipe": "fixed color/texture -> train-only StandardScaler -> train-only PCA(48)",
+  "feature_training_uses_patch_labels": false,
+  "model_training_uses_patch_labels": false,
+  "weak_supervision": "synthetic bag label: at least one tumor patch (class 8)",
+  "train_bags": 600,
+  "validation_bags": 100,
+  "holdout_bags": 80,
+  "base_length": 16,
+  "diluted_length": 64,
+  "positive_witness_count": [
+    1,
+    2
+  ],
+  "patch_reuse_between_distinct_bags_within_each_split": false,
+  "paired_views_reuse_same_base_bag": true,
+  "patient_disjointness_verified": false,
+  "search_sha256": "93e4a5b56a9c13dd31a4a8cbeb09b7b74fbd63b6e78cacd39cd9bae6a72a2f2a",
+  "holdout_sha256": "e70b7437d1b95597c53e3a4b9d83a4be8e39672dd704fc161d74d347f37e891b",
+  "audit_sha256": "8667ff7ea5ea1e8509b25e380060bf8131f02c2f310ced94c461df73be053165",
+  "scope": "development pilot; synthetic bags, not clinical WSI evaluation"
+}

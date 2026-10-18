@@ -1,0 +1,7 @@
+papers/*.pdf
+papers/*.txt
+resources/*.npz
+resources/data_manifest.json
+__pycache__/
+.venv/
+

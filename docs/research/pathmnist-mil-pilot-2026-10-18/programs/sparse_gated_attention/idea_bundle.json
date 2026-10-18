@@ -1,0 +1,86 @@
+{
+  "hypothesis": "Restricting the parent gated-attention normalization to its two highest-scoring instances, with inclusive cutoff ties, may reduce background dilution while retaining the parent's encoder, attention learning, and classifier capacity. This is a known sparse-attention control, not an algorithmic novelty claim. Any benefit must appear in paired discrimination under both clean and corrupted bag labels; invariance is conditional on added background staying below the selection cutoff.",
+  "idea_id": "cycle03_top_two_gated_attention_control",
+  "implementation_plan": [
+    "Treat this bundle as a deferred candidate specification: the brief's two host-evaluation limit has been reached. Do not schedule a third evaluation without an explicit campaign-budget revision.",
+    "If execution is separately authorized, edit only program_1/src/program.py starting from the selected root parent. Preserve module definitions, declaration order, width 32, initialization, learning-rate default, and label-smoothing default.",
+    "Keep the parent's features and gated attention scores. Compute cutoff = scores.topk(2, dim=1).values[:, -1:] and retained = scores >= cutoff. Use weights = torch.softmax(scores.masked_fill(~retained, float('-inf')), dim=1).",
+    "Keep pooled = (weights.unsqueeze(-1) * features).sum(dim=1) and the original classifier output. Inclusive ties can retain more than two instances; this is deliberate and avoids order-dependent cutoff selection.",
+    "Use bag supervision only. Add no auxiliary losses, buffers derived from data, label-dependent logic, training loops, or diagnostics. Add no parameters.",
+    "If a revised budget permits evaluation, return the candidate for one host-owned evaluation. Obtain both AUROCs, positive-score change, runtime, actual steps, and parameter count from host records only; retain negative results and keep holdout frozen."
+  ],
+  "notes_for_agent": "No experiments are authorized in idea generation or the coding-agent turn. Cycle 1 correctly executed with combined_score 0.5448 versus incumbent 0.5582. Cycle 2 exited with missing or invalid rubric_status.json; its scientific outcome and underlying cause remain unknown. Do not call this candidate a repair or infer that top-two pooling failed scientifically. This cycle-3 artifact request does not remove the task brief's two-evaluation limit; stage the proposal and stop before further evaluation unless the campaign budget is explicitly revised. Preserve all supervision, CPU, time, step, parameter, and file-access constraints. Do not access holdout, raw patches, construction audits, or evaluator code. Source-pattern rubrics verify selected implementation fragments only; they do not independently establish all protocol constraints.",
+  "research_basis": {
+    "alternative_explanation": "Learned attention may select background extremes rather than lesion evidence. Sparse gradients may impair fitting or amplify bag-label noise. Handcrafted features may lack tumor information. Any observed gain can also reflect optimization or regularization rather than reduced dilution.",
+    "closest_work": [
+      {
+        "difference": "Restricts normalization support by a fixed second-score cutoff while preserving the parent network. The controlled paired background addition is a pilot evaluation setting, not evidence of algorithmic novelty.",
+        "evidence_ids": [
+          "abmil_2018:chars_4500_5400",
+          "abmil_2018:chars_27900_28800"
+        ],
+        "overlap": "Uses the supplied paper's gated, normalized attention pooling and bag-level supervision; method equations 7-9 in the saved full text were inspected.",
+        "source_id": "abmil_2018"
+      },
+      {
+        "difference": "Uses jointly learned attention scores and fixed-count support rather than a CUR-derived negative-instance key bank, cosine-similarity saliency, and percentage selection. This is a simpler control, not a claimed improvement over SiiMIL.",
+        "evidence_ids": [
+          "attention2minority_2023:chars_39600_40500"
+        ],
+        "overlap": "Selects salient instances before attention-based classification to address minority lesion evidence; saved full-text sections 3.4.3 and 3.5 were inspected.",
+        "source_id": "attention2minority_2023"
+      },
+      {
+        "difference": "Changes pooling only, with no pseudo-bag division, cross-bag mixing, or target mixing. Fixed symmetric bag-label flips remain evaluator-owned.",
+        "evidence_ids": [
+          "psemix_2024:chars_29700_30600",
+          "psemix_2024:chars_44100_45000"
+        ],
+        "overlap": "Related work ranks attention scores and drops low-ranked instances; label-noise robustness is a shared evaluation concern. Saved full-text method overview and related augmentation section were inspected.",
+        "source_id": "psemix_2024"
+      }
+    ],
+    "contribution": "A controlled sparse-attention pooling comparison on fixed-feature synthetic pathology bags, preserving active parent capacity. The contribution is the controlled pilot measurement, not a new selection algorithm. No novelty distinction is asserted against unavailable rank-induction or IBMIL full texts.",
+    "discriminating_test": "Under a separately revised evaluation budget, compare the frozen parent and this aggregation-only candidate using the host's paired 16/64-bag AUROCs in each label-noise condition and positive-score change. Better worst-length discrimination together with a smaller paired decline is consistent with reduced dilution. Positive-score stability without better discrimination is insufficient. Clean-only gains support sensitivity to label noise. Available aggregate metrics cannot prove that selected instances are tumors or fully separate optimization from dilution; do not request patch labels or internal diagnostics.",
+    "status": "replication"
+  },
+  "target_rubrics": [
+    {
+      "description": "combined_score > 0.5581999999999999",
+      "id": "incumbent_score_improvement",
+      "metric": "combined_score",
+      "operator": ">",
+      "threshold": 0.5581999999999999,
+      "type": "metric"
+    },
+    {
+      "description": "Normalize gated attention only over scores at or above the second largest score. Retain all cutoff ties to preserve permutation invariance for bags of length 16 and 64.",
+      "id": "tie_inclusive_top_two_attention",
+      "type": "implementation",
+      "verification": {
+        "patterns": [
+          "cutoff = scores.topk(2, dim=1).values[:, -1:]",
+          "retained = scores >= cutoff",
+          "weights = torch.softmax(scores.masked_fill(~retained, float('-inf')), dim=1)"
+        ],
+        "type": "source_contains"
+      }
+    },
+    {
+      "description": "Keep the width-32 parent encoder, both attention branches, attention projection, and classifier active in the forward path. Preserve constructor order and defaults; change aggregation only.",
+      "id": "preserve_active_parent_capacity",
+      "type": "implementation",
+      "verification": {
+        "patterns": [
+          "self.encoder = nn.Sequential(nn.Linear(input_dim, 32), nn.ReLU())",
+          "features = self.encoder(bags)",
+          "scores = self.attention_w(torch.tanh(self.attention_v(features)) * torch.sigmoid(self.attention_u(features))).squeeze(-1)",
+          "pooled = (weights.unsqueeze(-1) * features).sum(dim=1)",
+          "return self.classifier(pooled).squeeze(-1)"
+        ],
+        "type": "source_contains"
+      }
+    }
+  ],
+  "title": "Top Two Gated Attention Control"
+}

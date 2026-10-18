@@ -1,0 +1,36 @@
+{
+  "baseline": {
+    "16": {
+      "max_absolute_permutation_error": 3.725290298461914e-08,
+      "finite": true
+    },
+    "64": {
+      "max_absolute_permutation_error": 1.4901161193847656e-08,
+      "finite": true
+    }
+  },
+  "log_mean_exp": {
+    "16": {
+      "max_absolute_permutation_error": 2.384185791015625e-07,
+      "finite": true
+    },
+    "64": {
+      "max_absolute_permutation_error": 4.76837158203125e-07,
+      "finite": true
+    }
+  },
+  "sparse_gated_attention": {
+    "16": {
+      "max_absolute_permutation_error": 0.0,
+      "finite": true
+    },
+    "64": {
+      "max_absolute_permutation_error": 0.0,
+      "finite": true
+    },
+    "all_attention_scores_tied": {
+      "max_absolute_permutation_error": 1.4901161193847656e-08
+    }
+  },
+  "scope": "Forward-interface check with synthetic inputs, not training or clinical evidence."
+}

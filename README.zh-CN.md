@@ -4,6 +4,8 @@
 
 保留上游作者、许可证、运行引擎和原有命令。当前实现已做开发验证；尚未通过同预算研究基准证明优于三个原始版本。
 
+已通过本机 Magpie 的真实 GPT 调用完成一个[快速弱监督病理案例](docs/pathmnist-mil-pilot-2026-10-18.md)：文献检索、idea、候选代码、宿主评分和搜索后留出检查。两个候选均未超过基线。案例同时发现并修复了基线初始化、树配置传递和提示词约束等集成问题。[直接运行该案例](examples/pathmnist_mil/README.md)。
+
 ## 三个版本各自的长处
 
 | 版本 | 核心做法 | 值得保留的长处 | 主要边界 |
@@ -73,7 +75,7 @@ source .venv/bin/activate
 
 检查 `input_task/research_context/README.md` 和 `catalog.json`。检索失败或只有摘要时，在原始项目添加合法取得的全文，更新 `research.yaml`，再使用新的工作区。冻结输入不能被静默改写。
 
-真正运行需要 V3 的 Docker agent 镜像，以及所选 agent 的凭据。镜像构建见[安装说明](docs/install.md#docker-image)。本扩展不复制个人凭据，认证沿用 V3。
+默认的容器完整流程需要 V3 的 Docker agent 镜像，以及所选 agent 的凭据。镜像构建见[安装说明](docs/install.md#docker-image)。本扩展不复制个人凭据，认证沿用 V3。快速病理案例使用显式配置的本机开发模式，不提供容器文件隔离。
 
 ```bash
 ./scripts/local-agsci doctor playground/circle-study agent.name=codex
@@ -123,7 +125,7 @@ search:
   explore_every: 3
 ```
 
-这是字段示例，须替换标题、链接、文件和模型 ID。纯在线检索可设 `sources: []`。本地来源支持 `.pdf/.txt/.md`。key 通过环境变量传入。可以换用其他服务；[配置指南](docs/model-search.zh-CN.md)和[27 份模板](configs/research-providers/README.md)说明了原生联网、普通模型加搜索后端、自定义地址和代理的用法。
+这是字段示例，须替换标题、链接、文件和模型 ID。纯在线检索可设 `sources: []`。本地来源支持 `.pdf/.txt/.md`。key 通过环境变量传入。可以换用其他服务；[配置指南](docs/model-search.zh-CN.md)和[28 份模板](configs/research-providers/README.md)说明了原生联网、普通模型加搜索后端、自定义地址和代理的用法。
 
 来源状态为 `metadata`、`abstract`、`full_text` 或 `full_text_partial`。模型生成的摘要仅保存在 `model_summary`，不能作为原始摘要或全文。扫描 PDF 需要先 OCR。全文可用不等于完整阅读或判断正确。自动片段只是阅读入口，agent 可以读取全文并引用任意有效字符区间。
 

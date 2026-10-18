@@ -25,7 +25,7 @@
 ./scripts/research-agent providers --config deepseek
 ```
 
-[27 份 YAML 模板](../configs/research-providers/README.md)也已保存。把所选模板的 `literature.model_search` 合入项目的 `research.yaml`，保留已有的 `queries`、`sources` 和实验搜索配置。
+[28 份 YAML 模板](../configs/research-providers/README.md)也已保存。把所选模板的 `literature.model_search` 合入项目的 `research.yaml`，保留已有的 `queries`、`sources` 和实验搜索配置。
 
 新项目可以直接选择服务：
 
@@ -91,6 +91,28 @@ literature:
 | Perplexity | Agent API 的 `/v1/responses` 别名 | 解析 `search_results`；不依赖旧 Sonar Chat Completions 路径。[官方说明](https://docs.perplexity.ai/docs/agent-api/quickstart) |
 
 服务接口会变化。自定义地址和参数可以覆盖模板；本地 HTTP 测试不代表这些服务已逐个用真实账户验证。
+
+## 本机 Magpie
+
+`magpie` 模板使用本机 Responses 网关。文献检索填写：
+
+```yaml
+literature:
+  model_search:
+    provider: magpie
+    base_url: http://127.0.0.1:3425/v1
+    model: codex/gpt-6.1-sol
+    api_format: responses
+    mode: native
+    request_overrides:
+      store: false
+      include: [web_search_call.action.sources]
+      reasoning: {effort: low}
+```
+
+这是本机已配置网关的示例，端口和模型 ID 可改。上游认证由 Magpie 管理；如网关启用 key，请填写对应的 `api_key_env`。模型必须支持服务端 `web_search`，且返回结构化来源。2026-10-18 的本机连接与搜索检查已通过；这不代表 Magpie 中所有模型都支持搜索。
+
+实验 coding agent 仍需单独配置 Codex profile。快速医学案例见 [PathMNIST MIL](../examples/pathmnist_mil/README.md)。该示例通过项目的正式 `research run` 入口运行。
 
 ## 普通模型加外部搜索
 

@@ -1,0 +1,230 @@
+{
+  "status": "completed",
+  "execution_boundary": "host",
+  "seeds": [
+    11,
+    19
+  ],
+  "selected_search_score": 0.5581999999999999,
+  "holdout_sha256": "e70b7437d1b95597c53e3a4b9d83a4be8e39672dd704fc161d74d347f37e891b",
+  "programs": {
+    "baseline": {
+      "source_sha256": {
+        "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+        "src/program.py": "5d4332d4b0f11e955466e0a62ec0dff57c9b97501670c50b46aa892eab2ff7e6"
+      },
+      "metrics": {
+        "combined_score": 0.57953125,
+        "base_auc": 0.68671875,
+        "diluted_auc": 0.57953125,
+        "seconds": 0.7204128340817988,
+        "evaluation_split": "holdout",
+        "setting": "synthetic PathMNIST bags; bag labels only; fixed handcrafted PCA features",
+        "conditions": [
+          {
+            "noise_rate": 0.0,
+            "seed": 11,
+            "train_seconds": 0.10453775012865663,
+            "steps_run": 160,
+            "selected_step": 160,
+            "stop_reason": "step_limit",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.74,
+            "diluted_auc": 0.664375,
+            "worst_auc": 0.664375,
+            "positive_probability_change": 0.002965307328850031
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 11,
+            "train_seconds": 0.07877345802262425,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.64,
+            "diluted_auc": 0.5087499999999999,
+            "worst_auc": 0.5087499999999999,
+            "positive_probability_change": -0.015508726239204407
+          },
+          {
+            "noise_rate": 0.0,
+            "seed": 19,
+            "train_seconds": 0.07604345795698464,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.670625,
+            "diluted_auc": 0.520625,
+            "worst_auc": 0.520625,
+            "positive_probability_change": -0.016385788097977638
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 19,
+            "train_seconds": 0.08138383296318352,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.69625,
+            "diluted_auc": 0.624375,
+            "worst_auc": 0.624375,
+            "positive_probability_change": -0.010987084358930588
+          }
+        ]
+      }
+    },
+    "selected": {
+      "source_sha256": {
+        "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+        "src/program.py": "5d4332d4b0f11e955466e0a62ec0dff57c9b97501670c50b46aa892eab2ff7e6"
+      },
+      "metrics": {
+        "combined_score": 0.57953125,
+        "base_auc": 0.68671875,
+        "diluted_auc": 0.57953125,
+        "seconds": 0.7204128340817988,
+        "evaluation_split": "holdout",
+        "setting": "synthetic PathMNIST bags; bag labels only; fixed handcrafted PCA features",
+        "conditions": [
+          {
+            "noise_rate": 0.0,
+            "seed": 11,
+            "train_seconds": 0.10453775012865663,
+            "steps_run": 160,
+            "selected_step": 160,
+            "stop_reason": "step_limit",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.74,
+            "diluted_auc": 0.664375,
+            "worst_auc": 0.664375,
+            "positive_probability_change": 0.002965307328850031
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 11,
+            "train_seconds": 0.07877345802262425,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.64,
+            "diluted_auc": 0.5087499999999999,
+            "worst_auc": 0.5087499999999999,
+            "positive_probability_change": -0.015508726239204407
+          },
+          {
+            "noise_rate": 0.0,
+            "seed": 19,
+            "train_seconds": 0.07604345795698464,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.670625,
+            "diluted_auc": 0.520625,
+            "worst_auc": 0.520625,
+            "positive_probability_change": -0.016385788097977638
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 19,
+            "train_seconds": 0.08138383296318352,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.69625,
+            "diluted_auc": 0.624375,
+            "worst_auc": 0.624375,
+            "positive_probability_change": -0.010987084358930588
+          }
+        ]
+      },
+      "reused_from": "baseline"
+    },
+    "best_challenger": {
+      "source_sha256": {
+        "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+        "src/program.py": "64d0e1f5bd6107a2b1eef90a0940714659ef849e28df848a000e72428a0426a8"
+      },
+      "metrics": {
+        "combined_score": 0.5271874999999999,
+        "base_auc": 0.5723437499999999,
+        "diluted_auc": 0.57375,
+        "seconds": 0.7123342498671263,
+        "evaluation_split": "holdout",
+        "setting": "synthetic PathMNIST bags; bag labels only; fixed handcrafted PCA features",
+        "conditions": [
+          {
+            "noise_rate": 0.0,
+            "seed": 11,
+            "train_seconds": 0.11088720802217722,
+            "steps_run": 160,
+            "selected_step": 100,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.724375,
+            "diluted_auc": 0.551875,
+            "worst_auc": 0.551875,
+            "positive_probability_change": 0.0477583222091198
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 11,
+            "train_seconds": 0.059151916997507215,
+            "steps_run": 100,
+            "selected_step": 40,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.548125,
+            "diluted_auc": 0.54,
+            "worst_auc": 0.54,
+            "positive_probability_change": -0.014024538919329643
+          },
+          {
+            "noise_rate": 0.0,
+            "seed": 19,
+            "train_seconds": 0.08272708300501108,
+            "steps_run": 140,
+            "selected_step": 80,
+            "stop_reason": "early_stopping",
+            "parameters": 2673,
+            "flipped_training_bags": 0,
+            "base_auc": 0.51125,
+            "diluted_auc": 0.57375,
+            "worst_auc": 0.51125,
+            "positive_probability_change": 0.08090823888778687
+          },
+          {
+            "noise_rate": 0.15,
+            "seed": 19,
+            "train_seconds": 0.0950013748370111,
+            "steps_run": 160,
+            "selected_step": 120,
+            "stop_reason": "step_limit",
+            "parameters": 2673,
+            "flipped_training_bags": 90,
+            "base_auc": 0.505625,
+            "diluted_auc": 0.629375,
+            "worst_auc": 0.505625,
+            "positive_probability_change": 0.10252340883016586
+          }
+        ]
+      }
+    }
+  },
+  "note": "Descriptive synthetic-bag pilot. No patient-level or clinical WSI claim; do not tune on holdout."
+}

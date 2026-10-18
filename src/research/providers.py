@@ -17,6 +17,7 @@ class Provider:
 
 # Model IDs are deliberately supplied by the user: model access and tool support vary.
 PROVIDERS = {
+    "magpie": Provider("Magpie local gateway", "responses", "native", "http://127.0.0.1:3425/v1", "", ""),
     "openai": Provider("OpenAI", "responses", "native", "https://api.openai.com/v1", "OPENAI_API_KEY", "https://developers.openai.com/api/docs/guides/tools-web-search"),
     "openrouter": Provider("OpenRouter", "chat_completions", "native", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", "https://openrouter.ai/docs/guides/features/server-tools/web-search"),
     "anthropic": Provider("Anthropic / Claude", "anthropic", "native", "https://api.anthropic.com/v1", "ANTHROPIC_API_KEY", "https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool"),

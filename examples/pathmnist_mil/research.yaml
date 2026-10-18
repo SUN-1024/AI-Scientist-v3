@@ -1,0 +1,61 @@
+schema_version: 1
+literature:
+  queries:
+  - pathology multiple instance learning background dilution variable bag size small
+    lesions attention thresholding label noise closest methods
+  sources:
+  - id: abmil_2018
+    title: Attention-based Deep Multiple Instance Learning
+    year: 2018
+    venue: ICML
+    url: https://proceedings.mlr.press/v80/ilse18a.html
+    path: papers/abmil_2018.pdf
+  - id: attention2minority_2023
+    title: 'Attention2Minority: A salient instance inference-based multiple instance
+      learning for classifying small lesions in whole slide images'
+    year: 2023
+    venue: arXiv
+    url: https://arxiv.org/abs/2301.07700
+    path: papers/attention2minority_2023.pdf
+  - id: psemix_2024
+    title: Pseudo-Bag Mixup Augmentation for Multiple Instance Learning-Based Whole
+      Slide Image Classification
+    year: 2024
+    venue: IEEE TMI
+    url: https://arxiv.org/abs/2306.16180
+    path: papers/psemix_2024.pdf
+  max_papers: 7
+  results_per_query: 4
+  fetch_full_text: true
+  timeout_seconds: 15
+  proxy_fallback: http://127.0.0.1:7890
+  model_search:
+    provider: magpie
+    model: codex/gpt-6.1-sol
+    base_url: http://127.0.0.1:3425/v1
+    api_key_env: ''
+    api_format: responses
+    mode: native
+    api_path: ''
+    api_key_header: ''
+    api_key_prefix: ''
+    proxy_url: ''
+    timeout_seconds: 180
+    max_output_tokens: 4000
+    max_search_calls: 3
+    max_continuations: 2
+    request_overrides:
+      store: false
+      include:
+      - web_search_call.action.sources
+      reasoning:
+        effort: low
+    external_search:
+      provider: searxng
+      base_url: ''
+      api_key_env: ''
+      max_results: 5
+search:
+  strategy: tree
+  width: 4
+  explore_every: 3

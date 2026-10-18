@@ -6,6 +6,7 @@ See [the Chinese guide](../../docs/model-search.zh-CN.md) for setup and evidence
 
 | Provider | Mode | API format | Model key environment variable | Reference |
 |---|---|---|---|---|
+| [Magpie local gateway](magpie.yaml) | native | `responses` | optional; gateway configured locally | [local setup](../../docs/model-search.zh-CN.md#本机-magpie) |
 | [OpenAI](openai.yaml) | native | `responses` | `OPENAI_API_KEY` | [docs](https://developers.openai.com/api/docs/guides/tools-web-search) |
 | [OpenRouter](openrouter.yaml) | native | `chat_completions` | `OPENROUTER_API_KEY` | [docs](https://openrouter.ai/docs/guides/features/server-tools/web-search) |
 | [Anthropic / Claude](anthropic.yaml) | native | `anthropic` | `ANTHROPIC_API_KEY` | [docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) |

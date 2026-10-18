@@ -1,0 +1,43 @@
+# Project-specific profile. Magpie keeps upstream authentication locally.
+model_provider = "agsci_magpie"
+model = "codex/gpt-6.1-sol"
+model_reasoning_effort = "low"
+
+[model_providers.agsci_magpie]
+name = "Magpie for Unified Research"
+base_url = "http://127.0.0.1:3425/v1"
+wire_api = "responses"
+requires_openai_auth = false
+model_catalog_url = "http://127.0.0.1:3425/v1/codex/models"
+request_max_retries = 3
+stream_max_retries = 3
+
+[mcp_servers."computer-use"]
+enabled = false
+
+[mcp_servers."cua_repl"]
+command = "/usr/bin/false"
+enabled = false
+
+[mcp_servers."computer-history"]
+command = "/usr/bin/false"
+enabled = false
+
+[mcp_servers."node_repl"]
+enabled = false
+
+[mcp_servers."iphone-use"]
+enabled = false
+
+[mcp_servers."mirroir"]
+enabled = false
+
+[features]
+apps = false
+memories = false
+browser_use = false
+computer_use = false
+chronicle = false
+multi_agent = false
+multi_agent_v2 = false
+skip_host_skill_discovery = true

@@ -1,0 +1,71 @@
+{
+  "status": "partial",
+  "sources": [
+    {
+      "id": "abmil_2018",
+      "title": "Attention-based Deep Multiple Instance Learning",
+      "year": 2018,
+      "venue": "ICML",
+      "url": "https://proceedings.mlr.press/v80/ilse18a.html",
+      "availability": "full_text",
+      "text_sha256": "0ed15310024925ccaccae52e16cdce1849306b2ef574b5d574a70b772fbf582e"
+    },
+    {
+      "id": "attention2minority_2023",
+      "title": "Attention2Minority: A salient instance inference-based multiple instance learning for classifying small lesions in whole slide images",
+      "year": 2023,
+      "venue": "arXiv",
+      "url": "https://arxiv.org/abs/2301.07700",
+      "availability": "full_text",
+      "text_sha256": "566137f91db69ae4bb0e33e5732e4bf57719ab5686cde049e1e5491cbe1a19c8"
+    },
+    {
+      "id": "psemix_2024",
+      "title": "Pseudo-Bag Mixup Augmentation for Multiple Instance Learning-Based Whole Slide Image Classification",
+      "year": 2024,
+      "venue": "IEEE TMI",
+      "url": "https://arxiv.org/abs/2306.16180",
+      "availability": "full_text",
+      "text_sha256": "2d7099670a23ea40496ab7b5185a94150b750ee73c439dab4796d5f5f5e7aba7"
+    },
+    {
+      "id": "paper_5f663bbe212a",
+      "title": "Ranking-Aware Multiple Instance Learning for Histopathology Slide Classification: Development and Validation Study",
+      "year": 2026,
+      "venue": "JMIR Medical Informatics",
+      "url": "https://doi.org/10.2196/84417",
+      "availability": "metadata",
+      "text_sha256": null
+    },
+    {
+      "id": "paper_c7813d99c1b5",
+      "title": "LNPL-MIL: Learning from Noisy Pseudo Labels for Promoting Multiple Instance Learning in Whole Slide Image",
+      "year": 2023,
+      "venue": "Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)",
+      "url": "https://openaccess.thecvf.com/content/ICCV2023/html/Shao_LNPL-MIL_Learning_from_Noisy_Pseudo_Labels_for_Promoting_Multiple_Instance_ICCV_2023_paper.html",
+      "availability": "full_text",
+      "text_sha256": "38b676da6a3dcf1304da6cf890960c7294e3decdce6923f80c6e3995205ad7d2"
+    },
+    {
+      "id": "paper_3b18bd06fa7e",
+      "title": "Label Cleaning Multiple Instance Learning: Refining Coarse Annotations on Single Whole-Slide Images",
+      "year": 2022,
+      "venue": "IEEE Transactions on Medical Imaging",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9825360/",
+      "availability": "metadata",
+      "text_sha256": null
+    }
+  ],
+  "retrieval_errors": [
+    {
+      "stage": "full_text",
+      "source_id": "paper_5f663bbe212a",
+      "error": "Cannot read an empty file"
+    },
+    {
+      "stage": "full_text",
+      "source_id": "paper_3b18bd06fa7e",
+      "error": "Retrieval failed for https://ieeexplore.ieee.org/ielx7/42/9969446/09869889.pdf: HTTP Error 418: Unknown Code"
+    }
+  ]
+}

@@ -212,7 +212,7 @@ def test_anthropic_pause_preserves_search_results_and_has_a_bound(tmp_path, monk
 
 def test_all_provider_templates_are_valid_and_cli_does_not_write_secrets(capsys, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", SECRET)
-    assert len(PROVIDERS) == 27
+    assert len(PROVIDERS) == 28
     for name in PROVIDERS:
         assert cli.main(["providers", "--config", name]) == 0
         text = capsys.readouterr().out

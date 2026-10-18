@@ -1,0 +1,41 @@
+{
+  "status": "post-search descriptive analysis; no additional training",
+  "conditions": [
+    {
+      "program": "baseline",
+      "noise_rate": 0.0,
+      "positive_probability_change": 0.016824018210172653,
+      "negative_probability_change": 0.07225683331489563
+    },
+    {
+      "program": "baseline",
+      "noise_rate": 0.15,
+      "positive_probability_change": 0.022747309878468513,
+      "negative_probability_change": 0.09929759055376053
+    },
+    {
+      "program": "log_mean_exp",
+      "noise_rate": 0.0,
+      "positive_probability_change": -0.009115499444305897,
+      "negative_probability_change": 0.06759610772132874
+    },
+    {
+      "program": "log_mean_exp",
+      "noise_rate": 0.15,
+      "positive_probability_change": -0.013560004532337189,
+      "negative_probability_change": 0.007130431476980448
+    },
+    {
+      "program": "sparse_gated_attention",
+      "noise_rate": 0.0,
+      "positive_probability_change": 0.07333488762378693,
+      "negative_probability_change": 0.08004329353570938
+    },
+    {
+      "program": "sparse_gated_attention",
+      "noise_rate": 0.15,
+      "positive_probability_change": 0.05754683166742325,
+      "negative_probability_change": 0.0576472133398056
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+[
+  {
+    "noise_rate": 0.0,
+    "seed": 7,
+    "train_seconds": 0.1076186669524759,
+    "steps_run": 160,
+    "selected_step": 140,
+    "stop_reason": "step_limit",
+    "parameters": 2673,
+    "flipped_training_bags": 0,
+    "trace": [
+      {
+        "step": 20,
+        "loss": 0.6680449843406677,
+        "base_auc": 0.5344000000000001,
+        "diluted_auc": 0.42919999999999997,
+        "worst_auc": 0.42919999999999997,
+        "positive_probability_change": -0.00661518145352602
+      },
+      {
+        "step": 40,
+        "loss": 0.693347692489624,
+        "base_auc": 0.5608,
+        "diluted_auc": 0.4416,
+        "worst_auc": 0.4416,
+        "positive_probability_change": -0.01237450260668993
+      },
+      {
+        "step": 60,
+        "loss": 0.6259377002716064,
+        "base_auc": 0.5760000000000001,
+        "diluted_auc": 0.43479999999999996,
+        "worst_auc": 0.43479999999999996,
+        "positive_probability_change": -0.012960821390151978
+      },
+      {
+        "step": 80,
+        "loss": 0.642436146736145,
+        "base_auc": 0.6407999999999999,
+        "diluted_auc": 0.49,
+        "worst_auc": 0.49,
+        "positive_probability_change": -0.018082069233059883
+      },
+      {
+        "step": 100,
+        "loss": 0.6121233701705933,
+        "base_auc": 0.6735999999999999,
+        "diluted_auc": 0.5388,
+        "worst_auc": 0.5388,
+        "positive_probability_change": -0.01941147819161415
+      },
+      {
+        "step": 120,
+        "loss": 0.6603394150733948,
+        "base_auc": 0.6883999999999999,
+        "diluted_auc": 0.6023999999999999,
+        "worst_auc": 0.6023999999999999,
+        "positive_probability_change": -0.0010245717130601406
+      },
+      {
+        "step": 140,
+        "loss": 0.48472949862480164,
+        "base_auc": 0.7,
+        "diluted_auc": 0.6279999999999999,
+        "worst_auc": 0.6279999999999999,
+        "positive_probability_change": 0.016824018210172653
+      },
+      {
+        "step": 160,
+        "loss": 0.4590190351009369,
+        "base_auc": 0.694,
+        "diluted_auc": 0.5916,
+        "worst_auc": 0.5916,
+        "positive_probability_change": 0.02771892584860325
+      }
+    ],
+    "base_auc": 0.7,
+    "diluted_auc": 0.6279999999999999,
+    "worst_auc": 0.6279999999999999,
+    "positive_probability_change": 0.016824018210172653
+  },
+  {
+    "noise_rate": 0.15,
+    "seed": 7,
+    "train_seconds": 0.08964562509208918,
+    "steps_run": 160,
+    "selected_step": 160,
+    "stop_reason": "step_limit",
+    "parameters": 2673,
+    "flipped_training_bags": 90,
+    "trace": [
+      {
+        "step": 20,
+        "loss": 0.6690911650657654,
+        "base_auc": 0.516,
+        "diluted_auc": 0.42999999999999994,
+        "worst_auc": 0.42999999999999994,
+        "positive_probability_change": -0.00561664579436183
+      },
+      {
+        "step": 40,
+        "loss": 0.6678017973899841,
+        "base_auc": 0.5416,
+        "diluted_auc": 0.46440000000000003,
+        "worst_auc": 0.46440000000000003,
+        "positive_probability_change": -0.014433631673455238
+      },
+      {
+        "step": 60,
+        "loss": 0.5896300077438354,
+        "base_auc": 0.5696,
+        "diluted_auc": 0.4764,
+        "worst_auc": 0.4764,
+        "positive_probability_change": -0.02033122070133686
+      },
+      {
+        "step": 80,
+        "loss": 0.6569738388061523,
+        "base_auc": 0.5800000000000001,
+        "diluted_auc": 0.4663999999999999,
+        "worst_auc": 0.4663999999999999,
+        "positive_probability_change": -0.010646052658557892
+      },
+      {
+        "step": 100,
+        "loss": 0.6115003824234009,
+        "base_auc": 0.6120000000000001,
+        "diluted_auc": 0.4776,
+        "worst_auc": 0.4776,
+        "positive_probability_change": -0.021597452461719513
+      },
+      {
+        "step": 120,
+        "loss": 0.6129699945449829,
+        "base_auc": 0.5848,
+        "diluted_auc": 0.47800000000000004,
+        "worst_auc": 0.47800000000000004,
+        "positive_probability_change": -0.004614304751157761
+      },
+      {
+        "step": 140,
+        "loss": 0.570781946182251,
+        "base_auc": 0.5888,
+        "diluted_auc": 0.47519999999999996,
+        "worst_auc": 0.47519999999999996,
+        "positive_probability_change": 0.008043017238378525
+      },
+      {
+        "step": 160,
+        "loss": 0.4738750159740448,
+        "base_auc": 0.5824,
+        "diluted_auc": 0.4884,
+        "worst_auc": 0.4884,
+        "positive_probability_change": 0.022747309878468513
+      }
+    ],
+    "base_auc": 0.5824,
+    "diluted_auc": 0.4884,
+    "worst_auc": 0.4884,
+    "positive_probability_change": 0.022747309878468513
+  }
+]

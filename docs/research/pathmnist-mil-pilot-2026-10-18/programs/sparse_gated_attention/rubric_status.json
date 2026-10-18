@@ -1,0 +1,30 @@
+{
+  "attempt_id": "cycle03_top_two_gated_attention_control_attempt_01",
+  "idea_id": "cycle03_top_two_gated_attention_control",
+  "metrics": {
+    "combined_score": 0.5456000000000001,
+    "correct": true
+  },
+  "next_recommendation": "generate a new idea",
+  "overall_pass": false,
+  "rubrics": [
+    {
+      "assessment": "failed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.5456000000000001; combined_score=0.5456 > 0.5582",
+      "id": "incumbent_score_improvement",
+      "pass": false
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.5456000000000001; source_contains=3 patterns",
+      "id": "tie_inclusive_top_two_attention",
+      "pass": true
+    },
+    {
+      "assessment": "passed",
+      "evidence": "harness_evaluated_once exit=0; correct=True; combined_score=0.5456000000000001; source_contains=5 patterns",
+      "id": "preserve_active_parent_capacity",
+      "pass": true
+    }
+  ]
+}

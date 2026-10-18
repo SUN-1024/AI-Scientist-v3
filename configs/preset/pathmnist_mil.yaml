@@ -1,0 +1,28 @@
+# @package _global_
+# Fast local experiment. The named Codex profile routes only this run to Magpie.
+agent:
+  name: codex
+  model: codex/gpt-6.1-sol
+  profile: agsci-magpie
+  reasoning_effort: low
+container:
+  enabled: false
+  env_file: ""
+execution:
+  phases: investigation
+versioning:
+  # Upstream descriptor-pinned Git snapshots require Linux. JSON evidence remains.
+  enabled: false
+investigation:
+  execution:
+    workers: 1
+    max_idea_cycles: 2
+    max_idea_generation_attempts: 2
+    max_program_evals_per_attempt: 1
+    idea_timeout_seconds: 300
+    run_timeout_seconds: 600
+    harness_evaluation_timeout_seconds: 90
+    harness_evaluated_attempts: true
+    gpu_evaluation: false
+  paper:
+    enabled: false

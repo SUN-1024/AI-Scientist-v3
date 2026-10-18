@@ -1,0 +1,28 @@
+# Local Magpie gateway. Change the model to a model exposed by /v1/models.
+literature:
+  model_search:
+    provider: magpie
+    model: codex/gpt-6.1-sol
+    base_url: http://127.0.0.1:3425/v1
+    api_key_env: ''
+    api_format: responses
+    mode: native
+    api_path: ''
+    api_key_header: ''
+    api_key_prefix: ''
+    proxy_url: ''
+    timeout_seconds: 180
+    max_output_tokens: 4000
+    max_search_calls: 3
+    max_continuations: 2
+    request_overrides:
+      store: false
+      include:
+      - web_search_call.action.sources
+      reasoning:
+        effort: low
+    external_search:
+      provider: searxng
+      base_url: ''
+      api_key_env: ''
+      max_results: 5

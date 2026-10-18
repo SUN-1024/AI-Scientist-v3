@@ -1,0 +1,21 @@
+{
+  "seeds": [
+    11,
+    19
+  ],
+  "selection_rule": "Search incumbent and optional highest validation-score correct challenger",
+  "programs": {
+    "baseline": {
+      "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+      "src/program.py": "5d4332d4b0f11e955466e0a62ec0dff57c9b97501670c50b46aa892eab2ff7e6"
+    },
+    "selected": {
+      "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+      "src/program.py": "5d4332d4b0f11e955466e0a62ec0dff57c9b97501670c50b46aa892eab2ff7e6"
+    },
+    "best_challenger": {
+      "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+      "src/program.py": "64d0e1f5bd6107a2b1eef90a0940714659ef849e28df848a000e72428a0426a8"
+    }
+  }
+}

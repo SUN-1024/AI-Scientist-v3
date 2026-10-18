@@ -1,0 +1,38 @@
+{
+  "combined_score": 0.5448,
+  "base_auc": 0.6606000000000001,
+  "diluted_auc": 0.5448,
+  "seconds": 0.5476015841122717,
+  "evaluation_split": "validation",
+  "setting": "synthetic PathMNIST bags; bag labels only; fixed handcrafted PCA features",
+  "conditions": [
+    {
+      "noise_rate": 0.0,
+      "seed": 7,
+      "train_seconds": 0.09327133418992162,
+      "steps_run": 160,
+      "selected_step": 160,
+      "stop_reason": "step_limit",
+      "parameters": 2673,
+      "flipped_training_bags": 0,
+      "base_auc": 0.72,
+      "diluted_auc": 0.5788,
+      "worst_auc": 0.5788,
+      "positive_probability_change": -0.009115499444305897
+    },
+    {
+      "noise_rate": 0.15,
+      "seed": 7,
+      "train_seconds": 0.05934200016781688,
+      "steps_run": 120,
+      "selected_step": 60,
+      "stop_reason": "early_stopping",
+      "parameters": 2673,
+      "flipped_training_bags": 90,
+      "base_auc": 0.6012000000000001,
+      "diluted_auc": 0.5108,
+      "worst_auc": 0.5108,
+      "positive_probability_change": -0.013560004532337189
+    }
+  ]
+}

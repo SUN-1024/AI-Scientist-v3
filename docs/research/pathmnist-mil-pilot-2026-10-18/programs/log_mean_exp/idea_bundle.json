@@ -1,0 +1,70 @@
+{
+  "hypothesis": "Provisional: if the documented candidate interface exposes instance logits and permits candidate-owned aggregation, a normalized log-mean-exp pool may improve the canonical score by reducing the accumulation of weak instance evidence while retaining gradients from several strong instances. This hypothesis is not an observed diagnosis of the incumbent. Interface support, task semantics, and the baseline aggregation remain unverified.",
+  "idea_id": "cycle01_cardinality_stable_evidence_pooling",
+  "implementation_plan": [
+    "Start from the exact best-known program recorded in the manifest; preserve the task's acceptance requirements.",
+    "Before editing, read the named task documentation and incumbent src/program.py. Confirm the goal, label semantics, permitted outputs, instance-logit availability, masking convention, and ownership of aggregation. Do not inspect forbidden evaluator code.",
+    "Proceed only if candidate-owned aggregation of instance logits is explicitly supported. Otherwise report this hypothesis as unsupported; do not invent instance labels, new losses, evaluator controls, or output fields.",
+    "For valid instance logits x, implement normalized log-mean-exp along the instance dimension: temperature times logsumexp(x / temperature), minus temperature times log(valid instance count). Exclude padding before reduction. Retain all existing output keys and shapes.",
+    "Use temperature 1.0 for the first controlled candidate. Change only aggregation, with no added supervision, augmentation, encoder change, or training-budget increase.",
+    "Use the permitted evaluation loop to compare against the incumbent. Separately compare uniform duplication of every valid instance with the original bag: this pool must give identical output within numerical tolerance. Do not treat this algebraic check as proof of predictive benefit.",
+    "If resources and the documented interface permit a subsequent matched control, compare normalized log-mean-exp with max pooling and mean pooling under the same training protocol. Interpret gains over mean alone as insufficient evidence for a distinct mechanism."
+  ],
+  "notes_for_agent": "Readiness is provisional, not implementation authorization outside the documented interface. The prompt supplies no Goal or Rubrics section and no candidate-interface description. No source files, skill files, or saved full texts could be read with the available non-command tools. Do not infer that the baseline uses attention or has a defect. The bootstrap is accepted with combined_score 0.5581999999999999; there are no failed attempts to diagnose. Existing top-k selection, negative-reference filtering, pseudo-bag augmentation, and attention aggregation are alternative approaches, not disproven methods. This is an engineering hypothesis, not a publication-level novelty claim. The requested skill helper could not be run because subprocess and command execution are forbidden; the memory gate is skipped because there is no new experimental evidence. Implementation snippets check source presence only and do not certify masking, numerical behavior, or correctness.",
+  "research_basis": {
+    "alternative_explanation": "Any improvement could come from a different pooling inductive bias or effective sharpness rather than correction of bag-cardinality sensitivity. The incumbent may already normalize attention and may already be invariant to uniform duplication.",
+    "closest_work": [
+      {
+        "difference": "The proposed candidate would pool existing logits with a fixed normalized log-mean-exp instead of adding a learned attention operator. This is provisional: the supplied abstract passage does not establish the paper's full method boundary or exclude related pooling baselines.",
+        "evidence_ids": [
+          "abmil_2018:chars_0_900"
+        ],
+        "overlap": "Both concern permutation-invariant aggregation of instance evidence for bag classification.",
+        "source_id": "abmil_2018"
+      },
+      {
+        "difference": "The supplied passage describes CUR-based negative representation learning and salient-instance selection. This candidate proposes neither negative-reference mining nor instance removal. Full-method comparison remains required.",
+        "evidence_ids": [
+          "attention2minority_2023:chars_39600_40500"
+        ],
+        "overlap": "Both seek to reduce the influence of weak or uninformative instances.",
+        "source_id": "attention2minority_2023"
+      },
+      {
+        "difference": "The supplied passage describes limited patch annotations, pseudo-label cleaning, Top-K selection, and TOD-MIL. This proposal would use only existing logits with no new annotations or pseudo-label training. This does not establish novelty over the broader literature.",
+        "evidence_ids": [
+          "paper_c7813d99c1b5:chars_29700_30600"
+        ],
+        "overlap": "Both can concentrate the contribution of stronger instances.",
+        "source_id": "paper_c7813d99c1b5"
+      }
+    ],
+    "contribution": "Test one parameter-free aggregation replacement with an explicit normalization for valid bag cardinality, using only existing candidate-visible logits if available. No scientific novelty claim is established.",
+    "discriminating_test": "First check whether the incumbent is already invariant to uniform instance duplication. If it is, reject cardinality correction as the explanation for a gain. With matched training, compare the proposed pool against mean and max pooling; record only permitted aggregate metrics. Uniform duplication checks normalization, while comparative predictive evaluation tests utility. Neither establishes robustness to arbitrary added background instances.",
+    "status": "needs_verification"
+  },
+  "target_rubrics": [
+    {
+      "description": "combined_score > 0.5581999999999999",
+      "id": "incumbent_score_improvement",
+      "metric": "combined_score",
+      "operator": ">",
+      "threshold": 0.5581999999999999,
+      "type": "metric"
+    },
+    {
+      "description": "Only after interface verification, implement normalized log-mean-exp on valid instance logits. valid_count must count unpadded instances on the same reduction axis; temperature must be positive and initially 1.0. Preserve the documented candidate contract.",
+      "id": "normalized_evidence_pooling",
+      "type": "implementation",
+      "verification": {
+        "patterns": [
+          "temperature = 1.0",
+          "scaled_logits = instance_logits / temperature",
+          "pooled_logits = temperature * (torch.logsumexp(scaled_logits, dim=instance_dim) - valid_count.log())"
+        ],
+        "type": "source_contains"
+      }
+    }
+  ],
+  "title": "Cardinality Stable Evidence Pooling"
+}
