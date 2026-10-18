@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "56668a67c94d98407878a8788dfae81236ac581710123b19fe335c4522b8f901",
+  "idea_id": "cycle_05_shared_classifier_attention_lme_control",
+  "title": "Shared-classifier attention and log-mean-exp control",
+  "hypothesis": "A fixed equal blend of the baseline attention logit and an ordinary log-mean-exp (LME) of instance logits may improve worst-view development AUROC by giving high class-evidence instances a prediction path that does not depend on learned attention scores. Both paths share the existing encoder and classifier. The attention path keeps all baseline modules connected without adding parameters. This tests the weak ordinary-LME calibration lead after attention-weighted LME and sparse normalizers underperformed. A gain may instead reflect changed fitting or regularization; improved paired discrimination under both label-noise conditions is needed to support background tolerance.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

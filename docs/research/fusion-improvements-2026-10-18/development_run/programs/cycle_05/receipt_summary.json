@@ -1,0 +1,32 @@
+{
+  "original_receipt_sha256": "6b94f47c03aedd58d1ad0e78ea592ae20428e34f259ace0be843e2db77b0abe3",
+  "producer": "harness_eval",
+  "execution_boundary": "host",
+  "attempt_id": "cycle_05_shared_classifier_attention_lme_control_attempt_01",
+  "idea_id": "cycle_05_shared_classifier_attention_lme_control",
+  "program_id": "program_1",
+  "started_at": "2026-10-18T04:59:58.683434+00:00",
+  "finished_at": "2026-10-18T05:00:03.639268+00:00",
+  "exit_code": 0,
+  "returncode": 0,
+  "source_sha256": {
+    "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+    "src/program.py": "fefa4d6e48604fb07a4516ca451aa08c5fcc3ecf86132fc717fd68f03c4831b3"
+  },
+  "evaluator_sha256": "fdc17fd5c2992cecad7991015af8c0c675bd39ce41ee8841f951cbbe47c10ab8",
+  "evaluation_inputs_sha256": {
+    "native_evaluation_inputs.json": "939379251d6e14a20a267eb104e90f1ab639549d639651fdcd3f511fba77fae5",
+    "protocol.py": "6fa768b7ab31046a49c0656cf26aeb7d518b33e69f87127a77823610c52c7e4f",
+    "resources/data_manifest.json": "4133d74c1113e4abf0de66d34f94d089962d059c16df6696b7a7c0813fd4026e",
+    "resources/search.npz": "93e4a5b56a9c13dd31a4a8cbeb09b7b74fbd63b6e78cacd39cd9bae6a72a2f2a",
+    "evaluation_protocol.json": "ecd0c391a6ae3d2d9ec41daeec9516917d77590df710d8d8fa9dbded39038fc9"
+  },
+  "original_result_sha256": {
+    "metrics.json": "2607f4804e05a21818e5c64b0dc6ebb44286c9c40dcbf833e7b03dfcff750872",
+    "correct.json": "674c15f929f2f532eae48bd575ba46b72071f2b3f1caaa25f80e7a03713bbcb5"
+  },
+  "exported_metrics_sha256": "7a2190cae40e99fb01249f6266c342964b59702682eb71ac65971eddfe23defd",
+  "metadata_normalization": {
+    "metrics.json": "protocol_source replaced with portable task/evaluation_protocol.json; all numeric results unchanged"
+  }
+}

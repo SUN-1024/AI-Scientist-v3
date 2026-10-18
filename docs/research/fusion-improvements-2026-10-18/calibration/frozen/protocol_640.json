@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "seeds": [
+    7,
+    11,
+    19
+  ],
+  "noise_rates": [
+    0.0,
+    0.15
+  ],
+  "max_steps": 640,
+  "check_every": 20,
+  "patience": null,
+  "min_delta": 0.001,
+  "max_fit_seconds": 20.0,
+  "max_parameters": 20000,
+  "batch_size": 32,
+  "learning_rate": 0.003,
+  "label_smoothing": 0.0,
+  "weight_decay": 0.0001,
+  "gradient_clip_norm": 5.0,
+  "num_threads": 2
+}

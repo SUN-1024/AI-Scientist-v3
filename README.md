@@ -1,16 +1,46 @@
 
-<p align="center">
-<img src="docs/assets/logo.png" alt="The Agentic Scientist" width="800" />
-</p>
-
 <h1 align="center">
-  The Agentic Scientist<br>
-  <sub>Orchestrating Coding Agents for Automated Scientific (Co-)Discovery</sub>
+  Unified AI Scientist<br>
+  <sub>V1–V3 Fusion: Literature, Experiment Search, and Verified Execution</sub>
 </h1>
 
 <p align="center">
-  <i>Turn a task description into experiments, ablations, and a paper, driven by coding agents.</i>
+  <a href="README.zh-CN.md">中文说明</a> ·
+  <a href="docs/research-quality-guide.zh-CN.md">Research quality and budget guide</a>
 </p>
+
+This project combines V1-inspired reusable research starts and literature review,
+V2-inspired experiment branching, and the V3 execution and evidence pipeline.
+Start with `./scripts/research-agent`; the integrated workflow is the main entry
+point of this fork. It is not a fourth official SakanaAI release.
+
+The current integration includes bounded tree exploration, source-linked ideas,
+host-scored experiments, and evidence-linked writing. It does not yet reproduce
+the full V2 adaptive stage manager. Larger API budgets allow more work; they do
+not establish better scientific results. See the [implementation map](README.zh-CN.md#整合方式)
+and [validation record](docs/unified-research-validation.md).
+
+```bash
+./scripts/research-agent init playground/circle-study --template circpack \
+  --provider openrouter --model 'YOUR_MODEL_ID' \
+  --query 'circle packing unequal circles unit square optimization'
+./scripts/research-agent run playground/circle-study \
+  --workspace results/unified/circle-study --dry-run
+```
+
+Configure the selected provider and execution agent before running. The
+[CPU pathology example](examples/pathmnist_mil/README.md) includes a reproducible
+development study and separate settings for a quick check and a larger search.
+The [latest improvement report](docs/fusion-improvements-2026-10-18.md) records
+418 passing regression tests, training-budget calibration, and six live search
+cycles. The selected candidate improved the initial development baseline;
+independent confirmation remains outstanding.
+
+## Upstream engine and attribution
+
+The execution engine is based on SakanaAI's **The Agentic Scientist / AI Scientist V3**.
+Original authorship and the Apache-2.0 license are retained. V1 and V2 inform the
+integration design; their executors are not copied into this repository.
 
 <p align="center">
   <a href="https://arxiv.org/abs/2610.18933"><img src="https://img.shields.io/badge/arXiv-2610.18933-b31b1b.svg" alt="arXiv"></a>
@@ -24,9 +54,8 @@ the task rubric, and iterate toward stronger programs. The pipeline then runs
 baselines and ablations, a sealed final evaluation, post-hoc analyses, and
 writes the paper, with every stage kept under one run directory.
 
-**Unified research extension:** see [中文说明与 V1/V2/V3 比较](README.zh-CN.md)
-for the optional `agsci research` workflow: literature preparation, reusable
-baselines, branching experiments, and evidence-linked writing.
+The following sections document the inherited engine and its `agsci run`
+interface. Use [the fusion guide](README.zh-CN.md) for `agsci research`.
 
 ## Install
 

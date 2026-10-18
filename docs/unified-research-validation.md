@@ -6,9 +6,11 @@ Updated: 2026-10-18. Base revision: `b72f0b014e80b59e1c8d881055b6353b1777927d`.
 
 The [PathMNIST pilot report](pathmnist-mil-pilot-2026-10-18.md) records a real Magpie/GPT native-search → idea → coding → host-evaluation run through `research run`. It evaluated the baseline and two candidates. Neither candidate improved validation, and the search retained the baseline. A post-search, two-seed holdout check also favored the baseline over the highest validation-score challenger. The run did not include paper writing or sealed container evaluation.
 
-The latest regression commands passed 292 main tests plus 5 baseline-checkpoint tests (297 total). Native baseline receipt validation, effective tree configuration and complete task-brief prompt tests are included. One Linux-specific descriptor test was excluded on macOS; its earlier Linux check passed. Ruff and mypy passed. Frozen code, metrics, data hashes, source availability and interface checks accompany the report.
+The latest aggregate regression passed **418 tests**, with one Linux-specific descriptor test excluded on macOS; its earlier Linux check passed. This includes native receipts and dependency binding, host-only result promotion, transient retry fault injection through the real shell wrapper, effective budgets, multi-seed protocols, preflight checks, and both Inspector directory layouts. Ruff passed. Mypy passed for 16 changed source modules with `--follow-imports=silent`; unrestricted import traversal still encounters an existing type issue in `orchestrator/idea_bundle.py`. Frozen code, metrics, data hashes, source availability and interface checks accompany the reports.
 
-A transient upstream 502 prevented one coding call from producing a candidate. It is recorded as an execution failure, not scientific underperformance. The final dedicated Magpie profile increases bounded request/stream retries to three; recovery under injected faults has not been tested.
+The [fusion improvement report](fusion-improvements-2026-10-18.md) adds a 54-fit development calibration and a completed six-cycle live search under a frozen three-seed, 640-step protocol. All six candidates passed correctness checks; cycle 5 raised the development score from 0.58353 to 0.58993 and remained selected after cycle 6. Its aggregate score equals the calibrated ordinary-LME control, and the gain is not consistent across all seeds. The search did not use the previously viewed holdout. This is not independent confirmation or a matched-budget comparison of research systems.
+
+In the first pilot, a transient upstream 502 prevented one coding call from producing a candidate. It is recorded as an execution failure, not scientific underperformance. The dedicated Magpie profile allows three request/stream attempts; gateway-level recovery itself has not been fault-injection tested. The new host-side campaign retry is a separate mechanism, tested through the real shell wrapper with an injected transient failure followed by success.
 
 ## Execution and evidence integration
 
@@ -35,9 +37,12 @@ export AGENTIC_TEMP_ROOT="$TMPDIR"
   tests/investigation/test_campaign_ideas.py \
   tests/investigation/test_harness_eval.py \
   tests/investigation/test_investigation_cli.py \
+  tests/investigation/test_campaign_retry_budget.py \
+  tests/investigation/test_execution_retry_config.py \
   tests/checkpoints/test_best_manifest_bootstrap.py \
   tests/pipeline/test_pipeline_config.py \
   tests/pipeline/test_agsci_cli.py \
+  tests/pipeline/test_run_inspector.py \
   tests/paper/test_paper_prompting.py \
   tests/paper/test_paper_data.py \
   tests/paper/test_paper_references.py \
@@ -66,4 +71,4 @@ The previous front-of-study Semantic Scholar adapter has been removed. There are
 
 The native CLI was also exercised with an offline project, its configured provider/model preserved in preview and report. The research launcher selects an available modern Bash and uses a canonical task temporary directory on macOS. No Semantic Scholar API endpoint remains in the research retrieval code. Setup and account-specific configuration are in [the model search guide](model-search.zh-CN.md).
 
-The regression command emitted one upstream `scholarly` SyntaxWarning from its legacy compatibility test; no test failed.
+An earlier regression run emitted one upstream `scholarly` SyntaxWarning from its legacy compatibility test; no test failed. The latest 418-test run completed without reported warnings.

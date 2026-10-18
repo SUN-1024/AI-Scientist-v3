@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "required": [
+    "protocol.py",
+    "resources/data_manifest.json",
+    "resources/search.npz"
+  ],
+  "optional": [
+    "evaluation_protocol.json"
+  ]
+}

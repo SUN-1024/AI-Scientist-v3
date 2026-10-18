@@ -1,0 +1,111 @@
+{
+  "original_tree_sha256": "459b6f59182fc2262c97eb827e76b745b1a7e34cc26aa654fd290f9ed9e9a853",
+  "leases": {
+    "1": "root",
+    "2": "cycle_0001",
+    "3": "root",
+    "4": "cycle_0003",
+    "5": "root",
+    "6": "cycle_0005"
+  },
+  "nodes": {
+    "cycle_0001": {
+      "correct": true,
+      "cycle": 1,
+      "depth": 1,
+      "exit_code": 0,
+      "hypothesis": "Replacing the baseline's attention-weighted arithmetic mean of instance logits with an attention-weighted log-mean-exp can give rare high-scoring evidence more influence without hard instance selection or fewer active parameters. With the same encoder, gated attention, classifier, and training protocol, this predicts a smaller paired 16-to-64 discrimination loss under both clean labels and fixed 15% label flips. The prediction fails if gains occur only on 16-patch bags, disappear under label noise, or come with negative-bag probability increases that erase class-margin preservation. The supplied calibration does not establish that dilution occurs in this feature setting; this experiment tests it.",
+      "idea_id": "cycle_01_attention_weighted_lme_control",
+      "node_id": "cycle_0001",
+      "parent_id": "root",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/01_capacity_matched_attention_weighted_log_mean_exp_control/01_attempt/program_1",
+      "score": 0.5694666666666667,
+      "source_sha256": "091f2ac6082a0d32175a90cd81918b8355b92683ae7b4e4c9f865928365d7589"
+    },
+    "cycle_0002": {
+      "correct": true,
+      "cycle": 2,
+      "depth": 2,
+      "exit_code": 0,
+      "hypothesis": "The selected attention-weighted log-mean-exp parent may amplify extreme background scores rather than preserve tumor evidence. Its completed development evaluation shows larger negative than positive probability increases, and falling class margins, in all six seed/noise conditions. Apply the fixed smooth bound z = 2*tanh(raw_z/2) to each instance classifier logit before the unchanged weighted log-mean-exp. This limits exponential evidence ratios while retaining every instance and all parent parameters. Compared with that parent, predict less negative-bag probability inflation, less loss of class margin, and better extended-bag discrimination under both clean labels and fixed 15% flips. The mechanism is unsupported if both probability shifts merely shrink while extended-view AUROC and class-margin retention do not improve. A gain confined to clean labels fails the noise-robustness prediction. This is an established-component control, not a new method or an established solution to dilution.",
+      "idea_id": "cycle_02_bounded_evidence_weighted_lme_control",
+      "node_id": "cycle_0002",
+      "parent_id": "cycle_0001",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/02_bounded_evidence_attention_weighted_log_mean_exp_control/01_attempt/program_1",
+      "score": 0.5786000000000001,
+      "source_sha256": "c4bedc24332420dbd951a7d3567252f2eed307deb27f3b565dea510127332b95"
+    },
+    "cycle_0003": {
+      "correct": true,
+      "cycle": 3,
+      "depth": 1,
+      "exit_code": 0,
+      "hypothesis": "Replacing only baseline softmax attention normalization with the established sparsemax simplex projection may reduce paired discrimination loss when background patches receive scores below its adaptive support threshold. Such patches then receive exactly zero weight. This tests cumulative low-score background influence without an exponential instance-logit readout or a fixed top-2 support. It does not ensure that learned scores separate tumor from background, and improvement under label flips remains an empirical question.",
+      "idea_id": "cycle_03_adaptive_sparsemax_attention_control",
+      "node_id": "cycle_0003",
+      "parent_id": "root",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/03_adaptive_sparsemax_gated_attention_control/01_attempt/program_1",
+      "score": 0.5652,
+      "source_sha256": "7a40eaaf2237995db81601f07bbd9a54f7a8da70a87c4d4b8d4e2c62150df0b5"
+    },
+    "cycle_0004": {
+      "correct": true,
+      "cycle": 4,
+      "depth": 2,
+      "exit_code": 0,
+      "hypothesis": "The selected sparsemax parent scored below the incumbent and lost paired AUROC in five of six seed/noise conditions. Exact attention exclusion may remove useful training signals as well as background. Replace its weights with the fixed midpoint 0.5*sparsemax(scores) + 0.5*softmax(scores), using the same scores, modules, and embedding readout. The dense component provides an additional gradient path for instances outside sparsemax support, while the sparse component retains selective emphasis. This may recover short-bag discrimination and improve worst-view development AUROC under both label-noise conditions. Gradient starvation is an unverified explanation, and the mixture does not guarantee background invariance.",
+      "idea_id": "cycle_04_softmax_residual_sparsemax_control",
+      "node_id": "cycle_0004",
+      "parent_id": "cycle_0003",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/04_softmax_residual_sparsemax_attention_control/01_attempt/program_1",
+      "score": 0.5790666666666667,
+      "source_sha256": "e8baceb7adf94803c3e96f18cbd62d092d0434f867ca96fb0cdd8b58cef534dc"
+    },
+    "cycle_0005": {
+      "correct": true,
+      "cycle": 5,
+      "depth": 1,
+      "exit_code": 0,
+      "hypothesis": "A fixed equal blend of the baseline attention logit and an ordinary log-mean-exp (LME) of instance logits may improve worst-view development AUROC by giving high class-evidence instances a prediction path that does not depend on learned attention scores. Both paths share the existing encoder and classifier. The attention path keeps all baseline modules connected without adding parameters. This tests the weak ordinary-LME calibration lead after attention-weighted LME and sparse normalizers underperformed. A gain may instead reflect changed fitting or regularization; improved paired discrimination under both label-noise conditions is needed to support background tolerance.",
+      "idea_id": "cycle_05_shared_classifier_attention_lme_control",
+      "node_id": "cycle_0005",
+      "parent_id": "root",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/05_shared_classifier_attention_and_log_mean_exp_control/01_attempt/program_1",
+      "score": 0.5899333333333333,
+      "source_sha256": "ff2c1ee7cd1c447f40f29c4173445532a8d6720fab5925c4395f0cf7379cab0f"
+    },
+    "cycle_0006": {
+      "correct": true,
+      "cycle": 6,
+      "depth": 2,
+      "exit_code": 0,
+      "hypothesis": "Replacing the selected parent's ordinary log-mean-exp (LME) branch with a uniform mean of the same instance logits may improve worst-view development AUROC by removing the direct branch's positive-tail emphasis while retaining the learned attention branch. The parent passed the search score gate, yet its paired logit margin decreased in all six seed/noise conditions and negative-bag probability increased in all six. This motivates a matched negative control for the LME-specific explanation. Both models use the same encoder, gated attention, shared classifier, parameter count and fixed equal blend. A mean-control gain with better paired discrimination and margin retention would be consistent with reduced sensitivity to high background scores. A loss would be consistent with useful tail evidence or greater dilution under uniform averaging. Neither outcome identifies patch-level tumor evidence or isolates pooling from changed optimization.",
+      "idea_id": "cycle_06_shared_classifier_attention_mean_control",
+      "node_id": "cycle_0006",
+      "parent_id": "cycle_0005",
+      "path_scope": "results",
+      "relative_program_dir": "ideas/06_shared_classifier_attention_and_mean_pooling_control/01_attempt/program_1",
+      "score": 0.5867333333333334,
+      "source_sha256": "3d153014b8c7748906455529cd4678f1b979d1350fda52be96db6a76d47f0d42"
+    },
+    "root": {
+      "correct": true,
+      "cycle": 0,
+      "depth": 0,
+      "hypothesis": "Starting incumbent",
+      "node_id": "root",
+      "parent_id": null,
+      "path_scope": "results",
+      "relative_program_dir": ".baseline-seed-2uoao2zn/program_0",
+      "score": 0.5835333333333333,
+      "source_sha256": "dc73b3f9be3b05c27b07ca84e913bb07d7da0e276ebb1aae44dc3750a564f89d"
+    }
+  },
+  "width": 6,
+  "explore_every": 2
+}

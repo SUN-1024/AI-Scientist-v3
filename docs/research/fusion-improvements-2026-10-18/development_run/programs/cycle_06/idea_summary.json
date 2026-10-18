@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "3460c16e4d6f909cb345b84edd5061d733dc390e6c00fff3bb12c67918dacf20",
+  "idea_id": "cycle_06_shared_classifier_attention_mean_control",
+  "title": "Shared-classifier attention and mean pooling control",
+  "hypothesis": "Replacing the selected parent's ordinary log-mean-exp (LME) branch with a uniform mean of the same instance logits may improve worst-view development AUROC by removing the direct branch's positive-tail emphasis while retaining the learned attention branch. The parent passed the search score gate, yet its paired logit margin decreased in all six seed/noise conditions and negative-bag probability increased in all six. This motivates a matched negative control for the LME-specific explanation. Both models use the same encoder, gated attention, shared classifier, parameter count and fixed equal blend. A mean-control gain with better paired discrimination and margin retention would be consistent with reduced sensitivity to high background scores. A loss would be consistent with useful tail evidence or greater dilution under uniform averaging. Neither outcome identifies patch-level tumor evidence or isolates pooling from changed optimization.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

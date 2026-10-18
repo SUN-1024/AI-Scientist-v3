@@ -4,6 +4,8 @@
 
 本例通过融合项目的 `research run` 运行。模型为本机 Magpie 中的 `codex/gpt-6.1-sol`。用途是检查研究流程及短时实验能力。它使用真实 PathMNIST 图像构造合成 bags，不能当作临床全切片或患者级验证。
 
+本页先给出最小连通配置。增加预算的开发研究见下方“多 seed 与更大搜索”；各层预算的含义见[研究质量指南](../../docs/research-quality-guide.zh-CN.md)。
+
 ## 实验预算
 
 | 项目 | 设置 |
@@ -56,6 +58,37 @@ curl -fL --retry 2 -C - --proxy http://127.0.0.1:7890 \
 
 已有工作区通过 `--resume` 继续；新的实验使用新工作区。不要修改冻结的 `input_task`。本机如使用独立构建的 Headless CLI，可设置 `HEADLESS_BIN` 为其可执行文件绝对路径。
 
+## 多 seed 与更大搜索
+
+先比较基线和已有对照的共享训练预算，再选 `--max-steps`。新任务支持冻结的 `evaluation_protocol.json`，评价器记录其内容和 SHA-256。默认未提供协议时仍使用 seed 7、160 steps 的快速设置。
+
+```bash
+# 三个已归档对照 × 三个训练预算 × 三个 seed × 两个噪声条件。
+# 输出目录必须不存在；只读取 search.npz，不打开旧留出数据。
+.venv/bin/python examples/pathmnist_mil/calibrate.py \
+  --search-data examples/pathmnist_mil/resources/search.npz \
+  --output scratch/weak-supervision/calibration
+
+# 本次共享预算校准后使用 640 steps；新数据需重新校准。
+.venv/bin/python examples/pathmnist_mil/create_study.py \
+  --output scratch/weak-supervision/research-task \
+  --max-steps 640 --seeds 7 11 19
+
+./scripts/research-agent run scratch/weak-supervision/research-task \
+  --workspace results/unified/pathmnist-mil-research \
+  preset=pathmnist_mil_research --dry-run
+
+./scripts/research-agent run scratch/weak-supervision/research-task \
+  --workspace results/unified/pathmnist-mil-research \
+  preset=pathmnist_mil_research
+```
+
+研究 preset 设为 24 个调度轮次、高推理强度、单 worker。任务创建脚本提高文献检索预算，并冻结三个 seed、相同学习率与标签平滑的评价协议。此开发协议关闭早停，以共同步数上限比较模型；仍保留每条件 20 秒软上限。每个候选的一次宿主评价运行全部 seed 和噪声条件。临时编码 API 错误最多尝试三次，仍属于同一个 idea；低分实验不会因此重新抽样。
+
+已有留出结果只作为历史记录。这个开发续跑不打开旧留出集，也不声称完成独立确认。新工作区内的验证提升仍是开发结果。正式确认需要新数据和预先确定的比较计划。
+
+评价器同时检查实例置换不变性与 batch 排列等变性。它记录逐条件 AUROC、阳性与阴性概率变化、类间差距、训练预算是否用尽，以及总参数、可训练参数和观察到梯度连接的参数。声明了但未参与计算的参数不再被当作已证实的有效容量。
+
 ## 文献和贡献边界
 
 - [Attention-based Deep Multiple Instance Learning, ICML 2018](https://proceedings.mlr.press/v80/ilse18a.html)：attention/gated attention 聚合基线。
@@ -67,7 +100,7 @@ curl -fL --retry 2 -C - --proxy http://127.0.0.1:7890 \
 
 ## 搜索后留出检查
 
-确认搜索完成后，只运行一次以下命令。它先冻结基线和已选程序，再使用两个新 seed；留出结果不回传给搜索。
+以下命令只适用于尚未查看留出集的首次快速试验。确认搜索完成后运行一次。它先冻结基线和已选程序，再使用两个新 seed；留出结果不回传给搜索。本仓库已记录的留出集已查看，不应用于上方开发续跑的独立确认；创建脚本会标记该限制，评价脚本会拒绝此用途。
 
 ```bash
 .venv/bin/python examples/pathmnist_mil/evaluate_holdout.py \

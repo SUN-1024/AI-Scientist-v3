@@ -1,0 +1,82 @@
+{
+  "status": "partial",
+  "sources": [
+    {
+      "id": "abmil_2018",
+      "title": "Attention-based Deep Multiple Instance Learning",
+      "year": 2018,
+      "venue": "ICML",
+      "url": "https://proceedings.mlr.press/v80/ilse18a.html",
+      "origin": "papers/abmil_2018.pdf",
+      "availability": "full_text",
+      "text_sha256": "0ed15310024925ccaccae52e16cdce1849306b2ef574b5d574a70b772fbf582e",
+      "download_sha256": "ec7645cd55e48d692817f0f6994648b4bd2c4e8b9a76b159cd06779541177e4a"
+    },
+    {
+      "id": "attention2minority_2023",
+      "title": "Attention2Minority: A salient instance inference-based multiple instance learning for classifying small lesions in whole slide images",
+      "year": 2023,
+      "venue": "arXiv",
+      "url": "https://arxiv.org/abs/2301.07700",
+      "origin": "papers/attention2minority_2023.pdf",
+      "availability": "full_text",
+      "text_sha256": "566137f91db69ae4bb0e33e5732e4bf57719ab5686cde049e1e5491cbe1a19c8",
+      "download_sha256": "2a54221e64411df52035ab3c10b645d411009af84795a91b96c26a9f1efbf659"
+    },
+    {
+      "id": "psemix_2024",
+      "title": "Pseudo-Bag Mixup Augmentation for Multiple Instance Learning-Based Whole Slide Image Classification",
+      "year": 2024,
+      "venue": "IEEE TMI",
+      "url": "https://arxiv.org/abs/2306.16180",
+      "origin": "papers/psemix_2024.pdf",
+      "availability": "full_text",
+      "text_sha256": "2d7099670a23ea40496ab7b5185a94150b750ee73c439dab4796d5f5f5e7aba7",
+      "download_sha256": "6895813c44d891afb4ea2fd5bc3c40026a9d49557a1231572545e923ffc9df4e"
+    },
+    {
+      "id": "paper_9582d07d2bdd",
+      "title": "Ranking-Aware Multiple Instance Learning for Histopathology Slide Classification: Development and Validation Study",
+      "year": 2026,
+      "venue": "JMIR Medical Informatics",
+      "url": "https://medinform.jmir.org/2026/1/e84417",
+      "origin": "https://medinform.jmir.org/2026/1/e84417",
+      "availability": "metadata",
+      "text_sha256": null,
+      "download_sha256": null
+    },
+    {
+      "id": "paper_23b414f93da1",
+      "title": "Cluster-Level Sparse Multi-Instance Learning for Whole-Slide Images",
+      "year": 2025,
+      "venue": null,
+      "url": "https://arxiv.org/abs/2509.11034",
+      "origin": "https://arxiv.org/pdf/2509.11034",
+      "availability": "full_text",
+      "text_sha256": "a350316212dcaf884f848cd2dc78ea921f56a8aaad8f9ca04826611d60b7ec3e",
+      "download_sha256": "9b8c65503b1f2e3383ed5ec8db1061ddbbd25f7ca80b209c1d2de7f95fc2152f"
+    },
+    {
+      "id": "paper_3b18bd06fa7e",
+      "title": "Label Cleaning Multiple Instance Learning: Refining Coarse Annotations on Single Whole-Slide Images",
+      "year": 2022,
+      "venue": "IEEE Transactions on Medical Imaging",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9825360/",
+      "origin": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9825360/",
+      "availability": "metadata",
+      "text_sha256": null,
+      "download_sha256": null
+    },
+    {
+      "id": "paper_c7813d99c1b5",
+      "title": "LNPL-MIL: Learning from Noisy Pseudo Labels for Promoting Multiple Instance Learning in Whole Slide Image",
+      "year": 2023,
+      "venue": "Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)",
+      "url": "https://openaccess.thecvf.com/content/ICCV2023/html/Shao_LNPL-MIL_Learning_from_Noisy_Pseudo_Labels_for_Promoting_Multiple_Instance_ICCV_2023_paper.html",
+      "origin": "https://openaccess.thecvf.com/content/ICCV2023/papers/Shao_LNPL-MIL_Learning_from_Noisy_Pseudo_Labels_for_Promoting_Multiple_Instance_ICCV_2023_paper.pdf",
+      "availability": "full_text",
+      "text_sha256": "38b676da6a3dcf1304da6cf890960c7294e3decdce6923f80c6e3995205ad7d2",
+      "download_sha256": "7b029748fe8336b6fc33f83e48e91e0441aa327aecd0f8b502f6ebef05601d87"
+    }
+  ]
+}

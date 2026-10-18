@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "3c83a5a8f9e79882cd20708cd6e972c99e6542b8891839e02b960b6b783b63e5",
+  "idea_id": "cycle_01_attention_weighted_lme_control",
+  "title": "Capacity-matched attention-weighted log-mean-exp control",
+  "hypothesis": "Replacing the baseline's attention-weighted arithmetic mean of instance logits with an attention-weighted log-mean-exp can give rare high-scoring evidence more influence without hard instance selection or fewer active parameters. With the same encoder, gated attention, classifier, and training protocol, this predicts a smaller paired 16-to-64 discrimination loss under both clean labels and fixed 15% label flips. The prediction fails if gains occur only on 16-patch bags, disappear under label noise, or come with negative-bag probability increases that erase class-margin preservation. The supplied calibration does not establish that dilution occurs in this feature setting; this experiment tests it.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

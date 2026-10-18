@@ -1,0 +1,242 @@
+{
+  "state": "completed",
+  "pipeline_exit_code": 0,
+  "scheduled_cycles": 6,
+  "evaluated_candidates": 6,
+  "held_out_data_used": false,
+  "execution_boundary": "host",
+  "model": "codex/gpt-6.1-sol",
+  "reasoning_effort": "high",
+  "protocol": {
+    "schema_version": 1,
+    "seeds": [
+      7,
+      11,
+      19
+    ],
+    "noise_rates": [
+      0.0,
+      0.15
+    ],
+    "max_steps": 640,
+    "check_every": 20,
+    "patience": null,
+    "min_delta": 0.001,
+    "max_fit_seconds": 20.0,
+    "max_parameters": 20000,
+    "batch_size": 32,
+    "learning_rate": 0.003,
+    "label_smoothing": 0.0,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 5.0,
+    "num_threads": 2
+  },
+  "selected_program": "cycle_05",
+  "selected_score": 0.5899333333333333,
+  "rows": [
+    {
+      "program": "baseline",
+      "title": "Gated attention baseline",
+      "research_basis_status": "baseline",
+      "correct": true,
+      "rubric_overall_pass": null,
+      "combined_score": 0.5835333333333333,
+      "base_auc": 0.6344666666666666,
+      "diluted_auc": 0.5844,
+      "seed_scores": {
+        "7": 0.592,
+        "11": 0.5598,
+        "19": 0.5988
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.41718016704544425,
+        0.4510967500973493
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 2.9773023747839034
+    },
+    {
+      "program": "cycle_01",
+      "title": "Capacity-matched attention-weighted log-mean-exp control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": false,
+      "combined_score": 0.5694666666666667,
+      "base_auc": 0.6328,
+      "diluted_auc": 0.5698,
+      "seed_scores": {
+        "7": 0.569,
+        "11": 0.5831999999999999,
+        "19": 0.5562
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.4187310829292983,
+        0.4363900830503553
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 2.975878458004445
+    },
+    {
+      "program": "cycle_02",
+      "title": "Bounded-evidence attention-weighted log-mean-exp control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": false,
+      "combined_score": 0.5786000000000001,
+      "base_auc": 0.6272666666666668,
+      "diluted_auc": 0.5786000000000001,
+      "seed_scores": {
+        "7": 0.56,
+        "11": 0.5762,
+        "19": 0.5996000000000001
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.4205648750066757,
+        0.47665283316746354
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 3.1101056248880923
+    },
+    {
+      "program": "cycle_03",
+      "title": "Adaptive sparsemax gated attention control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": false,
+      "combined_score": 0.5652,
+      "base_auc": 0.6041333333333333,
+      "diluted_auc": 0.5715333333333333,
+      "seed_scores": {
+        "7": 0.5614,
+        "11": 0.5976,
+        "19": 0.5366000000000001
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.4691534999292344,
+        0.5149307909887284
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 3.3003636670764536
+    },
+    {
+      "program": "cycle_04",
+      "title": "Softmax-residual sparsemax attention control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": false,
+      "combined_score": 0.5790666666666667,
+      "base_auc": 0.6143333333333335,
+      "diluted_auc": 0.5878,
+      "seed_scores": {
+        "7": 0.6012000000000002,
+        "11": 0.5944,
+        "19": 0.5416000000000001
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.5036407499574125,
+        0.5517049580812454
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 3.6945524162147194
+    },
+    {
+      "program": "cycle_05",
+      "title": "Shared-classifier attention and log-mean-exp control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": true,
+      "combined_score": 0.5899333333333333,
+      "base_auc": 0.6468666666666666,
+      "diluted_auc": 0.5908666666666665,
+      "seed_scores": {
+        "7": 0.5591999999999999,
+        "11": 0.58,
+        "19": 0.6306
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.4367442501243204,
+        0.494724459014833
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 3.244794250000268
+    },
+    {
+      "program": "cycle_06",
+      "title": "Shared-classifier attention and mean pooling control",
+      "research_basis_status": "replication",
+      "correct": true,
+      "rubric_overall_pass": false,
+      "combined_score": 0.5867333333333334,
+      "base_auc": 0.6296666666666667,
+      "diluted_auc": 0.5874,
+      "seed_scores": {
+        "7": 0.5738000000000001,
+        "11": 0.5538000000000001,
+        "19": 0.6325999999999999
+      },
+      "total_parameters": [
+        2673
+      ],
+      "gradient_connected_parameters": [
+        2673
+      ],
+      "train_seconds_range": [
+        0.4488095829728991,
+        0.5082697500474751
+      ],
+      "steps_run": [
+        640
+      ],
+      "evaluation_seconds": 3.32689904095605
+    }
+  ],
+  "note": "Development validation only; reused validation bags and training seeds. No independent confirmation or system-superiority claim."
+}

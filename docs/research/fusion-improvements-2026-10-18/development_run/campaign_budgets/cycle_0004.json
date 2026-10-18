@@ -1,0 +1,55 @@
+{
+  "agent": {
+    "coding_transient_backoff_seconds": 2.0,
+    "coding_transient_max_attempts": 3,
+    "coding_transient_retry_enabled": true,
+    "coding_transient_retry_scope": "host-harness coding failures before scoring; agent-managed evaluations are not automatically retried",
+    "max_idea_generation_attempts": 3,
+    "model": "codex/gpt-6.1-sol",
+    "name": "codex",
+    "reasoning_effort": "high"
+  },
+  "cycle": {
+    "global_position": 4,
+    "global_remaining_including_current": 3,
+    "global_remaining_note": "Scheduled cycles, not completed experiments",
+    "global_total": 6,
+    "local_index": 4,
+    "local_remaining_including_current": 3,
+    "local_total": 6,
+    "persisted_current_cycle": 3,
+    "resume": false
+  },
+  "evaluation": {
+    "max_evaluator_calls_per_attempt": 1,
+    "mode": "host_harness",
+    "scientific_protocol": "The frozen task/evaluator still controls data, seeds, training steps, and acceptance. Scheduler settings do not relax these constraints."
+  },
+  "observed_local_history": {
+    "attempt_records": 3,
+    "evaluated_attempts": 3,
+    "provider_retry_records": 0
+  },
+  "schema_version": 1,
+  "search": {
+    "explore_every": 2,
+    "strategy": "tree",
+    "width": 6,
+    "width_meaning": "retained parent frontier, not candidates per cycle"
+  },
+  "source": "resolved_execution_config_and_persisted_history",
+  "stage": {
+    "name": "refinement",
+    "policy": "advisory fixed cycle fractions: exploration <=40%, refinement <=80%, confirmation >80%; not an adaptive experiment manager"
+  },
+  "timeouts_seconds": {
+    "coding": 1200,
+    "host_evaluation": 180,
+    "idea": 900
+  },
+  "workers": {
+    "campaign_workers": 1,
+    "scope": "this worker; global cycles are shared, not multiplied by workers",
+    "worker_index": 0
+  }
+}

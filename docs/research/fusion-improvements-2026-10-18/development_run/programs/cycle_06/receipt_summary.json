@@ -1,0 +1,32 @@
+{
+  "original_receipt_sha256": "03e47ed0d40864096c788bd611f6f90fc1d2f0671af7d5a591a68372fadfad9e",
+  "producer": "harness_eval",
+  "execution_boundary": "host",
+  "attempt_id": "cycle_06_shared_classifier_attention_mean_control_attempt_01",
+  "idea_id": "cycle_06_shared_classifier_attention_mean_control",
+  "program_id": "program_1",
+  "started_at": "2026-10-18T05:03:24.835323+00:00",
+  "finished_at": "2026-10-18T05:03:29.962010+00:00",
+  "exit_code": 0,
+  "returncode": 0,
+  "source_sha256": {
+    "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+    "src/program.py": "b38cbbf05f6d75ebd6803fb0dd2203601d5b663c999f532039334cfb7e37237c"
+  },
+  "evaluator_sha256": "fdc17fd5c2992cecad7991015af8c0c675bd39ce41ee8841f951cbbe47c10ab8",
+  "evaluation_inputs_sha256": {
+    "native_evaluation_inputs.json": "939379251d6e14a20a267eb104e90f1ab639549d639651fdcd3f511fba77fae5",
+    "protocol.py": "6fa768b7ab31046a49c0656cf26aeb7d518b33e69f87127a77823610c52c7e4f",
+    "resources/data_manifest.json": "4133d74c1113e4abf0de66d34f94d089962d059c16df6696b7a7c0813fd4026e",
+    "resources/search.npz": "93e4a5b56a9c13dd31a4a8cbeb09b7b74fbd63b6e78cacd39cd9bae6a72a2f2a",
+    "evaluation_protocol.json": "ecd0c391a6ae3d2d9ec41daeec9516917d77590df710d8d8fa9dbded39038fc9"
+  },
+  "original_result_sha256": {
+    "metrics.json": "592377fdee641269a1aba212c95eb4d4e324df8aae2817d35156823bfd2d1ea5",
+    "correct.json": "674c15f929f2f532eae48bd575ba46b72071f2b3f1caaa25f80e7a03713bbcb5"
+  },
+  "exported_metrics_sha256": "fc32785e17a928e0ad9fc8d39adaec3ab7ca15a4437eeeb5222dbb1f0c47947e",
+  "metadata_normalization": {
+    "metrics.json": "protocol_source replaced with portable task/evaluation_protocol.json; all numeric results unchanged"
+  }
+}

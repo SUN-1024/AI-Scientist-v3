@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "state": "frozen_before_evaluation",
+  "created_utc": "2026-10-18T04:35:17.887440+00:00",
+  "purpose": "development calibration of training budget and diagnostics; not a new method comparison",
+  "data_split": "search.npz train and validation only",
+  "held_out_data_used": false,
+  "programs": [
+    "baseline",
+    "log_mean_exp",
+    "sparse_gated_attention"
+  ],
+  "budgets": [
+    160,
+    320,
+    640
+  ],
+  "seeds": [
+    7,
+    11,
+    19
+  ],
+  "noise_rates": [
+    0.0,
+    0.15
+  ],
+  "protocols": {
+    "160": {
+      "path": "frozen/protocol_160.json",
+      "sha256": "0434748e67ebce4bd1ab79f3f88f4280d3e59f2a47fa0f06713f26883e01c7eb"
+    },
+    "320": {
+      "path": "frozen/protocol_320.json",
+      "sha256": "77c7d2871154adc0abf925b74f9c66e481945b4654bafd01257a1c4b3b3b3cf4"
+    },
+    "640": {
+      "path": "frozen/protocol_640.json",
+      "sha256": "e981d5a931de06ba19fd7fca555e3086dad48afcd00a754dad763595d50ceb1c"
+    }
+  },
+  "input_file_sha256": {
+    "frozen/calibrate.py": "67bfcc7b7ea2f63025131ecbfcee9bb44d809f223ee4ea23d7b77727081e04bb",
+    "frozen/evaluate.py": "fdc17fd5c2992cecad7991015af8c0c675bd39ce41ee8841f951cbbe47c10ab8",
+    "frozen/programs/baseline/program.py": "5d4332d4b0f11e955466e0a62ec0dff57c9b97501670c50b46aa892eab2ff7e6",
+    "frozen/programs/log_mean_exp/program.py": "14d4157ad308f3adaf44ae250de0c2bb38ac0c5514850896cbc8a20a338905a4",
+    "frozen/programs/sparse_gated_attention/program.py": "64d0e1f5bd6107a2b1eef90a0940714659ef849e28df848a000e72428a0426a8",
+    "frozen/protocol.py": "6fa768b7ab31046a49c0656cf26aeb7d518b33e69f87127a77823610c52c7e4f",
+    "frozen/protocol_160.json": "dad760d33f3a9b9bd9eba98ca9d9106304247067cc3f30e04811470def3ae011",
+    "frozen/protocol_320.json": "e3f6db2f33837a724993f072b36eb245b4823ab7b8e30f4801f55805a904c9b3",
+    "frozen/protocol_640.json": "ecd0c391a6ae3d2d9ec41daeec9516917d77590df710d8d8fa9dbded39038fc9",
+    "frozen/resources/data_manifest.json": "0aadc960bb407f0135d6088f2c7a8fa3de0044e9a5aaafd5adc2254b2c1f0770",
+    "frozen/resources/search.npz": "93e4a5b56a9c13dd31a4a8cbeb09b7b74fbd63b6e78cacd39cd9bae6a72a2f2a"
+  },
+  "optimizer_control": "same Adam learning_rate=0.003, smoothing=0, batch=32, weight_decay=1e-4",
+  "checkpoint_rule": "max validation min(AUROC16, AUROC64), min_delta=.001, checked every20 and last step",
+  "early_stopping": "disabled to expose step-cap sensitivity; no independent convergence guarantee",
+  "analysis_rule": "report all methods/budgets/conditions, rank changes, seed variation and selected-checkpoint caps; no holdout selection",
+  "runtime": {
+    "python": "3.12.13",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "numpy": "2.4.2",
+    "torch": "2.11.0",
+    "sklearn": "1.8.0"
+  }
+}

@@ -86,7 +86,7 @@ Log-mean-exp 候选保留了未使用的 attention 参数。其定义参数数�
 ## 可复现材料
 
 - [运行说明与命令](../examples/pathmnist_mil/README.md)
-- [固定任务](../examples/pathmnist_mil/task.md) 与 [小预算 preset](../configs/preset/pathmnist_mil.yaml)
+- [本次固定任务](https://github.com/SUN-1024/AI-Scientist-v3/blob/3ff1951/examples/pathmnist_mil/task.md)、[评价器](https://github.com/SUN-1024/AI-Scientist-v3/blob/3ff1951/examples/pathmnist_mil/evaluate.py)与[小预算 preset](https://github.com/SUN-1024/AI-Scientist-v3/blob/3ff1951/configs/preset/pathmnist_mil.yaml)；链接固定到首次案例提交，避免与后续改进混用。
 - [程序、逐条件指标、idea 与检查结果](research/pathmnist-mil-pilot-2026-10-18/README.md)
 - [多模型 API 配置](model-search.zh-CN.md)
 

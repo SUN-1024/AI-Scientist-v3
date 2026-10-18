@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "9118d07772de37e1d8e973a6045f7193e4d44da203fb590f93179e7fe4ebe41f",
+  "idea_id": "cycle_04_softmax_residual_sparsemax_control",
+  "title": "Softmax-residual sparsemax attention control",
+  "hypothesis": "The selected sparsemax parent scored below the incumbent and lost paired AUROC in five of six seed/noise conditions. Exact attention exclusion may remove useful training signals as well as background. Replace its weights with the fixed midpoint 0.5*sparsemax(scores) + 0.5*softmax(scores), using the same scores, modules, and embedding readout. The dense component provides an additional gradient path for instances outside sparsemax support, while the sparse component retains selective emphasis. This may recover short-bag discrimination and improve worst-view development AUROC under both label-noise conditions. Gradient starvation is an unverified explanation, and the mixture does not guarantee background invariance.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

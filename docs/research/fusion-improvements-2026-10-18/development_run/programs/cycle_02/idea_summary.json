@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "47254af8678541a5d0bb6192afb7e2553a77e7a6fa74053db13b21395365b1a8",
+  "idea_id": "cycle_02_bounded_evidence_weighted_lme_control",
+  "title": "Bounded-evidence attention-weighted log-mean-exp control",
+  "hypothesis": "The selected attention-weighted log-mean-exp parent may amplify extreme background scores rather than preserve tumor evidence. Its completed development evaluation shows larger negative than positive probability increases, and falling class margins, in all six seed/noise conditions. Apply the fixed smooth bound z = 2*tanh(raw_z/2) to each instance classifier logit before the unchanged weighted log-mean-exp. This limits exponential evidence ratios while retaining every instance and all parent parameters. Compared with that parent, predict less negative-bag probability inflation, less loss of class margin, and better extended-bag discrimination under both clean labels and fixed 15% flips. The mechanism is unsupported if both probability shifts merely shrink while extended-view AUROC and class-margin retention do not improve. A gain confined to clean labels fails the noise-robustness prediction. This is an established-component control, not a new method or an established solution to dilution.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

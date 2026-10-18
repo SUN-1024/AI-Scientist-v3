@@ -1,0 +1,31 @@
+{
+  "overall_pass": true,
+  "attempt_id": "cycle_05_shared_classifier_attention_lme_control_attempt_01",
+  "idea_id": "cycle_05_shared_classifier_attention_lme_control",
+  "metrics": {
+    "combined_score": 0.5899333333333333,
+    "correct": true
+  },
+  "rubrics": [
+    {
+      "id": "incumbent_score_improvement",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "preserve_baseline_capacity",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "ordinary_lme_shared_classifier",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "fixed_attention_lme_logit_blend",
+      "pass": true,
+      "assessment": "passed"
+    }
+  ]
+}

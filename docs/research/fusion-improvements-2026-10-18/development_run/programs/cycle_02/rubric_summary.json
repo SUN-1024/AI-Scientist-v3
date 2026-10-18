@@ -1,0 +1,31 @@
+{
+  "overall_pass": false,
+  "attempt_id": "cycle_02_bounded_evidence_weighted_lme_control_attempt_01",
+  "idea_id": "cycle_02_bounded_evidence_weighted_lme_control",
+  "metrics": {
+    "combined_score": 0.5786000000000001,
+    "correct": true
+  },
+  "rubrics": [
+    {
+      "id": "incumbent_score_improvement",
+      "pass": false,
+      "assessment": "failed"
+    },
+    {
+      "id": "preserve_baseline_capacity",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "bounded_instance_evidence",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "preserve_weighted_lme_path",
+      "pass": true,
+      "assessment": "passed"
+    }
+  ]
+}

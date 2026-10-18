@@ -1,0 +1,31 @@
+{
+  "overall_pass": false,
+  "attempt_id": "cycle_06_shared_classifier_attention_mean_control_attempt_01",
+  "idea_id": "cycle_06_shared_classifier_attention_mean_control",
+  "metrics": {
+    "combined_score": 0.5867333333333334,
+    "correct": true
+  },
+  "rubrics": [
+    {
+      "id": "incumbent_score_improvement",
+      "pass": false,
+      "assessment": "failed"
+    },
+    {
+      "id": "preserve_baseline_capacity",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "uniform_mean_shared_classifier",
+      "pass": true,
+      "assessment": "passed"
+    },
+    {
+      "id": "fixed_attention_mean_logit_blend",
+      "pass": true,
+      "assessment": "passed"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original_idea_bundle_sha256": "6d06602b68a70506257cdd4e4f5a75b0f60226dda439c4bd9c9d890278e45bbe",
+  "idea_id": "cycle_03_adaptive_sparsemax_attention_control",
+  "title": "Adaptive sparsemax gated attention control",
+  "hypothesis": "Replacing only baseline softmax attention normalization with the established sparsemax simplex projection may reduce paired discrimination loss when background patches receive scores below its adaptive support threshold. Such patches then receive exactly zero weight. This tests cumulative low-score background influence without an exponential instance-logit readout or a fixed top-2 support. It does not ensure that learned scores separate tumor from background, and improvement under label flips remains an empirical question.",
+  "research_basis_status": "replication",
+  "note": "Public summary; full source quotations and agent logs are not redistributed."
+}

@@ -1,0 +1,32 @@
+{
+  "original_receipt_sha256": "82406da01c5904f4d470b764ba3b4955c6b7261c9dfd2d8b0dcad5f2fe40e8bc",
+  "producer": "harness_eval",
+  "execution_boundary": "host",
+  "attempt_id": "cycle_04_softmax_residual_sparsemax_control_attempt_01",
+  "idea_id": "cycle_04_softmax_residual_sparsemax_control",
+  "program_id": "program_1",
+  "started_at": "2026-10-18T04:55:42.153117+00:00",
+  "finished_at": "2026-10-18T04:55:47.605472+00:00",
+  "exit_code": 0,
+  "returncode": 0,
+  "source_sha256": {
+    "program_spec.toml": "b71f330f1672f9e50e01380a6b9b295baa93a5682b41c3b247e4d3b28d7674fe",
+    "src/program.py": "e38b2a835c2c66d78fe3ae3098d4e94a72b04b98ceeee8c128e1afcb09e74fa9"
+  },
+  "evaluator_sha256": "fdc17fd5c2992cecad7991015af8c0c675bd39ce41ee8841f951cbbe47c10ab8",
+  "evaluation_inputs_sha256": {
+    "native_evaluation_inputs.json": "939379251d6e14a20a267eb104e90f1ab639549d639651fdcd3f511fba77fae5",
+    "protocol.py": "6fa768b7ab31046a49c0656cf26aeb7d518b33e69f87127a77823610c52c7e4f",
+    "resources/data_manifest.json": "4133d74c1113e4abf0de66d34f94d089962d059c16df6696b7a7c0813fd4026e",
+    "resources/search.npz": "93e4a5b56a9c13dd31a4a8cbeb09b7b74fbd63b6e78cacd39cd9bae6a72a2f2a",
+    "evaluation_protocol.json": "ecd0c391a6ae3d2d9ec41daeec9516917d77590df710d8d8fa9dbded39038fc9"
+  },
+  "original_result_sha256": {
+    "metrics.json": "20b5b2c8ff02f0efad7dd1184e0f4621d522c9aa6adc77c13a29c49c35ea9e87",
+    "correct.json": "674c15f929f2f532eae48bd575ba46b72071f2b3f1caaa25f80e7a03713bbcb5"
+  },
+  "exported_metrics_sha256": "0686e7cf84826695bf34760a1fb756acc6cae515d65c06809b9e247329923b65",
+  "metadata_normalization": {
+    "metrics.json": "protocol_source replaced with portable task/evaluation_protocol.json; all numeric results unchanged"
+  }
+}
