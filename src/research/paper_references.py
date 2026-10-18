@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import tempfile
 from typing import Any
+import unicodedata
 from urllib.parse import unquote, urlsplit
 
 from src.orchestrator.state import write_private_text
@@ -152,6 +153,55 @@ def _metadata_identities(metadata: dict[str, Any]) -> set[str]:
     return identities
 
 
+def _adopted_url_identities(record: dict[str, Any]) -> set[str]:
+    """Reserve both reviewed origins and landing aliases before any rejection."""
+    from .review_retrieval import primary_source_identity
+
+    identities = set()
+    for field in ("url", "verified_origin_url", "origin"):
+        url = str(record.get(field) or "")
+        if url:
+            identities.add(_identity(url))
+            try:
+                primary = primary_source_identity(url)
+            except ValueError:
+                # Existing local sources use filesystem paths as origins. Keep
+                # the exact alias without interpreting it as a public URL.
+                continue
+            identities.add(f"primary:{primary['scheme']}:{primary['value']}")
+    return identities
+
+
+def _adopted_metadata(record: dict[str, Any], cfg: LiteratureConfig, destination: Path) -> dict[str, Any]:
+    """Bind publisher metadata to the full text used by the selected review."""
+    from .review_retrieval import compatible_primary_urls, primary_source_identity
+
+    origin = str(record.get("verified_origin_url") or record.get("origin") or "")
+    landing = str(record.get("url") or "")
+    if not origin or not compatible_primary_urls(landing, origin):
+        raise ValueError("Adopted source landing page does not match its verified full-text origin")
+    expected = primary_source_identity(origin)
+    # Never let suggested authors/path take the user-supplied metadata shortcut.
+    query = {"title": record["title"], "url": origin if expected["scheme"] in {"arxiv", "doi"} else landing}
+    metadata = source_metadata(query, cfg, destination)
+    def normalize(value: Any) -> str:
+        return "".join(char for char in unicodedata.normalize("NFKC", str(value)).casefold() if char.isalnum())
+
+    if not normalize(record["title"]) or normalize(record["title"]) != normalize(metadata.get("title", "")):
+        raise ValueError("Adopted source citation title does not match the reviewed full text")
+    if expected["scheme"] != "url":
+        actual = [primary_source_identity(str(metadata.get("url") or ""))]
+        if metadata.get("doi"):
+            doi = str(metadata["doi"])
+            actual.append(primary_source_identity(doi if doi.startswith("http") else "https://doi.org/" + doi))
+        matching = [identity for identity in actual if identity["scheme"] == expected["scheme"]]
+        if not matching or any(identity["value"] != expected["value"] for identity in matching):
+            raise ValueError("Adopted source citation identifier does not match its verified full-text origin")
+    metadata["reviewed_source_id"] = record["id"]
+    metadata["reviewed_origin_url"] = origin
+    return metadata
+
+
 def _supplementary_queries(queries: list[str], checked: list[str], *, remaining: int) -> list[str]:
     # Keep repair context bounded even when supplied sources have very long URLs.
     guidance = (f"Find at least {remaining} additional distinct papers on the same topics. "
@@ -164,17 +214,75 @@ def _supplementary_queries(queries: list[str], checked: list[str], *, remaining:
     return [*queries[:7], guidance]
 
 
+def _selected_reference_sources(paper_data: dict[str, Any] | None,
+                                catalog: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """Resolve adopted sources only through the current host-verified selection."""
+    if paper_data is None:
+        return [], None
+    saved = paper_data.get("selected_novelty_review")
+    provenance = saved.get("provenance") if isinstance(saved, dict) else None
+    if not isinstance(provenance, dict) or "evidence_reference" not in provenance:
+        return [], None
+    from .evidence import verify_selected_novelty_for_paper
+    from .harness_evidence import build_candidate_packet
+    from .harness_state import read_json, sha256
+    from .novelty import content_hash
+    from .review_enrichment import resolve_selected_evidence_task
+
+    verified = verify_selected_novelty_for_paper(paper_data)
+    if not isinstance(verified, dict) or verified.get("verification_status") != "host_verified" or verified != saved:
+        raise ValueError("Selected bibliography evidence is stale or not host verified")
+    provenance = verified["provenance"]
+    location = provenance.get("managed_workspace")
+    if not isinstance(location, str) or not Path(location).is_absolute():
+        raise ValueError("Selected bibliography evidence has no managed workspace")
+    managed = Path(location)
+    packet = build_candidate_packet(managed)
+    if content_hash(packet) != verified.get("candidate_packet_sha256"):
+        raise ValueError("Selected bibliography candidate binding changed")
+    pointer_path = managed / "novelty/latest.json"
+    pointer = read_json(pointer_path)
+    if (sha256(pointer_path) != provenance.get("pointer_sha256")
+            or pointer.get("evidence_reference") != provenance.get("evidence_reference")):
+        raise ValueError("Selected bibliography evidence pointer changed")
+    evidence_task = resolve_selected_evidence_task(managed, pointer, candidate_packet=packet)
+    if not evidence_task.is_relative_to(managed):
+        raise ValueError("Selected bibliography evidence escaped the managed workspace")
+    enriched = load_catalog(evidence_task)
+    if enriched is None:
+        raise ValueError("Selected bibliography evidence has no validated catalog")
+    original = {row["id"]: row for row in catalog["sources"]}
+    adopted = [row for row in enriched["sources"] if row != original.get(row["id"])]
+    # These remain discovery candidates. source_metadata must still verify all
+    # bibliography fields; saved model metadata cannot fill missing authors.
+    binding = {
+        "citation_identity_policy": "reviewed_fulltext_v1",
+        "evidence_reference": provenance["evidence_reference"],
+        "candidate_packet_sha256": verified["candidate_packet_sha256"],
+        "selected_projection_sha256": content_hash(verified),
+        "pointer_sha256": provenance["pointer_sha256"],
+        "catalog_sha256": sha256(evidence_task / "research_context/catalog.json"),
+        "adopted_source_ids": [row["id"] for row in adopted],
+    }
+    return adopted, binding
+
+
 def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list[str], min_refs: int,
-                              max_refs: int, plan_metadata: dict[str, Any], context: dict[str, Any]) -> int:
+                              max_refs: int, plan_metadata: dict[str, Any], context: dict[str, Any],
+                              paper_data: dict[str, Any] | None = None) -> int:
     cfg = load_config(task_dir).literature
     catalog = load_catalog(task_dir) or {"sources": [], "offline": False}
     if not 1 <= min_refs <= max_refs:
         raise ValueError("Invalid paper reference count limits")
-    fingerprint = hashlib.sha256(json.dumps({
+    adopted, selected_binding = _selected_reference_sources(paper_data, catalog)
+    fingerprint_inputs = {
         "config": asdict(cfg), "catalog": catalog, "plan": plan_metadata,
         "min_refs": min_refs, "max_refs": max_refs, "context": context, "queries": queries,
         "retrieval_policy": "bounded_supplement_v1",
-    }, sort_keys=True).encode()).hexdigest()[:24]
+    }
+    if selected_binding is not None:
+        fingerprint_inputs["selected_literature_evidence"] = selected_binding
+    fingerprint = hashlib.sha256(json.dumps(fingerprint_inputs, sort_keys=True).encode()).hexdigest()[:24]
     root = output_dir / "reference_search" / fingerprint
     if root.is_symlink() or (root.parent.exists() and root.parent.is_symlink()):
         raise ValueError("Reference cache cannot be a symlink")
@@ -190,7 +298,10 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
             if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != cached_receipt.get(name):
                 raise ValueError("Cached reference artifact changed")
             cached[name] = path.read_text()
-        for row in json.loads(cached["references_provenance.json"])["references"]:
+        cached_provenance = json.loads(cached["references_provenance.json"])
+        if selected_binding is not None and cached_provenance.get("selected_literature_evidence") != selected_binding:
+            raise ValueError("Cached selected bibliography evidence binding changed")
+        for row in cached_provenance["references"]:
             path = output_dir / row["metadata_file"]
             if (path.is_symlink() or not path.resolve().is_relative_to(output_dir.resolve())
                     or hashlib.sha256(path.read_bytes()).hexdigest() != row["metadata_sha256"]):
@@ -217,14 +328,19 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
     checked: list[str] = []
     seen_keys: set[str] = set()
     seen_metadata: set[str] = set()
+    adopted_identities: set[str] = set()
 
-    def add_candidates(batch: list[dict[str, Any]], batch_queries: list[str]) -> int:
+    def add_candidates(batch: list[dict[str, Any]], batch_queries: list[str], *, reviewed: bool = False) -> int:
         considered = 0
         for candidate in batch:
             if len(references) >= max_refs:
                 break
             considered += 1
             identity = _identity(str(candidate.get("url") or "")) or str(candidate.get("path") or candidate["title"])
+            if reviewed:
+                adopted_identities.update(_adopted_url_identities(candidate))
+            elif adopted_identities and _adopted_url_identities(candidate) & adopted_identities:
+                continue
             if identity in seen:
                 continue
             seen.add(identity)
@@ -232,7 +348,8 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
             try:
                 if offline and not (candidate.get("path") and candidate.get("authors")):
                     raise ValueError("Offline references require local sources with user-supplied authors, title and year")
-                metadata = source_metadata(candidate, cfg, metadata_dir)
+                metadata = (_adopted_metadata(candidate, cfg, metadata_dir) if reviewed
+                            else source_metadata(candidate, cfg, metadata_dir))
                 key, entry = bibliography_entry(metadata)
                 identities = _metadata_identities(metadata)
                 if key in seen_keys or identities & seen_metadata:
@@ -251,6 +368,7 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
                 errors.append({"stage": "citation_metadata", "source": str(candidate.get("url") or candidate.get("path")), "error": str(exc)})
         return considered
 
+    add_candidates(adopted, queries, reviewed=True)
     add_candidates(candidates, queries)
     rounds: list[dict[str, Any]] = []
     search_artifacts: dict[str, str] = {}
@@ -296,6 +414,8 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
         "search_round_limit": _MAX_REFERENCE_SEARCH_ROUNDS, "search_rounds": rounds,
         "search_trace": rounds[0]["search_trace"] if rounds else None,
     }
+    if selected_binding is not None:
+        summary["selected_literature_evidence"] = selected_binding
     write_private_text(attempt / "result.json", json.dumps(summary, ensure_ascii=False, indent=2))
     if len(references) < min_refs:
         raise ValueError(f"Only {len(references)}/{min_refs} references have source metadata; stopped after {len(rounds)} search rounds ({stop_reason}); inspect {attempt}. No legacy API fallback was used.")

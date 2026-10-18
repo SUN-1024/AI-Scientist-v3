@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import signal
 import threading
+import time
 import uuid
 from concurrent.futures import FIRST_COMPLETED, CancelledError, ThreadPoolExecutor, wait
 from dataclasses import asdict
@@ -94,6 +96,9 @@ def _verify_prompt_campaign(payload: dict[str, Any], frozen: dict[str, Any], *, 
         seed = payload.get("seed_agenda")
         if (content_hash(seed) if seed is not None else None) != frozen.get("seed_agenda_sha256"):
             raise ValueError("Saved author prompt does not contain its frozen seed agenda")
+        feedback = payload.get("review_feedback")
+        if (content_hash(feedback) if feedback is not None else None) != frozen.get("review_feedback_sha256"):
+            raise ValueError("Saved author prompt does not contain its frozen review feedback")
 
 
 def _campaign_author_guidance() -> str:
@@ -288,7 +293,8 @@ def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
         # proves full coverage. A claimed policy label alone is insufficient.
         if any(key in receipt for key in binding) and any(receipt.get(key) != value for key, value in binding.items()):
             raise ValueError("Review source packet receipt changed")
-    elif frozen.get("host_context_sha256") or frozen.get("seed_agenda_sha256"):
+    elif (frozen.get("host_context_sha256") or frozen.get("seed_agenda_sha256")
+          or frozen.get("review_feedback_sha256")):
         saved_prompt = (directory / "prompt.txt").read_text(encoding="utf-8")
         marker = "\n\nINPUT DATA:\n"
         if marker not in saved_prompt:
@@ -392,11 +398,20 @@ def _preflight_resume(directories: list[Path], cfg: LiteratureConfig, phase: str
 
 def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
                 frozen: dict[str, Any], reviewer_settings: dict[str, Any] | None = None, *,
-                resume: bool = False, cancel_event: threading.Event | None = None) -> dict[str, Any]:
-    if resume and (directory.exists() or directory.is_symlink()):
+                resume: bool = False, cancel_event: threading.Event | None = None,
+                deadline_unix: float | None = None) -> dict[str, Any]:
+    if deadline_unix is not None and (type(deadline_unix) not in (int, float)
+            or not math.isfinite(deadline_unix) or deadline_unix <= 0):
+        raise ValueError("Research model deadline must be finite positive Unix seconds")
+    existing = resume and (directory.exists() or directory.is_symlink())
+    if existing:
         _receipt, replay = _existing_call(directory, cfg, phase, frozen, reviewer_settings, prompt=prompt)
         if replay is not None:
             return replay
+    remaining = int(deadline_unix - time.time()) if deadline_unix is not None else None
+    if remaining is not None and remaining < 1:
+        raise ValueError("Research model call deadline exhausted")
+    if existing:
         # Preserve every byte of an interrupted attempt before creating a fresh session.
         archive = directory.parent / "retry_attempts" / directory.name
         if any(path.is_symlink() or (path.exists() and not path.is_dir())
@@ -407,10 +422,13 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
     if cancel_event is not None and cancel_event.is_set():
         raise CancelledError("Independent novelty review cancelled")
     if reviewer_settings is not None:
-        return _agent_call(prompt, directory, phase, frozen, reviewer_settings,
+        execution_settings = dict(reviewer_settings)
+        if remaining is not None:
+            execution_settings["timeout_seconds"] = min(execution_settings.get("timeout_seconds", 1800), remaining)
+        return _agent_call(prompt, directory, phase, frozen, execution_settings,
                            configuration_sha256=_configuration_hash(cfg, reviewer_settings),
                            cancel_event=cancel_event)
-    session = SearchSession(cfg, directory)
+    session = SearchSession(cfg, directory, **({"deadline_unix": deadline_unix} if deadline_unix is not None else {}))
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
         "schema_version": 2, "session_id": str(uuid.uuid4()), "backend": "model_search_stateless",
@@ -487,7 +505,9 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
                           candidate_packet: dict[str, Any] | None = None,
                           num_reflections: int = 3, resume: bool = False,
                           host_context: dict[str, Any] | None = None,
-                          seed_agenda: dict[str, Any] | None = None) -> dict[str, Any]:
+                          seed_agenda: dict[str, Any] | None = None,
+                          review_feedback: dict[str, Any] | None = None,
+                          deadline_unix: float | None = None) -> dict[str, Any]:
     """V1's bounded author-reflection loop; never independent novelty evidence."""
     from .upstream.v1_reflection import refine_agenda
 
@@ -505,6 +525,17 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
         from .research_agenda import normalize_seed_agenda
         seed_agenda = normalize_seed_agenda(seed_agenda)
         frozen["seed_agenda_sha256"] = content_hash(seed_agenda)
+    if review_feedback is not None:
+        if (not isinstance(review_feedback, dict) or review_feedback.get("schema_version") != 1
+                or review_feedback.get("scope") not in {"initial_agenda", "selected_interpretation"}
+                or not isinstance(review_feedback.get("parent_review_sha256"), str)
+                or len(review_feedback["parent_review_sha256"]) != 64
+                or any(c not in "0123456789abcdef" for c in review_feedback["parent_review_sha256"])
+                or len(json.dumps(review_feedback, ensure_ascii=False, allow_nan=False)) > 500_000):
+            raise ValueError("Review feedback requires a bounded, attributed agenda or interpretation scope")
+        if review_feedback["scope"] == "selected_interpretation" and candidate_packet is None:
+            raise ValueError("Selected interpretation feedback requires its unchanged candidate packet")
+        frozen["review_feedback_sha256"] = content_hash(review_feedback)
     review_started = any(output.glob("reviewer_*/receipt.json"))
     if resume and host_context is not None and review_started and not (output / "campaign_plan.json").is_file():
         raise InvalidReviewResume("Independent review started but its frozen campaign plan is missing")
@@ -524,6 +555,8 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
                 raise InvalidReviewResume(f"Saved campaign plan changed: {exc}") from exc
     if seed_agenda is not None:
         _pin_input(output / "research_seed_agenda.json", seed_agenda, resume=resume)
+    if review_feedback is not None:
+        _pin_input(output / "review_feedback.json", review_feedback, resume=resume)
     if candidate_packet is not None:
         _dump(output / "candidate_packet.json", candidate_packet)
     guidance = render_methodology(task_dir, stage="agenda")
@@ -532,6 +565,17 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
         guidance += "\n\n" + whole_idea_guidance
     if host_context is not None:
         guidance += "\n\n" + _campaign_author_guidance()
+    if review_feedback is not None:
+        guidance += ("\n\nATTRIBUTED REVIEW FEEDBACK:\n"
+                     "The review_feedback is evidence and criticism from the previous frozen cycle. "
+                     "Use the new full texts to address its requests. Preserve unresolved concerns. "
+                     "Do not assume a citation request, model description, or exhausted budget proves novelty. "
+                     "Do not seek a passing verdict. Calibrate or withdraw claims when the evidence requires it.")
+        if review_feedback["scope"] == "selected_interpretation":
+            guidance += ("\nThis is interpretation of an already selected implementation. "
+                         "Its code, data, metrics, configuration, comparisons, and execution plan are fixed. "
+                         "Revise only attribution, explanation, and contribution scope. "
+                         "List needed experiments as unresolved work, never as completed results.")
     inputs = {
         "task": task, "selected_candidate_research_basis": research_basis,
         "selected_candidate_packet": candidate_packet, "frozen_evidence": frozen,
@@ -541,10 +585,13 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
         inputs["host_context"] = host_context
     if seed_agenda is not None:
         inputs["seed_agenda"] = seed_agenda
+    if review_feedback is not None:
+        inputs["review_feedback"] = review_feedback
     prompt = (PROMPTS / "research_agenda.md").read_text(encoding="utf-8") + ("\n\n" + guidance if guidance else "") + "\n\nINPUT DATA:\n" + json.dumps(inputs, ensure_ascii=False)
     if len(prompt.encode("utf-8")) > 1800_000:
         raise ValueError("Agenda prompt exceeds 1.8 MB; split the study rather than truncating source or implementation evidence")
-    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings, resume=resume)
+    deadline: dict[str, Any] = {"deadline_unix": deadline_unix} if deadline_unix is not None else {}
+    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings, resume=resume, **deadline)
     def plan_errors(proposed: dict[str, Any]) -> list[dict[str, Any]]:
         from .campaign_plan import compile_campaign_plan, PlanValidationError
         if host_context is None:
@@ -561,7 +608,7 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
             num_reflections=num_reflections,
             request=lambda reflection_prompt, round_index: _model_call(
                 reflection_prompt, cfg, output / f"agenda_reflection_{round_index}",
-                "research_agenda", frozen, reviewer_settings, resume=resume,
+                "research_agenda", frozen, reviewer_settings, resume=resume, **deadline,
             ),
             **validation,
         )
@@ -608,7 +655,8 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
                    resume: bool = False,
                    cancel_event: threading.Event | None = None,
                    host_context: dict[str, Any] | None = None,
-                   compiled_plan: dict[str, Any] | None = None) -> dict[str, Any]:
+                   compiled_plan: dict[str, Any] | None = None,
+                   deadline_unix: float | None = None) -> dict[str, Any]:
     """Run independent reviewers together, after validating all shared inputs.
 
     Agent calls stop their owned process trees before cancellation returns.
@@ -723,8 +771,9 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
                 if cancellation.is_set():
                     break
                 logger.info("Novelty %s start", name)
+                deadline: dict[str, Any] = {"deadline_unix": deadline_unix} if deadline_unix is not None else {}
                 future = executor.submit(_model_call, prompt, cfg, output / name, "novelty_review",
-                                         frozen, reviewer_settings, cancel_event=cancellation)
+                                         frozen, reviewer_settings, cancel_event=cancellation, **deadline)
                 futures[future] = name
             remaining = set(futures)
             while remaining:

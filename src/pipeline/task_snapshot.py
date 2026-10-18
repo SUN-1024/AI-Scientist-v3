@@ -51,6 +51,47 @@ STAGED_TASK_DIRECTORY_NAME = "task"
 TASK_SNAPSHOT_READY_NAME = PUBLICATION_READY_NAME
 
 
+def derive_task_snapshot(source: Path, destination: Path, *, task_name: str,
+                         updates: dict[str, str] | None = None) -> None:
+    """Publish a new, sealed derivative without changing its source snapshot.
+
+    Only the postdraft research declarations may differ. Runtime state and the
+    old snapshot metadata are not copied. Publication uses the ordinary ready
+    marker protocol and a private staging tree.
+    """
+    from src.orchestrator.state import write_private_text
+
+    allowed = {"research_agenda.json", "research_context/host_context.json",
+               "research_context/campaign_plan.json", "research_context/harness_novelty.json"}
+    updates = updates or {}
+    if set(updates) - allowed:
+        raise UnsafeGluePathError("Unsupported derived task update")
+    if destination.exists() or destination.is_symlink():
+        raise UnsafeGluePathError("Derived task destination already exists")
+    patterns = (".venv/", "/.agentic_runtime.json", f"/{TASK_SNAPSHOT_METADATA_FILENAME}")
+    with open_directory(source, role="derived task source") as source_fd:
+        validate_tree_symlinks_fd(source_fd, relative_dir=Path(), role="derived task source",
+                                  ignore_patterns=patterns)
+        with ensure_directory(destination.parent, role="derived task parent") as parent_fd:
+            temporary = ".postdraft-" + secrets.token_hex(12)
+            os.mkdir(temporary, 0o700, dir_fd=parent_fd)
+            try:
+                with open_directory(destination.parent / temporary, role="derived task staging") as staging_fd:
+                    copy_task_tree_at(source_fd, staging_fd, relative_dir=Path(), ignore_patterns=patterns)
+                    verify_copied_task_tree(source_fd, staging_fd, ignore_patterns=patterns)
+                    for relative, text in updates.items():
+                        path = destination.parent / temporary / relative
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        write_private_text(path, text)
+                    manifest = task_tree_manifest_at(staging_fd, relative_dir=Path(), ignore_patterns=())
+                    write_task_snapshot_metadata_at(staging_fd, task_name,
+                        source_digest=manifest_digest(manifest), source_root_mode=0o700)
+                publish_staged_task_tree_at(parent_fd, temporary, parent_fd, destination.name,
+                                           root_mode=0o700, role="derived task snapshot")
+            finally:
+                cleanup_task_tree_preserving_error(parent_fd, temporary, role="derived task staging")
+
+
 def prepare_run_task(paths: PipelinePaths) -> None:
     """Create the immutable-source task snapshot used by one investigation run."""
     try:

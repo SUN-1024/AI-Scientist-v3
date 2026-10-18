@@ -185,6 +185,7 @@ from .phases import (
 logger = logging.getLogger(__name__)
 
 _EVENT_OBSERVER: ContextVar[Callable[..., None] | None] = ContextVar("pipeline_event_observer", default=None)
+_TASK_FINALIZER: ContextVar[Callable[..., bool] | None] = ContextVar("pipeline_task_finalizer", default=None)
 
 
 def log_event(event: str, **fields: Any) -> None:
@@ -940,6 +941,12 @@ def _run_pipeline(
         if gpu_error is not None:
             logger.error("GPU allocation preflight failed: %s", gpu_error)
             return 1
+    task_finalizer = _TASK_FINALIZER.get()
+    recovered_draft = False
+    if task_finalizer is not None and not cfg.execution.dry_run and selected.intersection({"task_drafting", "investigation"}):
+        # Recovery completes an already qualified draft before snapshot reuse.
+        # Exceptions are hard boundaries, including when fail_fast is disabled.
+        recovered_draft = task_finalizer("recover", cfg, paths)
     run_task_available = False
     try:
         if _run_task_reuse_required(cfg, selected) and not terminal_downstream_only:
@@ -1244,6 +1251,8 @@ def _run_pipeline(
         elif phase in {"task_drafting", "investigation"}:
             task_drafting_identity: tuple[int, int] | None = None
             try:
+                if phase == "investigation" and task_finalizer is not None and not cfg.execution.dry_run:
+                    task_finalizer("verify", cfg, paths)
                 if run_task_available:
                     pass
                 elif not cfg.investigation.resume and cfg.execution.dry_run:
@@ -1306,7 +1315,7 @@ def _run_pipeline(
                 if phase == "task_drafting"
                 else None
             )
-            rc = run_cmd(
+            rc = 0 if phase == "task_drafting" and recovered_draft else run_cmd(
                 command,
                 dry_run=cfg.execution.dry_run,
                 env_overrides=env_overrides,
@@ -1321,7 +1330,11 @@ def _run_pipeline(
                     if not paths.task_dir.is_dir():
                         raise UnsafeGluePathError("task drafting did not publish a task snapshot")
                     if rc == 0:
+                        if task_finalizer is not None:
+                            task_finalizer("draft_complete", cfg, paths)
                         discard_managed_task_runtime(paths.task_dir)
+                        if task_finalizer is not None:
+                            task_finalizer("finalize", cfg, paths)
                         reseal_run_task(paths)
                         if (
                             "paper" in selected
@@ -1860,9 +1873,11 @@ def _main(argv: list[str] | None = None) -> int:
                 logger.warning("Could not remove qualified runtime cache: %s", exc)
 
 
-def main(argv: list[str] | None = None, *, event_callback: Callable[..., None] | None = None) -> int:
+def main(argv: list[str] | None = None, *, event_callback: Callable[..., None] | None = None,
+         task_finalizer: Callable[..., bool] | None = None) -> int:
     """Run the existing pipeline, optionally recording its lifecycle for a harness."""
     observer_token = _EVENT_OBSERVER.set(event_callback)
+    finalizer_token = _TASK_FINALIZER.set(task_finalizer)
     pipeline_started_at = time.monotonic()
     try:
         return _main(argv)
@@ -1886,6 +1901,7 @@ def main(argv: list[str] | None = None, *, event_callback: Callable[..., None] |
         raise
     finally:
         _EVENT_OBSERVER.reset(observer_token)
+        _TASK_FINALIZER.reset(finalizer_token)
         shutdown_event_logging()
 
 

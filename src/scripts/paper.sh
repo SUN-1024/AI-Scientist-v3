@@ -2135,6 +2135,7 @@ if (task_dir / "research.yaml").is_file():
             max_refs=paper_max_refs, plan_metadata=query_plan_metadata,
             context={"results_dir": str(source_results_dir.resolve()),
                      "campaign_results_dir": str(campaign_results_dir.resolve())},
+            paper_data=paper_data,
         )
     except (ValueError, OSError) as exc:
         raise SystemExit(f"[paper.sh] configured model reference retrieval failed: {exc}") from exc

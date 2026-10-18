@@ -131,6 +131,19 @@ def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, off
     from .novelty_review import load_frozen_novelty_report
     packet = build_candidate_packet(workspace)
     selection_path = workspace / "novelty/latest.json"
+    state_path, preparation_path = workspace / "harness_state.json", workspace / "research_preparation.json"
+    state_version = read_json(state_path).get("selected_review_enrichment_version") if state_path.exists() else None
+    prepared = read_json(preparation_path).get("initial_harness_state", {}) if preparation_path.exists() else {}
+    prepared_version = prepared.get("selected_review_enrichment_version") if isinstance(prepared, dict) else None
+    if state_version is not None or prepared_version is not None:
+        if type(state_version) is not int or state_version != 1 or type(prepared_version) is not int or prepared_version != 1:
+            raise ValueError("Selected review enrichment marker differs from fresh preparation")
+        from .review_enrichment import ensure_selected_novelty, resolve_selected_evidence_task
+        pointer = ensure_selected_novelty(workspace, cfg, packet=packet,
+            author_settings=_author_settings(pipeline_cfg), reviewer_settings=_reviewer_settings(pipeline_cfg), offline=offline)
+        resolve_selected_evidence_task(workspace, pointer, candidate_packet=packet)
+        _dump(selection_path, pointer)
+        return
     if selection_path.is_file():
         previous = read_json(selection_path)
         cycle_value = previous.get("cycle", "")
@@ -507,6 +520,8 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     state = HarnessState(workspace, phases=requested, quality_target=target,
                          input_sha256=manifest["input_task_sha256"] if manifest else None, prior=prior)
     state.payload["offline"] = offline
+    if not args.resume and not offline and cfg.harness.novelty_review:
+        state.payload["selected_review_enrichment_version"] = 1
     if not args.resume and not offline and cfg.harness.novelty_review and pipeline_cfg.investigation.portfolio_enabled:
         # This opt-in travels through the normal preparation transaction. Old
         # interrupted workspaces have no marker and keep their original calls.
@@ -514,9 +529,10 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
                 and (task / "task_contract.json").is_file()):
             state.payload["campaign_plan_version"] = 1
         else:
+            state.payload["postdraft_campaign_plan_version"] = 1
             state.payload["campaign_plan"] = {
-                "status": "not_frozen", "reason": "The task scaffold and fixed contract must exist before plan compilation.",
-                "execution_mode": "legacy_task_drafting",
+                "status": "awaiting_draft", "reason": "The task scaffold and fixed contract must exist before plan compilation.",
+                "execution_mode": "postdraft_plan",
             }
     state.payload["preflight"] = {"status": "passed", "checked_at": now(), "remaining_phases": sorted(remaining)}
     exit_code = 1
@@ -590,7 +606,27 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
         # training budget. A supported cache is replay-verified inside the helper.
         if prior and state.payload.get("stages", {}).get("investigation", {}).get("status") == "completed":
             refresh_selected_novelty()
-        exit_code = pipeline_main(command, event_callback=observe) if command else 0
+        finalizer_kwargs: dict[str, Any] = {}
+        if state.payload.get("postdraft_campaign_plan_version") == 1:
+            from .postdraft_plan import ensure_postdraft_campaign_plan, verify_postdraft_campaign, record_postdraft_success
+
+            def finalize_task(action, resolved, paths):
+                if action == "draft_complete":
+                    return record_postdraft_success(workspace, paths, cfg, resolved)
+                if action == "verify":
+                    verify_postdraft_campaign(workspace, require_frozen=True, runtime_task=paths.task_dir)
+                    return True
+                try:
+                    return ensure_postdraft_campaign_plan(workspace, paths, cfg, resolved, recovery=action == "recover")
+                finally:
+                    try:
+                        state.payload["campaign_plan"] = verify_postdraft_campaign(workspace) or {}
+                    except (OSError, ValueError) as exc:
+                        state.payload["campaign_plan"] = {"status": "invalid", "error": str(exc)}
+                    state.save()
+
+            finalizer_kwargs["task_finalizer"] = finalize_task
+        exit_code = pipeline_main(command, event_callback=observe, **finalizer_kwargs) if command else 0
         state.finish(exit_code)
     except KeyboardInterrupt:
         exit_code = 130

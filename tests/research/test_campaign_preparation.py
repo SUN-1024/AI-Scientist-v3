@@ -247,7 +247,9 @@ def test_harness_uses_final_resolved_budget_and_defers_briefs(study, tmp_path, m
     else:
         assert "host_context" not in first
         assert "campaign_plan_version" not in state
-        assert state["campaign_plan"]["status"] == "not_frozen"
+        assert state["campaign_plan"]["status"] == "awaiting_draft"
+        assert state["postdraft_campaign_plan_version"] == 1
+        assert state["campaign_plan"]["execution_mode"] == "postdraft_plan"
         assert load_campaign_plan(location / "input_task") is None
 
 

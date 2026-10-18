@@ -12,6 +12,7 @@ import json
 import os
 import re
 import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -358,9 +359,10 @@ def normalize_papers(value: dict[str, Any], sources: list[dict[str, str]], limit
 
 
 class SearchSession:
-    def __init__(self, cfg: LiteratureConfig, directory: Path):
+    def __init__(self, cfg: LiteratureConfig, directory: Path, *, deadline_unix: float | None = None):
         self.cfg = cfg
         self.model = cfg.model_search
+        self.deadline_unix = deadline_unix
         validate_model_config(self.model)
         self.directory = directory
         self.directory.mkdir()
@@ -372,10 +374,16 @@ class SearchSession:
         self.calls: list[dict[str, Any]] = []
 
     def request(self, phase: str, url: str, body: dict[str, Any] | None, headers: dict[str, str]) -> dict[str, Any]:
+        timeout = self.model.timeout_seconds
+        if self.deadline_unix is not None:
+            remaining = int(self.deadline_unix - time.time())
+            if remaining < 1:
+                raise ValueError("Research model call deadline exhausted")
+            timeout = min(timeout, remaining)
         entry: dict[str, Any] = {"phase": phase, "endpoint": url.split("?", 1)[0]}
         self.calls.append(entry)
         try:
-            payload = _http_json(url, body, headers, timeout=self.model.timeout_seconds,
+            payload = _http_json(url, body, headers, timeout=timeout,
                                  proxy=self.model.proxy_url, fallback=self.cfg.proxy_fallback)
             payload = _redact(payload, self.secrets)
             filename = f"{len(self.calls):02d}_{phase}.json"

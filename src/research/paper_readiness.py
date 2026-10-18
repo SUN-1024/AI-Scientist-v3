@@ -240,6 +240,11 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
                            selected_candidate_design_assessed=False,
                            scientific_validity_certified=False)
         checks["methodology"] = methodology
+    from .evidence import verify_postdraft_execution_agenda
+
+    postdraft = verify_postdraft_execution_agenda(workspace)
+    if postdraft is not None:
+        checks["postdraft_execution_agenda"] = postdraft
     quality = cfg.harness.quality
     effect = (portfolio_confirmation.get("paired_comparison", {}).get("aggregate_metrics", {})
               if portfolio_confirmation is not None else checks["confirmation"].get("metrics", {}))
@@ -294,6 +299,8 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
                 "scientific_effect": "positive" if quality.require_positive_final else "not_required"}
     if "methodology" in checks:
         expected["methodology"] = "declared"
+    if postdraft is not None:
+        expected["postdraft_execution_agenda"] = "declared"
     if portfolio_confirmation is not None:
         expected["portfolio_final_comparison"] = "verified"
     gaps = [{"check": key, "status": checks[key].get("status"), "detail": checks[key].get("detail", checks[key].get("gaps", []))}
@@ -316,6 +323,7 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
         "review": ("resolve_review", "Resolve each independent reviewer concern; text edits must not invent missing experiments."),
         "novelty": ("verify_novelty", "Read the closest full methods, resolve source gaps, and test the stated discriminating hypothesis."),
         "methodology": ("methodology_coverage", "Resolve the declared study-design gaps using existing evidence. Methodology coverage does not certify causal or clinical validity. Preserve the frozen confirmation protocol; design changes after confirmation require a new study."),
+        "postdraft_execution_agenda": ("methodology_coverage", "Resolve the reviewed execution agenda's declared design gaps and recover its frozen draft, review, publication, and plan bindings. This coverage check does not assess the selected implementation's actual design."),
         "quality_target": ("new_study", "Declare a full research study before making a high-impact readiness claim."),
     }
     for gap in gaps:
@@ -334,6 +342,9 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     actions.extend({"check": "methodology", "kind": "methodology_followup", "instruction": item,
                     "requires_new_study": final_opened}
                    for item in checks.get("methodology", {}).get("actions", []) if isinstance(item, str))
+    actions.extend({"check": "postdraft_execution_agenda", "kind": "methodology_followup", "instruction": item,
+                    "requires_new_study": final_opened}
+                   for item in (postdraft or {}).get("actions", []) if isinstance(item, str))
     note = "All machine checks passing permits human scientific review. It does not promise novelty, journal acceptance, or authorize submission."
     if "methodology" in checks:
         actions.append({
@@ -342,6 +353,13 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
             "requires_new_study": False,
         })
         note += " Methodology coverage checks the frozen initial agenda only, not the selected candidate's actual design. It does not certify scientific, causal, or clinical validity."
+    if postdraft is not None:
+        actions.append({
+            "check": "postdraft_execution_agenda", "kind": "compare_selected_design",
+            "instruction": "Compare the selected implementation and actual controls with the separately frozen postdraft execution agenda. Declared agenda coverage does not verify that the implementation follows it.",
+            "requires_new_study": False,
+        })
+        note += " Postdraft execution-agenda coverage is reported separately and does not certify the selected candidate's design."
     return {
         "schema_version": 1, "assessed_at": now(), "quality_target": target,
         "status": "ready_for_human_review" if complete else "evidence_gaps",
@@ -364,6 +382,12 @@ def write_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any])
         next_actions["methodology"] = {key: methodology.get(key) for key in (
             "status", "policy_version", "rules_sha256", "scope", "assessment_scope",
             "selected_candidate_design_assessed", "scientific_validity_certified",
+        )}
+    postdraft = report["checks"].get("postdraft_execution_agenda")
+    if postdraft is not None:
+        next_actions["postdraft_execution_agenda"] = {key: postdraft.get(key) for key in (
+            "status", "verification_status", "policy_version", "rules_sha256", "scope", "assessment_scope",
+            "provenance", "selected_candidate_design_assessed", "scientific_validity_certified",
         )}
     write_private_text(workspace / "research_next_actions.json", json.dumps(next_actions, ensure_ascii=False, indent=2) + "\n")
     rows = ["# Research harness evidence readiness", "", f"State: **{report['status']}**", "", "| Check | Status |", "|---|---|"]

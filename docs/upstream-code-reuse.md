@@ -55,6 +55,22 @@ continues to run in legacy search mode; portfolio scheduling uses its own
 explicit cohort and per-idea state rather than claiming to execute V2's full
 manager unchanged.
 
+The bounded review-retrieval loop in `src/research/review_retrieval.py` follows
+V1's `check_idea_novelty` and V2's `generate_temp_free_idea` query/result feedback
+pattern. It is new host code, not a copied upstream search implementation.
+Only replay-verified reviewer requests can start it. New primary full texts are
+added in separate evidence views. The author then revises the interpretation,
+and fresh independent reviewers assess it. All earlier results remain visible.
+The loop has cumulative limits and never turns exhausted retries into a pass.
+The existing V1 reflection and V2 journal adaptations above remain the actual
+upstream code reuse; this retrieval loop does not claim to run either full
+upstream research manager.
+
+CLI-agent paper suggestions have no structured web-tool receipt in the current
+Headless transport. `agent_literature.py` labels them as unverified suggestions.
+The retrieval host downloads and checks each accepted PDF separately. This is
+source acquisition and title matching, not proof of exhaustive search or truth.
+
 ## License and provenance
 
 V3's existing code keeps Apache-2.0. Both pinned V1 and V2 snapshots carry the

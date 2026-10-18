@@ -151,6 +151,55 @@ def _methodology_gap(detail: str, *, provenance: dict[str, Any],
     }
 
 
+def verify_postdraft_execution_agenda(workspace: Path) -> dict[str, Any] | None:
+    """Assess the reviewed execution agenda without certifying the selected design."""
+    from .harness_state import sha256
+    from .methodology import MARKER_PATH, SCOPE, assess_methodology, load_methodology, render_methodology
+    from .postdraft_plan import verify_postdraft_campaign
+    from .research_agenda import load_agenda
+
+    provenance: dict[str, Any] = {}
+    try:
+        campaign = verify_postdraft_campaign(
+            workspace, require_frozen=True, runtime_task=_novelty_bound_path(workspace, "run/task"),
+        )
+        if campaign is None:
+            return None
+        provenance.update(campaign)
+        task = _novelty_bound_path(workspace, campaign["plan_task"])
+        marker = load_methodology(task)
+        if marker is None or marker != load_methodology(_novelty_bound_path(workspace, "input_task")):
+            raise ValueError("Postdraft execution agenda does not retain the frozen initial methodology policy")
+        agenda = load_agenda(task)
+        if agenda is None:
+            raise ValueError("Postdraft execution agenda is unavailable")
+        agenda_path = _novelty_bound_path(workspace, (task.relative_to(workspace) / "research_agenda.json").as_posix())
+        marker_path = _novelty_bound_path(workspace, (task.relative_to(workspace) / MARKER_PATH).as_posix())
+        provenance.update(agenda_path=agenda_path.relative_to(workspace).as_posix(),
+                          agenda_file_sha256=sha256(agenda_path), methodology_marker_sha256=sha256(marker_path))
+        return {
+            "schema_version": 1, **assess_methodology(task, agenda=agenda),
+            "profile": marker["profile"], "verification_status": "host_verified",
+            "assessment_scope": "postdraft_execution_agenda", "study_design": agenda.get("study_design", {}),
+            "declared_agenda": {key: agenda.get(key) for key in (
+                "research_question", "scope", "alternatives", "evidence_plan", "medical_context",
+            )},
+            "review_guidance": render_methodology(task, stage="review", agenda=agenda, marker=marker),
+            "provenance": provenance, "selected_candidate_design_assessed": False,
+            "scientific_validity_certified": False,
+        }
+    except (ValueError, OSError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        action = "Recover the frozen postdraft agenda and its draft, author-review, and publication bindings before assessing execution coverage."
+        return {
+            "schema_version": 1, "enabled": True, "status": "needs_evidence",
+            "verification_status": "invalid_or_missing", "assessment_scope": "postdraft_execution_agenda",
+            "scope": SCOPE, "detail": str(exc), "study_design": {}, "review_guidance": "",
+            "gaps": [{"field": "postdraft_execution_agenda", "reason": str(exc), "action": action}],
+            "actions": [action], "provenance": provenance,
+            "selected_candidate_design_assessed": False, "scientific_validity_certified": False,
+        }
+
+
 def verify_methodology_for_paper(
     paper_data: dict[str, Any], *, investigation_results_dir: Path | None = None,
 ) -> dict[str, Any] | None:
@@ -231,6 +280,9 @@ def verify_methodology_for_paper(
             "provenance": provenance, "selected_candidate_design_assessed": False,
             "scientific_validity_certified": False,
         }
+        postdraft = verify_postdraft_execution_agenda(workspace)
+        if postdraft is not None:
+            current["postdraft_execution_agenda"] = postdraft
         if declared and saved != current:
             raise ValueError("Saved methodology projection is stale or differs from the frozen host context")
         if not declared and investigation_results_dir is None:
@@ -326,7 +378,17 @@ def verify_selected_novelty_for_paper(
         cycle = _novelty_bound_path(workspace, cycle_value)
         report_path = _novelty_bound_path(workspace, (Path(cycle_value) / "novelty_report.json").as_posix())
         provenance.update(cycle=cycle_value, pointer_sha256=sha256(pointer_path), report_sha256=sha256(report_path))
-        report = load_frozen_novelty_report(workspace / "input_task", cycle, candidate_packet=packet)
+        evidence_task = workspace / "input_task"
+        preparation_path = _novelty_bound_path(workspace, "research_preparation.json") if (workspace / "research_preparation.json").exists() else None
+        initial = read_json(preparation_path).get("initial_harness_state", {}) if preparation_path is not None else {}
+        enrichment_declared = ("evidence_reference" in pointer
+            or state.get("selected_review_enrichment_version") is not None
+            or (isinstance(initial, dict) and initial.get("selected_review_enrichment_version") is not None))
+        if enrichment_declared:
+            from .review_enrichment import resolve_selected_evidence_task
+            evidence_task = resolve_selected_evidence_task(workspace, pointer, candidate_packet=packet)
+            provenance["evidence_reference"] = pointer["evidence_reference"]
+        report = load_frozen_novelty_report(evidence_task, cycle, candidate_packet=packet)
         receipts = []
         for judgment in report.get("model_judgments", []):
             receipt = judgment["receipt"]
@@ -352,6 +414,29 @@ def verify_selected_novelty_for_paper(
             "provenance": provenance, "human_approval": False, "publication_acceptance": False,
             "independent_final_confirmation": False,
         }
+        if enrichment_declared:
+            original_catalog = load_catalog(workspace / "input_task")
+            enriched_catalog = load_catalog(evidence_task)
+            if original_catalog is None or enriched_catalog is None:
+                raise ValueError("Selected enrichment is missing its verified source catalog")
+            original_ids = {source["id"] for source in original_catalog["sources"]}
+            sources = []
+            for source in enriched_catalog["sources"]:
+                if source["id"] in original_ids:
+                    continue
+                row = {key: source.get(key) for key in (
+                    "id", "title", "year", "venue", "url", "origin", "verified_origin_url",
+                    "availability", "metadata_status", "text_sha256", "download_sha256",
+                    "passages", "primary_identity", "discovery_status", "identity_check",
+                )}
+                text_path = evidence_task / CONTEXT_DIRECTORY / source["text_path"]
+                row["saved_text"] = _novelty_bound_path(workspace, text_path.relative_to(workspace).as_posix()).relative_to(workspace).as_posix()
+                sources.append(row)
+            current["literature_evidence"] = {
+                "catalog_sha256": sha256(evidence_task / CONTEXT_DIRECTORY / "catalog.json"),
+                "sources": sources,
+                "scope": "Additional frozen source text and navigation passages. Model-suggested metadata remains unverified; bibliography authors, title and date require primary citation metadata.",
+            }
         if declared and saved != current:
             raise ValueError("Saved selected novelty projection is stale or differs from current host-verified evidence")
         if not declared and investigation_results_dir is None:
@@ -509,6 +594,13 @@ def _campaign_plan_context(task_dir: Path, *, for_paper: bool, required: bool = 
     if not required and not any((task_dir / path).exists() or (task_dir / path).is_symlink()
                                 for path in (CAMPAIGN_PLAN_PATH, HOST_CONTEXT_PATH)):
         return ""
+    runtime_task = task_dir.resolve()
+    if runtime_task.name == "task" and runtime_task.parent.name == "run":
+        workspace = _managed_novelty_workspace(runtime_task.parent / "investigation")
+        if workspace is not None:
+            from .postdraft_plan import verify_postdraft_campaign
+
+            verify_postdraft_campaign(workspace, require_frozen=True, runtime_task=runtime_task)
     plan = load_campaign_plan(task_dir, required=True)
     if plan is None:
         raise ValueError("Required campaign plan is unavailable")

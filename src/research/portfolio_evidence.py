@@ -158,8 +158,10 @@ def _planned_evidence(
 ) -> dict[str, Any] | None:
     """Revalidate plan sources and expose allocation separately from execution."""
     from .campaign_plan import CAMPAIGN_PLAN_PATH, HOST_CONTEXT_PATH, load_campaign_plan
+    from .postdraft_plan import verify_postdraft_campaign
 
-    frozen_task = _novelty_bound_path(workspace, "input_task")
+    postdraft = verify_postdraft_campaign(workspace, require_frozen=True, runtime_task=task)
+    frozen_task = _novelty_bound_path(workspace, postdraft["plan_task"] if postdraft is not None else "input_task")
     declared = "plan_sha256" in state or "campaign_plan" in state
     if not declared and not any((directory / path).exists() or (directory / path).is_symlink()
                                 for directory in (frozen_task, task)
@@ -250,9 +252,9 @@ def _planned_evidence(
     artifacts = {}
     for name, relative in (("plan", CAMPAIGN_PLAN_PATH), ("host_context", HOST_CONTEXT_PATH),
                            ("agenda", Path("research_agenda.json"))):
-        path = _novelty_bound_path(workspace, (Path("input_task") / relative).as_posix())
+        path = _novelty_bound_path(workspace, (frozen_task.relative_to(workspace) / relative).as_posix())
         artifacts[name] = {"path": path.relative_to(workspace).as_posix(), "sha256": sha256(path)}
-    return {
+    result = {
         **{key: plan[key] for key in ("schema_version", "plan_sha256", "host_context_sha256", "agenda_sha256")},
         "verification_status": "host_verified", "allocation": allocation, "roots": roots,
         "selection_rule": "Correct screening roots are promoted by development score, then stable root ID; the candidate is frozen before repeats.",
@@ -273,6 +275,10 @@ def _planned_evidence(
                            "Unused allocations are reported deviations, not automatic scientific errors.",
         "source_artifacts": artifacts,
     }
+    if postdraft is not None:
+        result["assessment_scope"] = "postdraft_execution_agenda"
+        result["postdraft_campaign"] = postdraft
+    return result
 
 
 def _preview(rows: list[dict[str, Any]], winner: str, baseline_score: float) -> list[dict[str, Any]]:
@@ -455,6 +461,8 @@ def verify_portfolio_for_paper(
             provenance.update({key: campaign_plan[key] for key in (
                 "plan_sha256", "host_context_sha256", "agenda_sha256",
             )})
+            if "postdraft_campaign" in campaign_plan:
+                provenance["postdraft_campaign"] = campaign_plan["postdraft_campaign"]
             current["full_history_index"]["sections"]["campaign_plan"] = "/campaign_plan"
             current["full_history_index"]["plan_artifacts"] = campaign_plan["source_artifacts"]
             current["comparison_guidance"].update(

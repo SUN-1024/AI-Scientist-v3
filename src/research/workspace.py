@@ -353,6 +353,8 @@ def resume(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
     _verify_whole_idea_policy(staged, cfg)
     from .campaign_plan import load_campaign_plan
     load_campaign_plan(staged)
+    from .postdraft_plan import verify_postdraft_campaign
+    verify_postdraft_campaign(workspace)
     return cfg, manifest
 
 
