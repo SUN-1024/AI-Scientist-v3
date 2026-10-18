@@ -11,6 +11,9 @@ separate job executor. The Harness scheduler assigns one GPU to each candidate w
 
 The host validates the candidate's eight-parameter configuration before training and
 holds data, seeds, 160-step budget, validation checkpoint selection, and scoring fixed.
+All eight tunable parameters use `owner: candidate` in whole-idea cards. This includes
+optimizer settings and batch size: the candidate chooses them, and the host validates
+and applies them. Host execution does not make an allowed HPO parameter task-owned.
 Ideas can change the problem hypothesis, efficiency target, objective, or structure.
 An efficiency hypothesis still needs the fixed quality guardrail and a matched-device
 timing study. The initial candidate is only an attention/LME mixture.
@@ -46,6 +49,9 @@ Preparation freezes unmodified shared scoring code under `shared_helpers`, write
 all host helpers, and binds `requirements.txt` and the selected GPU model in the task
 contract. The source template is not a prepared study. Its `UNCONFIGURED` device model
 must be replaced by preparation. Candidate code never gets final paths or patch IDs.
+The prepared task includes `capture.py`, which the native scaffold requires. This
+logging helper adds no evaluation entrypoint. A complete prepared task skips drafting;
+evaluation still requires the sealed Harness proxy.
 
 ## CUDA runtime setup
 

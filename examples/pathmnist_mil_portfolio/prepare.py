@@ -58,7 +58,7 @@ def write_contract(task, *, cuda_torch_version, accelerator_model, helper=None):
             dependency["version"] = cuda_torch_version
     for plane in ("search", "final"):
         contract["compute"][plane]["accelerator_model"] = accelerator_model
-    for path in ("configuration.py", "configuration_contract.json", "shared_helpers/__init__.py",
+    for path in ("capture.py", "configuration.py", "configuration_contract.json", "shared_helpers/__init__.py",
                  "shared_helpers/evaluator.py", "shared_helpers/protocol.py", "prepare.py", "runtime_setup.json"):
         artifacts.append({"role": "evaluator_helper", "path": path, "sha256": helper.digest(task / path),
                           "source": "new portfolio adapter or frozen existing PathMNIST helper"})
@@ -83,9 +83,9 @@ def prepare(archive, task, *, cuda_torch_version, accelerator_model, cuda_wheel_
             destination = task / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
-    for obsolete in ("prepare_data.py", "capture.py"):
-        # These copied CPU-case utilities are not entrypoints for the new task.
-        (task / obsolete).unlink(missing_ok=True)
+    # The old data-preparation entrypoint is not part of the new task. Keep the
+    # new capture helper: it is required by the native complete-task scaffold.
+    (task / "prepare_data.py").unlink(missing_ok=True)
     shared = task / "shared_helpers"
     shared.mkdir()
     (shared / "__init__.py").write_text('"""Unmodified scoring helpers from the existing contracted PathMNIST case."""\n')

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "canonical_task": {
     "path": "task.md",
-    "sha256": "2a17f444964d6f42dc8a3b45ddde92890f3e77e875d03979a0752c90750307f2"
+    "sha256": "ec57c9d0bdf6745b0baf720d2bf5a0306498c3b10399243da7b3650c0a8d62f3"
   },
   "method": {
     "class": "weakly_supervised_mil",

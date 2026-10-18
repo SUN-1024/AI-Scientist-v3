@@ -34,9 +34,10 @@ after every reset. `configuration_contract.json` is the authoritative search spa
 | hybrid_mix | 0 to 1 | 0.5 |
 
 Unknown parameters, booleans as numbers, nonfinite values, and out-of-range values
-are rejected. In the whole-idea parameter-space declaration, optimizer settings and
-batch size have owner `task`; architecture settings have owner `candidate`. Neither
-owner can change the bounds. Seeds, splits, metrics, step budget, and selection rules
+are rejected. All eight parameters have owner `candidate` in the whole-idea
+parameter-space declaration. The candidate selects their values; the host validates
+them and applies optimizer settings, batch size, and gradient clipping. Tuning cannot
+change their bounds. Seeds, splits, metrics, step budget, and selection rules
 are evaluator-owned and cannot be tuned. If an architecture does not use a listed
 architecture parameter, state that fact rather than pretending it was effective.
 

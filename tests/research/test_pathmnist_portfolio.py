@@ -18,6 +18,8 @@ from examples.pathmnist_mil_portfolio import evaluator as ev
 from examples.pathmnist_mil_portfolio import prepare as prep
 from src.investigation.evaluation_evidence import load_evaluation_evidence
 from src.investigation.evaluator_outputs import validate_evaluator_outputs
+from src.investigation.files import missing_task_scaffold_files
+from src.investigation.portfolio_campaign import bind_portfolio_idea
 from src.investigation.task_contract import load_task_contract, parse_task_contract
 from src.investigation.task_runtime import _requirements_match_contract, _validate_requirements
 from src.research.config import load_config
@@ -85,6 +87,37 @@ def test_configuration_contract_requires_exact_keys_and_rpc_envelope():
             cfg.validate_configuration(bad)
     with pytest.raises(ValueError, match="only configuration"):
         cfg.configuration_from_response({"configuration": configuration(), "seed": 19})
+
+
+def test_template_parameter_space_allows_joint_host_applied_hpo_in_portfolio_tuning():
+    rules = json.loads((ROOT / "configuration_contract.json").read_text())["parameters"]
+    assert set(rules) == set(configuration())
+    assert all(rule["owner"] == "candidate" for rule in rules.values())
+    card = {
+        "schema_version": 1, "innovation_axis": "optimization",
+        "problem_statement": "Improve worst-view AUROC under the fixed bag protocol.",
+        "contribution": "Jointly tune the complete candidate within the host bounds.",
+        "minimal_validation": {
+            "protocol_id": "pathmnist-portfolio-v1",
+            "decision_rule": "Select on the fixed development AUROC.",
+            "stop_or_pivot": "Stop at the declared trial budget.",
+        },
+        "parameter_space": [{"name": name, **rule} for name, rule in rules.items()],
+        "selection_reason": "Use the declared seed configuration for screening.",
+    }
+    context = {"root_idea_id": "root_1", "lease_id": "trial_2", "stage": "tuning",
+               "innovation_axis": "optimization", "source_card": card}
+    tuned = copy.deepcopy(card)
+    updates = {"learning_rate": 0.001, "weight_decay": 0.001,
+               "batch_size": 64, "gradient_clip_norm": 2.0}
+    for parameter in tuned["parameter_space"]:
+        if parameter["name"] in updates:
+            parameter["default"] = updates[parameter["name"]]
+    bound = bind_portfolio_idea({"whole_idea": tuned}, context)
+    selected = {item["name"]: item["default"] for item in bound["whole_idea"]["parameter_space"]}
+    assert cfg.validate_configuration(selected) == configuration(**updates)
+    assert bound["root_idea_id"] == "root_1"
+    assert all(name not in selected for name in ("seed", "max_steps", "split", "metric"))
 
 
 @pytest.mark.parametrize("updates", [
@@ -239,9 +272,14 @@ def test_preparation_overlay_reuses_builder_and_freezes_standalone_helpers(tmp_p
     report = prep.prepare(archive, task, cuda_torch_version="2.11.0+cu126", accelerator_model="Fixture GPU")
     assert calls == [(archive, {"validation_bags": 56, "test_bags": 32})]
     assert report["final_evaluation_performed"] is False
+    assert missing_task_scaffold_files(task) == []
+    assert (task / "capture.py").read_bytes() == (ROOT / "capture.py").read_bytes()
     contract = load_task_contract(task / "task_contract.json")
     assert contract.compute.search.accelerator_model == "Fixture GPU"
     assert _requirements_match_contract(task / "requirements.txt", contract)
+    artifacts = json.loads((task / "task_contract.json").read_text())["provenance"]["artifacts"]
+    capture_artifact = next(item for item in artifacts if item["path"] == "capture.py")
+    assert capture_artifact["sha256"] == hashlib.sha256((task / "capture.py").read_bytes()).hexdigest()
     setup = json.loads((task / "runtime_setup.json").read_text())
     assert setup["required_image_environment"] == {"PIP_EXTRA_INDEX_URL": prep.VERIFIED_CUDA_INDEX}
     assert setup["cuda_execution_verified_during_preparation"] is False
