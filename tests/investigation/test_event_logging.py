@@ -635,11 +635,14 @@ def test_background_progress_thread_stops_on_close(tmp_path: Path) -> None:
     stream = io.StringIO()
     logger = _logger(tmp_path, stream, log_format="json", heartbeat_seconds=1, progress_tick_seconds=0.01)
     logger.start_progress("attempt", started_at=time.monotonic() - 2, cycle=1, total_cycles=1)
+    thread = logger._progress_thread
+    assert thread is not None
 
-    deadline = time.monotonic() + 1
+    deadline = time.monotonic() + 3
     while '"event": "heartbeat"' not in stream.getvalue() and time.monotonic() < deadline:
         time.sleep(0.01)
     logger.close()
+    assert not thread.is_alive()
     rendered = stream.getvalue()
     time.sleep(0.03)
 

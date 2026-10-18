@@ -437,13 +437,14 @@ def _task_drafting_transport(records: list[dict], *, trailer: str = "", stderr: 
         stderr,
     )
     fake_proc.returncode = returncode
+    uuid_mock = Mock()
+    uuid_mock.uuid4.return_value.hex = "host-task-test"
     with (
         patch("src.investigation.cli.subprocess.Popen", return_value=fake_proc) as popen_mock,
         patch("src.investigation.cli.log_event") as log_event_mock,
-        patch("src.investigation.script_runners.uuid.uuid4") as uuid_mock,
+        patch("src.investigation.script_runners.uuid", uuid_mock),
         patch("src.investigation.script_runners.secrets.token_hex", return_value="host-task-secret"),
     ):
-        uuid_mock.return_value.hex = "host-task-test"
         yield log_event_mock, popen_mock
 
 
