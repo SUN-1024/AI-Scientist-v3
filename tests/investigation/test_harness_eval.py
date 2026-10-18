@@ -231,7 +231,7 @@ def test_harness_eval_sealed_execution_records_success_failure_and_timeout(tmp_p
         return sealed_result
 
     with (
-        patch("src.investigation.harness_eval.subprocess.run") as direct_run,
+        patch("src.investigation.native_harness.subprocess.run") as direct_run,
         patch("src.variants_pipeline.host_eval.evaluate_variant_program", side_effect=run_sealed_evaluation) as sealed_run,
     ):
         exit_code = _evaluate(
@@ -299,7 +299,7 @@ def test_direct_harness_controls_cuda_visibility(tmp_path: Path) -> None:
             (program_dir / "correct.json").write_text('{"correct": true}')
             return subprocess.CompletedProcess(command, 0, "", "")
 
-        with patch("src.investigation.harness_eval.subprocess.run", side_effect=evaluate):
+        with patch("src.investigation.native_harness.subprocess.run", side_effect=evaluate):
             exit_code = _evaluate(
                 experiment_dir,
                 _write_rubrics(root, []),

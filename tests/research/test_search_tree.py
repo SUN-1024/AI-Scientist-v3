@@ -60,3 +60,13 @@ def test_failed_attempts_are_recorded_but_not_selected(tmp_path):
     state = json.loads((results / "search_tree.json").read_text())
     assert state["nodes"]["cycle_0001"]["exit_code"] == 1
     assert state["nodes"]["cycle_0001"]["correct"] is False
+
+
+def test_real_investigation_loader_preserves_branching_overrides():
+    from src.investigation.config_loader import load_config
+
+    cfg = load_config(['execution.search_strategy=tree', 'execution.search_width=5',
+                       'execution.search_explore_every=4'])
+    assert cfg.execution.search_strategy == 'tree'
+    assert cfg.execution.search_width == 5
+    assert cfg.execution.search_explore_every == 4

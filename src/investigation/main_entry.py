@@ -1000,19 +1000,39 @@ def run_main_flow(
         baseline_score = (
             runtime_baseline_score(task_dir) if should_prepare_task_runtime else None
         )
+        native_evaluator = None
+        if not containerize and not should_prepare_task_runtime:
+            from .native_harness import ensure_native_baseline
+
+            native_started = time.monotonic()
+            try:
+                baseline_score = ensure_native_baseline(
+                    task_dir=task_dir, seed_program_dir=seed_program_dir,
+                    results_dir=results_dir,
+                    timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
+                )
+            except (OSError, ValueError) as exc:
+                log_event_fn("config_error", reason="native_baseline_evaluation_failed", error=str(exc))
+                return 2
+            native_evaluator = task_dir / "evaluate.py"
+            log_event_fn("native_baseline_ready", combined_score=baseline_score,
+                         elapsed_seconds=time.monotonic() - native_started,
+                         execution_boundary="host")
         if not reconcile_harness_incumbent(
             task_dir=task_dir,
             results_dir=results_dir,
             seed_program_dir=seed_program_dir,
             baseline_score=baseline_score,
             baseline_correct=(
-                runtime_baseline_correct(task_dir) if should_prepare_task_runtime else None
+                True if native_evaluator is not None
+                else runtime_baseline_correct(task_dir) if should_prepare_task_runtime else None
             ),
             best_manifest=best_manifest,
             outer_state=outer_state,
             validated_baseline_program_dir=(
                 seed_program_dir if seed_is_validated_baseline else None
             ),
+            native_evaluator=native_evaluator,
         ):
             log_event_fn(
                 "config_error",

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -480,51 +479,17 @@ def _run_direct_evaluation(
     timeout_seconds: int,
     environment: Mapping[str, str],
 ) -> int:
-    manifest_path = program_dir / "evaluation_manifest.json"
-    command = [
-        python_bin,
-        str(evaluate_py),
-        "--program_path",
-        str(entrypoint),
-        "--results_dir",
-        str(program_dir),
-    ]
-    manifest: dict[str, Any] = {
-        "producer": "harness_eval",
-        "attempt_id": attempt_id,
-        "idea_id": idea_id,
-        "program_id": "program_1",
-        "command": command,
-        "started_at": _utc_now(),
-    }
-    _write_json(manifest_path, manifest)
-    try:
-        result = subprocess.run(
-            command,
-            cwd=str(experiment_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-            env=dict(environment),
-        )
-    except subprocess.TimeoutExpired as exc:
-        manifest.update(
-            finished_at=_utc_now(),
-            exit_code=124,
-            timeout_seconds=timeout_seconds,
-        )
-        _write_json(manifest_path, manifest)
-        raise SystemExit(f"harness evaluation timed out after {timeout_seconds}s") from exc
-    (program_dir / "harness_evaluate_stdout.log").write_text(
-        result.stdout or "", encoding="utf-8"
+    # Native mode has no filesystem sandbox. Evaluate the canonical task script,
+    # not the agent-writable copy in the attempt, and bind the receipt to bytes.
+    from .native_harness import run_native_evaluation
+
+    task_source = environment.get("TASK_SOURCE_DIR")
+    evaluator = Path(task_source) / "evaluate.py" if task_source else evaluate_py
+    return run_native_evaluation(
+        program_dir=program_dir, evaluator=evaluator, python_bin=python_bin,
+        timeout_seconds=timeout_seconds, environment=environment,
+        attempt_id=attempt_id, idea_id=idea_id,
     )
-    (program_dir / "harness_evaluate_stderr.log").write_text(
-        result.stderr or "", encoding="utf-8"
-    )
-    manifest.update(finished_at=_utc_now(), exit_code=result.returncode)
-    _write_json(manifest_path, manifest)
-    return result.returncode
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -234,3 +234,22 @@ def test_pipeline_exception_is_recorded_as_failure(tmp_path, monkeypatch):
     report = json.loads((workspace / "research_report.json").read_text())
     assert report["state"] == "pipeline_failed"
     assert report["pipeline_exit_code"] == 1
+
+
+@pytest.mark.parametrize('prompt', ['idea.md', 'harness_edit.md'])
+def test_idea_prompt_keeps_interface_when_task_uses_custom_headings(tmp_path, prompt):
+    from src.investigation.files import load_instructions
+
+    task = tmp_path / 'task'
+    task.mkdir()
+    brief = '# Clinical pilot\n## Candidate interface\nReturn one logit per bag. Do not use patch labels.\n'
+    (task / 'task.md').write_text(brief)
+    template = Path(__file__).resolve().parents[2] / 'src/prompts' / prompt
+    rendered = load_instructions(template, task, tmp_path / 'results')
+    assert brief in rendered
+    assert 'TASK_BRIEF' not in rendered
+    if prompt == 'idea.md':
+        assert 'Shell tools may be used for bounded file I/O' in rendered
+        assert 'Do not execute the candidate, evaluator' in rendered
+    else:
+        assert 'Do not execute, source, or import any candidate' in rendered

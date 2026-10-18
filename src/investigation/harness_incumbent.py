@@ -124,12 +124,19 @@ def _sealed_program_evaluation(
     baseline_program_dir: Path,
     baseline_score: float | None,
     baseline_correct: bool | None,
+    native_evaluator: Path | None = None,
 ) -> _TrustedProgramEvaluation | None:
     program_dir = resolve_path(program_dir)
     if program_dir == resolve_path(baseline_program_dir):
         validated_baseline = _finite_score(baseline_score)
         if validated_baseline is not None and isinstance(baseline_correct, bool):
             return _TrustedProgramEvaluation(validated_baseline, baseline_correct)
+    if native_evaluator is not None:
+        from .native_harness import validated_native_score
+
+        native_score = validated_native_score(program_dir, native_evaluator)
+        if native_score is not None:
+            return _TrustedProgramEvaluation(native_score, True)
     manifest = _read_harness_json(program_dir / "evaluation_manifest.json")
     if not manifest or not (
         manifest.get("producer") == "sandbox_host_eval"
@@ -172,6 +179,7 @@ def reconcile_harness_incumbent(
     best_manifest: dict[str, Any],
     outer_state: dict[str, Any],
     validated_baseline_program_dir: Path | None = None,
+    native_evaluator: Path | None = None,
 ) -> bool:
     """Pair the incumbent score with the program that earned it."""
     baseline_program_dir = resolve_path(
@@ -184,6 +192,7 @@ def reconcile_harness_incumbent(
         baseline_program_dir=baseline_program_dir,
         baseline_score=baseline_score,
         baseline_correct=baseline_correct,
+        native_evaluator=native_evaluator,
     )
     persisted_program = _legacy_program_dir(best_manifest)
     persisted_program_is_managed = persisted_program is not None and (
@@ -195,6 +204,7 @@ def reconcile_harness_incumbent(
             baseline_program_dir=baseline_program_dir,
             baseline_score=baseline_score,
             baseline_correct=baseline_correct,
+            native_evaluator=native_evaluator,
         )
         if persisted_program_is_managed and persisted_program is not None
         else None

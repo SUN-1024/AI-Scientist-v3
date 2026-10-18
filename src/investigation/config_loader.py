@@ -309,6 +309,9 @@ def _dict_to_config(d: dict) -> InvestigationConfig:
             seed_program=_optional_str(paths_d.get("seed_program")),
         ),
         execution=ExecutionConfig(
+            search_strategy=str(execution_d.get("search_strategy", "best")),
+            search_width=int(execution_d.get("search_width", 4)),
+            search_explore_every=int(execution_d.get("search_explore_every", 3)),
             max_idea_cycles=int(execution_d.get("max_idea_cycles", 20)),
             workers=int(execution_d.get("workers", 1)),
             resume=bool(execution_d.get("resume", False)),

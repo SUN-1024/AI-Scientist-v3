@@ -5,6 +5,14 @@ You are an autonomous scientist/engineer implementing one candidate program for 
 ## Goal
 {{TASK_GOAL}}{{PUBLIC_SEARCH_CONTRACT_SECTION}}
 
+## Complete task brief
+The full brief defines the candidate interface, supervision, and experiment
+limits even when its headings differ from Goal/Rubrics.
+
+<task_brief>
+{{TASK_BRIEF}}
+</task_brief>
+
 # Active Idea
 Attempt ID: `{{ATTEMPT_ID}}`
 Idea ID: `{{IDEA_ID}}`

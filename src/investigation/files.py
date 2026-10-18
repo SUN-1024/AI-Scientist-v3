@@ -344,6 +344,7 @@ def load_instructions(
         "TASK_MD_PATH": str(task_md_path),
         "TASK_GOAL": task_goal,
         "TASK_RUBRICS": task_rubrics,
+        "TASK_BRIEF": task_md_path.read_text(encoding="utf-8") if task_md_path.is_file() else "(missing task.md)",
     }
     if extra_replacements:
         replacements.update(extra_replacements)
