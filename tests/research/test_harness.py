@@ -130,6 +130,36 @@ def test_resume_skips_unchanged_completed_stage_but_does_not_call_it_scientifica
     assert report["submission_ready"] is False
 
 
+def test_resume_plans_fresh_posthoc_retry_without_changing_prior_output(tmp_path, monkeypatch, capsys):
+    task = make_task(tmp_path / "task")
+    workspace = tmp_path / "workspace"
+    monkeypatch.setattr(harness, "ensure_execution_ready", Mock())
+
+    def degraded(argv, *, event_callback):
+        from src.pipeline.cli import load_pipeline_config
+        assert load_pipeline_config(argv).execution.restart_posthoc is False
+        output = workspace / "run/posthoc"
+        output.mkdir(parents=True, mode=0o700)
+        (output / "failure.txt").write_text("transport failure")
+        event_callback("phase_start", phase_name="posthoc")
+        event_callback("phase_end", phase_name="posthoc", status="degraded", return_code=1)
+        event_callback("phase_start", phase_name="paper")
+        event_callback("phase_end", phase_name="paper", status="failed", return_code=1)
+        return 1
+
+    monkeypatch.setattr("src.pipeline.cli.main", degraded)
+    assert cli.main(["harness", str(task), "--workspace", str(workspace), "--offline",
+                     "--quality-target", "development", "execution.phases=posthoc,paper",
+                     "container.enabled=false"]) == 1
+    capsys.readouterr()
+    assert cli.main(["harness", "--resume", str(workspace), "--dry-run"]) == 0
+    preview = json.loads(capsys.readouterr().out)
+    assert preview["remaining_phases"] == ["posthoc", "paper"]
+    assert "execution.restart_posthoc=true" in preview["pipeline_argv"]
+    assert (workspace / "run/posthoc/failure.txt").read_text() == "transport failure"
+    assert not list((workspace / "run").glob("posthoc.previous.*"))
+
+
 def test_resume_rejects_modified_stage_and_frozen_configuration(tmp_path, monkeypatch, capsys):
     task, workspace, calls = _run_completed_fixture(tmp_path, monkeypatch)
     assert cli.main(["harness", "--resume", str(workspace), "agent.model=changed"]) == 2

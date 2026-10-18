@@ -496,6 +496,9 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     if prior and target != prior["quality_target"]:
         raise ValueError("Quality target is frozen; create a new workspace to change it")
     effective = _merge(overrides, ["execution.phases=" + ",".join(phase for phase in PIPELINE_PHASES if phase in remaining)])
+    if prior and "posthoc" in remaining:
+        # Retain failed analysis output and retry in a fresh directory.
+        effective = _merge(effective, ["execution.restart_posthoc=true"])
     startup_retry = None
     if prior and "investigation" in remaining and (workspace / "run/investigation").is_dir():
         startup_retry = _startup_retry_plan(workspace, prior, cycle_budget=pipeline_cfg.investigation.max_idea_cycles)

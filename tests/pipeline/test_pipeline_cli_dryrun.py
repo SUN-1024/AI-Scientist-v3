@@ -299,6 +299,54 @@ def test_posthoc_output_safety_guards(tmp_path: Path) -> None:
         _verify_posthoc_output_identity(paths, identity)
 
 
+def test_posthoc_retry_preserves_prior_attempt_and_dry_run_is_read_only(tmp_path: Path) -> None:
+    paths = derive_paths(_pipeline_cfg(tmp_path / "run"))
+    paths.run_dir.mkdir(mode=0o700)
+    paths.posthoc_dir.mkdir(mode=0o700)
+    original_identity = paths.posthoc_dir.stat().st_ino
+    (paths.posthoc_dir / "failure.json").write_text('{"error":"transport"}\n')
+    with pytest.raises(UnsafeGluePathError, match="already exists"):
+        _prepare_posthoc_output(paths, dry_run=False)
+    assert _prepare_posthoc_output(paths, dry_run=True, restart_existing=True) is None
+    assert paths.posthoc_dir.stat().st_ino == original_identity
+    assert not list(paths.run_dir.glob("posthoc.previous.*"))
+
+    identity = _prepare_posthoc_output(paths, dry_run=False, restart_existing=True)
+    assert identity is not None
+    _verify_posthoc_output_identity(paths, identity)
+    assert paths.posthoc_dir.stat().st_ino != original_identity
+    assert list(paths.posthoc_dir.iterdir()) == []
+    archived, = paths.run_dir.glob("posthoc.previous.*")
+    assert archived.stat().st_ino == original_identity
+    assert (archived / "failure.json").read_text() == '{"error":"transport"}\n'
+
+
+@pytest.mark.parametrize("kind", ["symlink", "file", "non_private", "archive_collision"])
+def test_posthoc_retry_rejects_unsafe_or_colliding_output(tmp_path: Path, monkeypatch, kind: str) -> None:
+    paths = derive_paths(_pipeline_cfg(tmp_path / "run"))
+    paths.run_dir.mkdir(mode=0o700)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "evidence").write_text("unchanged")
+    if kind == "symlink":
+        paths.posthoc_dir.symlink_to(outside, target_is_directory=True)
+    elif kind == "file":
+        paths.posthoc_dir.write_text("unchanged")
+    else:
+        paths.posthoc_dir.mkdir(mode=0o755 if kind == "non_private" else 0o700)
+    if kind == "archive_collision":
+        monkeypatch.setattr(cli.secrets, "token_hex", lambda _: "collision")
+        archive = paths.run_dir / "posthoc.previous.collision"
+        archive.mkdir(mode=0o700)
+        (archive / "evidence").write_text("retained")
+    with pytest.raises(UnsafeGluePathError):
+        _prepare_posthoc_output(paths, dry_run=False, restart_existing=True)
+    assert paths.posthoc_dir.exists()
+    assert (outside / "evidence").read_text() == "unchanged"
+    if kind == "archive_collision":
+        assert (archive / "evidence").read_text() == "retained"
+
+
 # --------------------------------------------------------------------------- dry runs
 
 
@@ -506,6 +554,35 @@ def test_posthoc_setup_failure_does_not_block_paper(monkeypatch, tmp_path) -> No
         assert rc == 0, name
         assert not any(POSTHOC in call for call in calls), name
         assert any(PAPER in call for call in calls), name
+
+
+@pytest.mark.parametrize("new_analysis", [False, True])
+def test_posthoc_retry_launches_analysis_and_paper_only_uses_new_output(monkeypatch, tmp_path, new_analysis):
+    run_dir = tmp_path / "retry"
+    _write_completed_run(run_dir, task_md="test task")
+    posthoc = run_dir / "posthoc"
+    posthoc.mkdir(mode=0o700)
+    _write_posthoc_analysis(posthoc)
+    retained_ranking = (posthoc / "ranking.json").read_bytes()
+
+    def retry(argv: list[str]) -> int:
+        if POSTHOC in argv:
+            assert list(posthoc.iterdir()) == []
+            if new_analysis:
+                _write_posthoc_analysis(posthoc)
+        return 0
+
+    calls = _capture_commands(monkeypatch, retry)
+    _no_glue(monkeypatch)
+    assert main(["execution.phases=posthoc,paper", f"paths.run_dir={run_dir}",
+                 "execution.restart_posthoc=true"]) == 0
+    assert sum(POSTHOC in call for call in calls) == 1
+    paper = next(call for call in calls if PAPER in call)
+    assert ("--posthoc-dir" in paper) is new_analysis
+    archived, = run_dir.glob("posthoc.previous.*")
+    assert (archived / "ranking.json").read_bytes() == retained_ranking
+    status = json.loads((posthoc / "integration_status.json").read_text())
+    assert status["status"] == ("completed" if new_analysis else "degraded")
 
 
 # --------------------------------------------------------------------------- run-local task + investigation

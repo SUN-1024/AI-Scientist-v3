@@ -645,6 +645,10 @@ class PipelineExecutionConfig:
         default=True,
         metadata={"help": "Stop at the first failing stage"},
     )
+    restart_posthoc: bool = field(
+        default=False,
+        metadata={"help": "Archive prior posthoc output before retrying artifact-only analysis"},
+    )
     no_winner_policy: str = field(
         default="best_available",
         metadata={"help": "best_available: best valid candidate, then baseline; skip opts out"},

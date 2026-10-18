@@ -143,7 +143,7 @@ from .resume_config import (
     read_run_idea_cycle_budget,
     write_resume_policy,
 )
-from .safe_fs import ensure_directory, entry_exists_at, open_directory
+from .safe_fs import ensure_directory, entry_exists_at, open_directory, rename_directory_no_replace
 from .task_snapshot import (
     reseal_run_task,
     task_snapshot_is_complete,
@@ -1453,7 +1453,8 @@ def _run_pipeline(
                 if cfg.container.enabled and not cfg.execution.dry_run:
                     cfg.container.image = resolve_immutable_image(cfg.container.image)
                 prepared_output_identity = _prepare_posthoc_output(
-                    paths, dry_run=cfg.execution.dry_run
+                    paths, dry_run=cfg.execution.dry_run,
+                    restart_existing=cfg.execution.restart_posthoc,
                 )
             except (UnsafeGluePathError, ValueError) as exc:
                 logger.warning("Posthoc preflight degraded: %s", exc)
@@ -2211,7 +2212,9 @@ def _current_posthoc_artifacts_available(paths: PipelinePaths) -> bool:
     return bool(analyses)
 
 
-def _prepare_posthoc_output(paths: PipelinePaths, *, dry_run: bool) -> tuple[int, int] | None:
+def _prepare_posthoc_output(
+    paths: PipelinePaths, *, dry_run: bool, restart_existing: bool = False,
+) -> tuple[int, int] | None:
     """Create a fresh, contained post-hoc run root without following symlinks."""
     run_dir = Path(os.path.abspath(paths.run_dir))
     output = Path(os.path.abspath(paths.posthoc_dir))
@@ -2229,7 +2232,23 @@ def _prepare_posthoc_output(paths: PipelinePaths, *, dry_run: bool) -> tuple[int
                 f"{run_dir}"
             )
         if entry_exists_at(parent_fd, output.name):
-            raise UnsafeGluePathError(f"fresh posthoc output already exists: {output}")
+            if not restart_existing:
+                raise UnsafeGluePathError(f"fresh posthoc output already exists: {output}")
+            with open_directory(output, role="prior posthoc output") as prior_fd:
+                prior_stat = os.fstat(prior_fd)
+                if prior_stat.st_uid != os.getuid() or prior_stat.st_mode & 0o077:
+                    raise UnsafeGluePathError(f"prior posthoc output is not owner-private: {output}")
+                archive_name = f"posthoc.previous.{secrets.token_hex(16)}"
+                rename_directory_no_replace(
+                    parent_fd, output.name, archive_name, role="prior posthoc output",
+                )
+                try:
+                    archived_stat = os.stat(archive_name, dir_fd=parent_fd, follow_symlinks=False)
+                except OSError as exc:
+                    raise UnsafeGluePathError(f"could not verify archived posthoc output: {output}") from exc
+                if (archived_stat.st_dev, archived_stat.st_ino) != (prior_stat.st_dev, prior_stat.st_ino):
+                    raise UnsafeGluePathError(f"prior posthoc output changed during archival: {output}")
+                logger.info("Archived prior posthoc attempt at %s", run_dir / archive_name)
         try:
             os.mkdir(output.name, 0o700, dir_fd=parent_fd)
         except OSError as exc:
