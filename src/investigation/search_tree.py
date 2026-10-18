@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,17 @@ def _fingerprint(path: Path) -> str:
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
+def _source_group(node: dict[str, Any]) -> tuple[str, str]:
+    """Only valid source digests may join otherwise separate experiment nodes."""
+    digest = node.get("source_sha256")
+    if (isinstance(digest, str) and len(digest) == 64
+            and all(char in "0123456789abcdefABCDEF" for char in digest)):
+        return "source", digest.lower()
+    # Failed attempts have no source. Do not merge those or malformed records.
+    # A chosen program still has to pass _program_path's fingerprint check.
+    return "node", node["node_id"]
+
+
 class SearchTree:
     """One tree per worker; persistent cycle leases make retries deterministic."""
 
@@ -53,6 +65,7 @@ class SearchTree:
         self.path = results_dir / TREE_FILE
         self.data: dict[str, Any] = {
             "schema_version": 1, "width": width, "explore_every": explore_every,
+            "selection_policy_version": 2,
             "nodes": {}, "leases": {},
         }
         if self.path.exists() or self.path.is_symlink():
@@ -71,6 +84,9 @@ class SearchTree:
             self._validate_state()
 
     def _validate_state(self) -> None:
+        version = self.data.get("selection_policy_version", 1)
+        if type(version) is not int or version not in (1, 2):
+            raise ValueError("Unsupported search tree selection_policy_version")
         nodes = self.data["nodes"]
         if nodes and "root" not in nodes:
             raise ValueError("Search tree has no root")
@@ -86,6 +102,25 @@ class SearchTree:
                 raise ValueError("Correct search node has no finite score")
         if any(parent not in nodes for parent in self.data["leases"].values()):
             raise ValueError("Search tree lease points to a missing parent")
+
+    def _exploration_pool(self, eligible: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        root = self.data["nodes"]["root"]
+        if self.data.get("selection_policy_version", 1) == 1:
+            # A missing version is the historical policy. Never upgrade a resume.
+            pool = eligible[: self.width]
+            if root not in pool:
+                pool.append(root)
+            return pool
+
+        # ranked_nodes orders by score then node ID, so the first member is a
+        # deterministic representative. The full graph and hypotheses stay intact.
+        representatives: dict[tuple[str, str], dict[str, Any]] = {}
+        for node in eligible:
+            representatives.setdefault(_source_group(node), node)
+        pool = list(representatives.values())[: self.width]
+        if _source_group(root) not in {_source_group(node) for node in pool}:
+            pool.append(root)
+        return pool
 
     def _program_path(self, node: dict[str, Any]) -> Path:
         raw = node.get("program_dir")
@@ -136,20 +171,25 @@ class SearchTree:
             chosen = nodes[leased]
         else:
             eligible = [nodes[node.id] for node in journal.ranked_nodes()]
-            pool = eligible[: self.width]
+            pool = self._exploration_pool(eligible)
             root = nodes["root"]
-            if root not in pool:
-                pool.append(root)
             if selection_policy == "incumbent":
                 chosen = next((node for node in eligible if Path(node["program_dir"]).resolve() == incumbent_dir.resolve()), None)
                 if chosen is None:
                     raise ValueError("Adaptive incumbent is missing from the validated search tree")
             elif selection_policy == "explore" or (selection_policy == "scheduled" and cycle % self.explore_every == 0):
                 visits = list(self.data["leases"].values())
+                if self.data.get("selection_policy_version", 1) == 2:
+                    # Include leases to every member, even nodes now outside the
+                    # eligible beam. A new copy cannot reset a source's visits.
+                    group_visits = Counter(_source_group(nodes[node_id]) for node_id in visits)
+                    visit_count = lambda node: group_visits[_source_group(node)]
+                else:
+                    visit_count = lambda node: visits.count(node["node_id"])
                 chosen = min(
                     pool,
                     key=lambda node: (
-                        visits.count(node["node_id"]), node["depth"],
+                        visit_count(node), node["depth"],
                         -(node["score"] if node["score"] is not None else -math.inf),
                         node["node_id"],
                     ),
