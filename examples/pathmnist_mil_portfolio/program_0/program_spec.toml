@@ -1,0 +1,12 @@
+schema_version = 1
+code_root = "src"
+[entrypoint]
+path = "program.py"
+language = "python"
+type = "script"
+[copy]
+exclude = ["**/__pycache__/**", "**/*.pyc"]
+include = []
+[integration]
+kind = "generic"
+notes = "Existing python_rpc_v1 boundary; one assigned CUDA device and bounded joint HPO."

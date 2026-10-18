@@ -1,0 +1,58 @@
+schema_version: 1
+methodology:
+  enabled: true
+  profile: medical
+literature:
+  queries:
+  - pathology multiple instance learning background dilution variable bag size attention
+    log mean exp pooling label noise
+  - pathology multiple instance learning sparse positive evidence log sum exp pooling
+    noisy bag labels
+  sources: []
+  max_papers: 8
+  results_per_query: 5
+  fetch_full_text: true
+  timeout_seconds: 30
+  proxy_fallback: http://127.0.0.1:7890
+  model_search:
+    provider: magpie
+    model: deepseek/deepseek-flash
+    base_url: http://127.0.0.1:3425/v1
+    api_key_env: ''
+    api_format: responses
+    mode: external
+    timeout_seconds: 180
+    max_output_tokens: 6000
+    max_search_calls: 4
+    max_continuations: 2
+    external_search:
+      provider: deepseek
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      max_results: 5
+    request_overrides:
+      store: false
+      reasoning:
+        effort: low
+search:
+  strategy: tree
+  width: 3
+  explore_every: 3
+harness:
+  quality_target: high_impact
+  novelty_review: true
+  novelty_reviewers: 2
+  quality:
+    min_confirmation_seeds: 5
+    required_comparisons:
+    - baseline_lme
+    - control_best
+    require_ablation: false
+    require_positive_final: true
+    positive_effect_metric: candidate_minus_lme
+    positive_effect_interval_low_metric: paired_ci95_low
+    positive_effect_min: 0.0
+    min_review_score: 6
+whole_idea_policy:
+  enabled: true
+  policy_version: 1

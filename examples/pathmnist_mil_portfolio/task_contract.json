@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "canonical_task": {
+    "path": "task.md",
+    "sha256": "2a17f444964d6f42dc8a3b45ddde92890f3e77e875d03979a0752c90750307f2"
+  },
+  "method": {
+    "class": "weakly_supervised_mil",
+    "description": "Complete-idea GPU screening and bounded joint HPO on fixed synthetic PathMNIST bags; candidate-only single CUDA device."
+  },
+  "candidate": {
+    "interface": "python_rpc_v1:handle",
+    "editable_paths": [
+      "program_0/src"
+    ]
+  },
+  "evaluators": {
+    "search": "evaluate.py",
+    "final": "evaluate_final.py"
+  },
+  "resources": {
+    "search_root": "resources/search",
+    "final_root": "resources/final",
+    "public_artifact_bundle": null
+  },
+  "data": {
+    "search_roles": [
+      "development"
+    ],
+    "final_roles": [
+      "sealed_test"
+    ]
+  },
+  "metrics": {
+    "search": [
+      {
+        "name": "combined_score",
+        "data_role": "development"
+      },
+      {
+        "name": "lme_score",
+        "data_role": "development"
+      },
+      {
+        "name": "candidate_minus_lme",
+        "data_role": "development"
+      },
+      {
+        "name": "paired_ci95_low",
+        "data_role": "development"
+      },
+      {
+        "name": "paired_ci95_high",
+        "data_role": "development"
+      },
+      {
+        "name": "auc_16",
+        "data_role": "development"
+      },
+      {
+        "name": "auc_32",
+        "data_role": "development"
+      },
+      {
+        "name": "auc_64",
+        "data_role": "development"
+      },
+      {
+        "name": "candidate_train_rpc_seconds",
+        "data_role": "development"
+      },
+      {
+        "name": "candidate_condition_seconds",
+        "data_role": "development"
+      },
+      {
+        "name": "candidate_parameters",
+        "data_role": "development"
+      },
+      {
+        "name": "candidate_training_examples",
+        "data_role": "development"
+      }
+    ],
+    "final": [
+      {
+        "name": "combined_score",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "lme_score",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "candidate_minus_lme",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "paired_ci95_low",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "paired_ci95_high",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "auc_16",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "auc_32",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "auc_64",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "candidate_train_rpc_seconds",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "candidate_condition_seconds",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "candidate_parameters",
+        "data_role": "sealed_test"
+      },
+      {
+        "name": "candidate_training_examples",
+        "data_role": "sealed_test"
+      }
+    ]
+  },
+  "upstream": [
+    {
+      "repository": "https://zenodo.org/records/10519652",
+      "revision": "10519652",
+      "package_version": null,
+      "license": "CC BY 4.0",
+      "entrypoints": [
+        "pathmnist.npz"
+      ],
+      "patches": []
+    }
+  ],
+  "provenance": {
+    "dependencies": [
+      {
+        "name": "numpy",
+        "version": "2.4.2"
+      },
+      {
+        "name": "scikit-learn",
+        "version": "1.8.0"
+      },
+      {
+        "name": "torch",
+        "version": "2.11.0+cu126"
+      },
+      {
+        "name": "threadpoolctl",
+        "version": "3.6.0"
+      }
+    ],
+    "artifacts": []
+  },
+  "compute": {
+    "search": {
+      "accelerator": "gpu",
+      "accelerator_model": "UNCONFIGURED",
+      "gpu_count": 1,
+      "evaluator_gpu_count": 0,
+      "candidate_gpu_count": 1,
+      "cpu_cores": 2,
+      "memory_gb": 6,
+      "precision": "float32",
+      "wall_clock_seconds": 1800,
+      "max_candidate_rpc_calls": 30000
+    },
+    "final": {
+      "accelerator": "gpu",
+      "accelerator_model": "UNCONFIGURED",
+      "gpu_count": 1,
+      "evaluator_gpu_count": 0,
+      "candidate_gpu_count": 1,
+      "cpu_cores": 2,
+      "memory_gb": 6,
+      "precision": "float32",
+      "wall_clock_seconds": 1800,
+      "max_candidate_rpc_calls": 30000
+    }
+  },
+  "protocol": {
+    "search_seeds": [
+      17,
+      29
+    ],
+    "final_seeds": [
+      101,
+      211,
+      307,
+      401,
+      503
+    ],
+    "search_reset_sequence": [
+      17,
+      17,
+      29,
+      29
+    ],
+    "search_smoke_reset_sequence": [
+      17
+    ],
+    "final_reset_sequence": [
+      101,
+      101,
+      211,
+      211,
+      307,
+      307,
+      401,
+      401,
+      503,
+      503
+    ],
+    "final_smoke_reset_sequence": [
+      101
+    ],
+    "baselines": [
+      "attention",
+      "lme",
+      "mean",
+      "max",
+      "top2"
+    ],
+    "promotion_rule": "Select complete ideas and configurations by the same development mean worst-view AUROC under a fixed 160-step budget. Report trial costs, ties and failures. Freeze code/configuration before final evaluation.",
+    "search_proxies": [
+      {
+        "name": "small synthetic PathMNIST bags",
+        "preserves": "Sparse positive evidence, added negative instances, noisy bag labels and paired bag sizes.",
+        "omits": "Whole slides, patient identities, clinical deployment, external cohorts and learned visual representations."
+      }
+    ]
+  },
+  "feedback": {
+    "search_visible": [
+      "development AUROCs, complete validated configuration, condition scores, validation traces, host wall times, parameter/device telemetry and training examples"
+    ],
+    "final_sealed": [
+      "fresh final bag features and labels",
+      "final per-bag predictions and metrics until candidate freeze"
+    ]
+  },
+  "publication": {
+    "search_is_proxy": true,
+    "requires_final_evaluation": true,
+    "required_evidence": [
+      "sealed candidate and frozen LME diagnostic confirmation",
+      "appropriate equally tuned or matched explanatory comparison for the primary claim",
+      "all attempted configurations and development selection rules",
+      "source-grounded close-method novelty assessment",
+      "matched-hardware efficiency measurement when claiming efficiency",
+      "explicit small synthetic within-dataset scope and stronger independent research setting"
+    ]
+  }
+}
