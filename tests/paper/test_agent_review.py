@@ -89,6 +89,27 @@ def test_timeout_is_explicit_failure(tmp_path: Path) -> None:
     assert json.loads((tmp_path / "artifacts/receipt.json").read_text())["status"] == "failed"
 
 
+def test_keyboard_interrupt_reaps_real_agent_process(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "headless"
+    executable.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(30)\n")
+    executable.chmod(0o700)
+    wait = subprocess.Popen.wait
+    interrupted = []
+
+    def cancel_once(process, timeout=None):
+        if timeout is not None and not interrupted:
+            interrupted.append(process)
+            raise KeyboardInterrupt
+        return wait(process, timeout=timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "wait", cancel_once)
+    with pytest.raises(KeyboardInterrupt):
+        backend.run_fresh_agent_json("Review", work_dir=tmp_path / "artifacts",
+                                     environment=_env(executable), timeout_seconds=10)
+    assert len(interrupted) == 1
+    assert interrupted[0].poll() is not None
+
+
 @pytest.mark.parametrize("field,value", [
     ("Overall", True), ("Originality", 5), ("Decision", "Maybe"), ("Decision", []),
     ("Concerns", []), ("Evidence References", []),

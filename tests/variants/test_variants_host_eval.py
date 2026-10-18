@@ -322,6 +322,8 @@ def test_evaluator_sandbox_is_sealed_masks_unsealed_roots_and_bounds_memory(tmp_
     assert result.returncode == 0
     assert result.metrics["combined_score"] == 1.25
     assert command[:2] == ["docker", "create"]
+    assert "USER=agent" in command and "LOGNAME=agent" in command
+    assert "HOME=/tmp/home" in command
     assert "--network" in command and command[command.index("--network") + 1] == "none"
     assert "--read-only" in command
     assert "--gpus" in command and command[command.index("--gpus") + 1] == "all"

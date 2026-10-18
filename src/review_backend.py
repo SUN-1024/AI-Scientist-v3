@@ -174,6 +174,16 @@ def run_fresh_agent_json(
                         os.killpg(process.pid, signal.SIGKILL)
                         process.wait()
                         raise AgentReviewError("independent reviewer timed out") from exc
+                    except BaseException:
+                        # Cancellation must not leave a detached paid model call
+                        # running after its owner has stopped waiting for it.
+                        if process.poll() is None:
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass
+                        process.wait()
+                        raise
                 finally:
                     if can_handle_signals:
                         signal.signal(signal.SIGTERM, previous_handler)

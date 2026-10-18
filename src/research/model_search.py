@@ -7,6 +7,7 @@ Only structured provider citations or host-executed search results qualify URLs.
 from __future__ import annotations
 
 import copy
+import http.client
 import json
 import os
 import re
@@ -101,12 +102,17 @@ def _http_json(url: str, body: dict[str, Any] | None, headers: dict[str, str], *
             return payload
         except urllib.error.HTTPError as exc:
             # Body may contain request echoes; caller redacts configured secrets.
-            detail = exc.read(1500).decode("utf-8", errors="replace")
+            try:
+                detail = exc.read(1500).decode("utf-8", errors="replace")
+            except http.client.HTTPException:
+                detail = "response body was interrupted"
             raise ValueError(f"API HTTP {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             if index + 1 < len(choices) and isinstance(exc.reason, (socket.gaierror, ConnectionRefusedError)):
                 continue  # No request reached the API; a proxy retry cannot duplicate billing.
             raise ValueError(f"API connection failed; request was not replayed: {exc.reason}") from exc
+        except http.client.HTTPException as exc:
+            raise ValueError("API response was interrupted; request was not replayed") from exc
     raise ValueError("API connection failed")
 
 

@@ -801,6 +801,8 @@ def _sandbox_command(
             "AGENT_NAME": environment.get("AGENT_NAME", ""),
             "EVALUATION_ID": environment.get("EVALUATION_ID", ""),
             "HOME": "/tmp/home",
+            "USER": "agent",
+            "LOGNAME": "agent",
             "NUM_REPLICATIONS": environment.get("NUM_REPLICATIONS", "1"),
             "PATH": "/task-venv/bin:/usr/bin:/bin",
             "PYTHONNOUSERSITE": "1",

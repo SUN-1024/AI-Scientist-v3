@@ -1151,6 +1151,8 @@ def test_evaluator_and_candidate_commands_mount_only_permitted_paths(tmp_path: P
         broker_dir=tmp_path / "broker",
     )
     rendered = "\n".join(command)
+    assert "USER=agent" in command and "LOGNAME=agent" in command
+    assert "HOME=/tmp" in command and "XDG_CACHE_HOME=/tmp/.cache" in command
     assert "--rm" not in command
     assert "--network\nnone" in rendered
     assert f"src={program_dir},dst=/program,readonly" in rendered

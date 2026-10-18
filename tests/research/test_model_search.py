@@ -296,6 +296,27 @@ def test_docker_desktop_host_api_allows_local_http(monkeypatch, host):
     assert called == [url]
 
 
+def test_interrupted_response_is_recordable_and_never_replayed(monkeypatch):
+    import http.client
+
+    calls = []
+
+    class InterruptedBody(BytesIO):
+        def read(self, *_args):
+            raise http.client.IncompleteRead(b'partial', 100)
+
+    def open_request(request, timeout):
+        calls.append(request.full_url)
+        return InterruptedBody()
+
+    monkeypatch.setattr(model_search.urllib.request, "build_opener",
+                        lambda *_: SimpleNamespace(open=open_request))
+    with pytest.raises(ValueError, match="interrupted; request was not replayed"):
+        model_search._http_json("https://example.org/v1/responses", {}, {},
+                                timeout=5, proxy="", fallback="http://127.0.0.1:7890")
+    assert calls == ["https://example.org/v1/responses"]
+
+
 @pytest.mark.parametrize("host", ["api.example.org", "192.168.1.10", "10.0.0.1",
                                   "host.docker.internal.example.org", "anything.internal"])
 def test_remote_or_lookalike_http_api_is_rejected_before_network(monkeypatch, host):

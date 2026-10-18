@@ -118,6 +118,7 @@ args=(run --rm --init --user "$(id -u):$(id -g)" --group-add "$socket_group"
   --mount "type=bind,source=$socket,target=/var/run/docker.sock"
   --workdir "$root" --add-host host.docker.internal:host-gateway
   --env "HOME=$runner_home" --env "CODEX_HOME=$runner_home/.codex"
+  --env USER=agent --env LOGNAME=agent
   --env "DOCKER_CONFIG=$session/docker-client" --env DOCKER_HOST=unix:///var/run/docker.sock
   --env "AGENTIC_TEMP_ROOT=$temp_root" --env "TMPDIR=$temp_root"
   --env "AGENTIC_TASK_PACKAGE_INDEX=${AGENTIC_TASK_PACKAGE_INDEX:-https://mirrors.aliyun.com/pypi/simple}"

@@ -334,6 +334,9 @@ def test_package_mirror_is_limited_to_writable_install_containers(tmp_path):
     mirror = "https://pypi.tuna.tsinghua.edu.cn/simple"
     install = _docker_command_for(tmp_path, runtime_writable=True, package_index_url=mirror)
     evaluate = _docker_command_for(tmp_path, package_index_url=mirror)
+    for command in (install, evaluate):
+        assert "USER=agent" in command and "LOGNAME=agent" in command
+        assert "HOME=/tmp" in command
     assert "PIP_INDEX_URL=" + mirror in install
     assert not any(arg.startswith("PIP_INDEX_URL=") for arg in evaluate)
 

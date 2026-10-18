@@ -69,6 +69,7 @@ def test_runner_keeps_paths_and_private_host_config(tmp_path: Path) -> None:
     assert args[-4:] == ["research", "harness", "case", "--dry-run"]
     assert "HTTP_PROXY=" in args
     assert "DOCKER_HOST=unix:///var/run/docker.sock" in args
+    assert "USER=agent" in args and "LOGNAME=agent" in args
     assert args[args.index("--env-file") + 1] == str(env_file)
     assert "TEST_PROVIDER_KEY=placeholder" not in args
 
