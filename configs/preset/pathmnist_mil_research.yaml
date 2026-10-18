@@ -1,0 +1,32 @@
+# @package _global_
+# Larger development search; still CPU-only, with no full experiment-to-paper claim.
+# Copy the task and freeze a multi-seed evaluation_protocol.json before starting.
+task:
+  dir: examples/pathmnist_mil
+agent:
+  name: codex
+  model: codex/gpt-6.1-sol
+  profile: agsci-magpie
+  reasoning_effort: high
+container:
+  enabled: false
+  env_file: ""
+execution:
+  phases: investigation
+versioning:
+  enabled: false
+investigation:
+  execution:
+    workers: 1
+    max_idea_cycles: 24
+    max_idea_generation_attempts: 3
+    max_program_evals_per_attempt: 1
+    agent_transient_max_attempts: 3
+    agent_transient_backoff_seconds: 2
+    idea_timeout_seconds: 900
+    run_timeout_seconds: 1200
+    harness_evaluation_timeout_seconds: 180
+    harness_evaluated_attempts: true
+    gpu_evaluation: false
+  paper:
+    enabled: false

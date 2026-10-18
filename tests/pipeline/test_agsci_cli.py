@@ -419,6 +419,12 @@ def test_doctor_task_scaffold_and_preset_checks(tmp_path) -> None:
     assert result.status == "fail"
     assert "orphan" in result.detail
 
+    # Multiple budget presets can share one explicitly selected example.
+    (host.repo_root / "configs" / "preset" / "orphan.yaml").write_text(
+        "task:\n  dir: examples/circpack\n", encoding="utf-8",
+    )
+    assert doctor.check_presets(host).status == "ok"
+
     # the real pipeline config and presets pass
     real_host = doctor.Host()
     assert doctor.check_pipeline_config(real_host).status == "ok"

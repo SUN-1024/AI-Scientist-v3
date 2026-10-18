@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import yaml
+
 from src.investigation.config import VALID_AGENTS
 from src.investigation.container_gpus import (
     GpuSelectorError,
@@ -239,15 +241,27 @@ def check_pipeline_config(host: Host) -> CheckResult:
 
 def check_presets(host: Host) -> CheckResult:
     preset_dir = host.repo_root / "configs" / "preset"
-    names = sorted(path.stem for path in preset_dir.glob("*.yaml") if path.stem != "paper")
+    paths = sorted(path for path in preset_dir.glob("*.yaml") if path.stem != "paper")
+    names = [path.stem for path in paths]
     if not names:
         return CheckResult("task presets", FAIL, f"no task presets under {preset_dir}")
-    missing = [
-        name for name in names if not (host.repo_root / "examples" / name / "task.md").is_file()
-    ]
+    missing = []
+    for path in paths:
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            task_dir = data.get("task", {}).get("dir", f"examples/{path.stem}")
+            if not isinstance(task_dir, str) or not task_dir.strip():
+                raise ValueError("task.dir must be a nonempty path")
+            task_path = Path(task_dir)
+            if not task_path.is_absolute():
+                task_path = host.repo_root / task_path
+        except (OSError, ValueError, AttributeError, yaml.YAMLError) as exc:
+            return CheckResult("task presets", FAIL, f"invalid preset {path.stem}: {exc}")
+        if not (task_path / "task.md").is_file():
+            missing.append(path.stem)
     if missing:
         return CheckResult(
-            "task presets", FAIL, "presets without examples/<task>/task.md: " + ", ".join(missing)
+            "task presets", FAIL, "presets without a matching task.md: " + ", ".join(missing)
         )
     return CheckResult("task presets", OK, ", ".join(names))
 
