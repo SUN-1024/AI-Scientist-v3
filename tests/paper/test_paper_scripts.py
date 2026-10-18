@@ -315,6 +315,90 @@ def test_scientific_evidence_verify_rejects_unsafe_tex_imports(
     assert expected_stderr in verify.stderr
 
 
+@pytest.mark.parametrize(
+    ("target", "should_reject"),
+    [("/".join(parts) + "/scripts/helper.py", True) for parts in AGENT_SKILL_PARTS]
+    + [
+        ("skill_alias.py", True),
+        ("paper_evidence_audit.json", True),
+        ("source_evidence/model.py", False),
+        ("revisions/prior_audit.json", False),
+    ],
+)
+def test_scientific_evidence_target_policy_matches_readonly_audit_copy(
+    workspace: Path, target: str, should_reject: bool
+) -> None:
+    from src.orchestrator.paper_evidence_audit import (
+        audit_input_sha256,
+        prepare_readonly_workspace,
+        remove_readonly_workspace,
+    )
+
+    if target == "skill_alias.py":
+        skill = ".codex/skills/validate-paper/scripts/helper.py"
+        _write_files(workspace, {skill: "# operational helper\n"})
+        (workspace / target).symlink_to(skill)
+    else:
+        _write_files(workspace, {target: '{"value": 1}\n'})
+    _write_files(workspace, {"paper.md": f"Claim @evidence[[{target}]].\n"})
+
+    verify = _evidence("verify", "--root-dir", str(workspace))
+
+    assert verify.returncode == (1 if should_reject else 0), verify.stderr
+    results = _report(workspace)["results"]
+    if should_reject:
+        assert results and all(row["status"] == "dangling" for row in results)
+        assert all("resolved_path" not in row for row in results)
+        assert all("operational" in " ".join(row["messages"]).lower() for row in results)
+    readonly = workspace.parent / "readonly"
+    try:
+        prepare_readonly_workspace(
+            workspace, readonly, evidence_script_path=SCIENTIFIC_EVIDENCE_PY
+        )
+        assert audit_input_sha256(workspace) == audit_input_sha256(readonly)
+        if target.startswith(".codex/skills/"):
+            assert not (readonly / target).exists()
+    finally:
+        if readonly.exists():
+            remove_readonly_workspace(readonly)
+
+
+@pytest.mark.parametrize("field", ["artifact", "generator"])
+def test_scientific_evidence_rejects_operational_manifest_paths(
+    workspace: Path, field: str
+) -> None:
+    skill = ".codex/skills/validate-paper/scripts/helper.py"
+    _write_files(
+        workspace,
+        {
+            skill: "# operational helper\n",
+            "source_evidence/model.py": "# evaluated source\n",
+            "generated/result.json": '{"value": 1}\n',
+            "generated/result.json.prov.json": json.dumps(
+                {
+                    "schema_name": "scientific-evidence.artifact-manifest",
+                    "artifact": {
+                        "path": skill if field == "artifact" else "generated/result.json",
+                        "kind": "analysis",
+                    },
+                    "derived_from": ["@evidence[[https://example.org/source]]"],
+                    "generated_by": {
+                        "script_path": skill if field == "generator" else "source_evidence/model.py",
+                    },
+                }
+            ),
+        },
+    )
+
+    verify = _evidence("verify", "--root-dir", str(workspace))
+
+    assert verify.returncode == 1, verify.stderr
+    rejected = [row for row in _report(workspace)["results"] if row["target"] == skill]
+    assert rejected and all(row["status"] == "dangling" for row in rejected)
+    assert all("resolved_path" not in row for row in rejected)
+    assert all("operational" in " ".join(row["messages"]).lower() for row in rejected)
+
+
 def test_scientific_evidence_verify_rejects_absolute_file_and_outside_workspace_targets(
     workspace: Path, tmp_path: Path
 ) -> None:

@@ -446,6 +446,7 @@ def spec_markdown() -> str:
             "- `Target` stays generic. The verifier may classify it as `path`, `absolute-path`, `uri`, `id`, or `unknown`.",
             "- `Locator` is opaque unless a verifier adapter knows how to interpret it.",
             "- Text-like artifacts should use inline `@evidence[[...]]` refs. Binary or generated outputs should carry an adjacent `.prov.json` sidecar.",
+            "- Agent skill files and active root-level `paper_evidence_audit*` outputs are operational material, not scientific evidence targets. Use evaluated research artifacts; immutable prior-review snapshots can record operational provenance.",
             "",
             "### Minimal examples",
             "",
@@ -670,6 +671,24 @@ def unsafe_workspace_target_message(target: str) -> str | None:
     return None
 
 
+def operational_workspace_target_message(path: Path, *, root_dir: Path) -> str | None:
+    relative = path.relative_to(root_dir.resolve())
+    staged_skill = any(
+        relative.parts[: len(prefix)] == prefix for prefix in AGENT_SKILL_DIR_PREFIXES
+    )
+    active_audit_output = (
+        len(relative.parts) == 1
+        and relative.name.startswith(GENERATED_SCAN_ARTIFACT_PREFIXES)
+    )
+    if staged_skill or active_audit_output:
+        return (
+            "Operational agent skill files and active audit outputs are not scientific "
+            "evidence targets. Cite evaluated research artifacts or source_evidence/; "
+            "use immutable prior-review snapshots only for operational provenance."
+        )
+    return None
+
+
 def resolve_workspace_relative_path(raw_path: str, *, root_dir: Path) -> tuple[Path | None, str | None]:
     message = unsafe_workspace_target_message(raw_path)
     if message is not None:
@@ -677,6 +696,9 @@ def resolve_workspace_relative_path(raw_path: str, *, root_dir: Path) -> tuple[P
     resolved = (root_dir / raw_path).resolve()
     if not is_within_workspace(resolved, root_dir=root_dir):
         return None, "Path resolves outside the paper workspace."
+    message = operational_workspace_target_message(resolved, root_dir=root_dir)
+    if message is not None:
+        return None, message
     return resolved, None
 
 
@@ -788,7 +810,12 @@ def resolve_reference(
             messages=("Evidence target resolves outside the paper workspace.",),
         )
 
+    operational_message: str | None = None
     for candidate in unique_candidates:
+        candidate_message = operational_workspace_target_message(candidate, root_dir=root_dir)
+        if candidate_message is not None:
+            operational_message = candidate_message
+            continue
         if not candidate.exists():
             continue
         if parsed.locator is None:
@@ -801,6 +828,11 @@ def resolve_reference(
             status="anchored",
             resolved_path=relative_or_absolute(candidate, root_dir),
             messages=("Target path exists, but locator semantics were not interpreted by the base verifier.",),
+        )
+
+    if operational_message is not None:
+        return Resolution(
+            status="dangling", resolved_path=None, messages=(operational_message,)
         )
 
     return Resolution(

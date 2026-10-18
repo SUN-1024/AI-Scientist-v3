@@ -31,6 +31,8 @@ improvement. Compilation, reference, provenance, and claim-grounding requirement
 
 Implementation-specific claims require inspectable source evidence for the relevant evaluated implementation; cite readable files and locations (`./source_evidence/` when available). Hashes and previous audit verdicts identify provenance, not substantive support for implementation details. Details with unavailable source evidence must be removed or qualified; family-level alignment alone does not establish exact implementation or source identity.
 
+Ground manuscript claims in evaluated task artifacts and inspectable research source files. Keep agent skill files and active `paper_evidence_audit*` products outside scientific evidence references. Record operational repair history, if needed, with immutable review snapshots.
+
 Sequential optimization results support comparisons between evaluated configurations, not isolated causal attribution to a component. When ablations are missing or failed, narrow claims and state the limitation; never imply an unperformed experiment or invent measurements. Claims supported by actual controlled comparisons remain valid within their measured scope.
 
 Write the paper as a coherent research study. Do not write it as a chronological diary of what the agent tried.
