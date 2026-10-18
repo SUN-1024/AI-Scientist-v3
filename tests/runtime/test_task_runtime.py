@@ -12,6 +12,7 @@ import sys
 import time
 import tomllib
 import uuid
+import zipfile
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -653,6 +654,107 @@ def test_repository_declares_managed_runtime_dependencies_and_tooling_packages(t
         runtime._tooling_package_dirs()
 
 
+def test_tooling_staging_and_digest_include_metadata_and_only_declared_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "tooling-source"
+    runtime._stage_tooling_source(staged)
+    declared = tomllib.loads((staged / "pyproject.toml").read_text(encoding="utf-8"))
+    required = [
+        "README.md", *declared["project"]["license-files"],
+        "src/research/upstream/provenance.json", "src/research/upstream/v1_reflection.py",
+        "src/research/upstream/v2_journal.py", "src/review_backend.py",
+    ]
+    for relative in required:
+        assert (staged / relative).read_bytes() == (REPO_ROOT / relative).read_bytes()
+    assert {path.relative_to(staged) for path in staged.rglob("*") if path.is_file()} == set(
+        runtime._tooling_source_files()
+    )
+    original_digest = runtime._tooling_digest()
+    monkeypatch.setattr(runtime, "_REPO_ROOT", staged)
+    assert runtime._tooling_digest() == original_digest
+    for relative in required:
+        path = staged / relative
+        content = path.read_bytes()
+        path.write_bytes(content + b"\n")
+        assert runtime._tooling_digest() != original_digest, relative
+        path.write_bytes(content)
+    private_paths = (
+        "provider.json", "task/task_contract.json", "final/results.json",
+        "src/research/provider.json", "src/research/task/task_contract.json",
+        "src/research/final/results.json",
+    )
+    for relative in private_paths:
+        path = staged / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("private sentinel", encoding="utf-8")
+    assert runtime._tooling_digest() == original_digest
+    restaged = tmp_path / "restaged"
+    runtime._stage_tooling_source(restaged)
+    assert not any((restaged / name).exists() for name in private_paths)
+
+
+def test_tooling_staging_rejects_symlinked_and_escaping_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "tooling-source"
+    runtime._stage_tooling_source(staged)
+    monkeypatch.setattr(runtime, "_REPO_ROOT", staged)
+    readme = staged / "README.md"
+    external = tmp_path / "external.md"
+    readme.rename(external)
+    readme.symlink_to(external)
+    with pytest.raises(ValueError, match="safe regular file"):
+        runtime._tooling_digest()
+    readme.unlink()
+    external.rename(readme)
+    config = staged / "pyproject.toml"
+    config.write_text(config.read_text().replace('readme = "README.md"', 'readme = "../external.md"'))
+    with pytest.raises(ValueError, match="safe relative paths"):
+        runtime._stage_tooling_source(tmp_path / "unsafe")
+
+
+def test_staged_tooling_builds_offline_wheel_with_licenses_provenance_and_imports(tmp_path: Path) -> None:
+    staged = tmp_path / "tooling-source"
+    runtime._stage_tooling_source(staged)
+    wheel_dir = tmp_path / "wheels"
+    wheel_dir.mkdir()
+    # Invoke the installed backend directly: no resolver, index, or build-isolation
+    # downloads. Build from exactly the source tree used by managed runtimes.
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", "from setuptools.build_meta import build_wheel; "
+         "import sys; build_wheel(sys.argv[1])", str(wheel_dir)],
+        cwd=staged, capture_output=True, text=True, timeout=90,
+        env={"PATH": os.environ.get("PATH", ""), "PIP_NO_INDEX": "1"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    wheel, = wheel_dir.glob("*.whl")
+    declared = tomllib.loads((staged / "pyproject.toml").read_text(encoding="utf-8"))
+    with zipfile.ZipFile(wheel) as archive:
+        names = set(archive.namelist())
+        metadata, = (name for name in names if name.endswith(".dist-info/METADATA"))
+        dist_info = metadata.rsplit("/", 1)[0]
+        for relative in declared["project"]["license-files"]:
+            assert archive.read(f"{dist_info}/licenses/{relative}") == (REPO_ROOT / relative).read_bytes()
+        provenance = "src/research/upstream/provenance.json"
+        assert archive.read(provenance) == (REPO_ROOT / provenance).read_bytes()
+        assert (REPO_ROOT / "README.md").read_text() in archive.read(metadata).decode()
+        assert all(name.startswith(("src/", f"{dist_info}/")) for name in names)
+        assert not any(name.endswith((".pyc", "provider.json", "task_contract.json")) for name in names)
+    imported = subprocess.run(
+        [sys.executable, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
+         "import src.research.upstream.v1_reflection as v1; "
+         "import src.research.upstream.v2_journal as v2; "
+         "from importlib.resources import files; "
+         "assert v1.__file__.startswith(sys.argv[1]); "
+         "assert v2.__file__.startswith(sys.argv[1]); "
+         "assert files('src.research.upstream').joinpath('provenance.json').is_file()", str(wheel)],
+        cwd=tmp_path, capture_output=True, text=True, timeout=30,
+        env={"PATH": os.environ.get("PATH", "")},
+    )
+    assert imported.returncode == 0, imported.stdout + imported.stderr
+
+
 def test_discard_managed_runtime_unlinks_symlinked_lib64_but_rejects_symlinked_root(tmp_path: Path) -> None:
     # Former: discard managed runtime unlinks the standard-library symlink.
     task_dir = tmp_path / "managed"
@@ -702,6 +804,10 @@ def test_prepare_runtime_creates_image_venv_and_installs_pinned_requirements(bas
                 copied = tmp.parent / "tooling-source/src/research/upstream"
                 for name in ("__init__.py", "v1_reflection.py", "v2_journal.py", "provenance.json"):
                     assert (copied / name).read_bytes() == (REPO_ROOT / "src/research/upstream" / name).read_bytes()
+                staged = tmp.parent / "tooling-source"
+                declared = tomllib.loads((staged / "pyproject.toml").read_text())
+                for name in ("README.md", *declared["project"]["license-files"]):
+                    assert (staged / name).read_bytes() == (REPO_ROOT / name).read_bytes()
         return None
 
     fake_run = _docker_fake_run(score=0.1, commands=commands, hook=resolve_and_check_tmp)

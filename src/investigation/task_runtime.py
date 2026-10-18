@@ -152,7 +152,62 @@ def _tooling_package_dirs() -> tuple[Path, ...]:
         raise ValueError("pyproject.toml does not declare [tool.setuptools].packages") from exc
     if not isinstance(packages, list) or not all(isinstance(name, str) for name in packages):
         raise ValueError("pyproject.toml [tool.setuptools].packages must be a list of strings")
+    if any(not all(part.isidentifier() for part in name.split(".")) for name in packages):
+        raise ValueError("pyproject.toml contains an unsafe tooling package name")
     return tuple(Path(*name.split(".")) for name in packages if name != "src")
+
+
+def _tooling_source_files() -> tuple[Path, ...]:
+    """Allowlist the same build inputs for runtime staging and its cache key."""
+    data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_dirs = (Path("src"), *_tooling_package_dirs())
+    paths = {Path("pyproject.toml"), Path("src/__init__.py")}
+
+    def add_pattern(base: Path, pattern: str) -> None:
+        if not isinstance(pattern, str) or not pattern or "\\" in pattern:
+            raise ValueError("Tooling build inputs must be safe relative paths")
+        relative = Path(pattern)
+        if relative.is_absolute() or any(part in {".", ".."} for part in pattern.split("/")):
+            raise ValueError("Tooling build inputs must be safe relative paths")
+        matches = tuple((_REPO_ROOT / base).glob(pattern))
+        if not matches:
+            raise ValueError(f"Declared tooling build input is missing: {base / pattern}")
+        paths.update(path.relative_to(_REPO_ROOT) for path in matches)
+
+    for relative_dir in package_dirs:
+        paths.update(path.relative_to(_REPO_ROOT) for path in (_REPO_ROOT / relative_dir).glob("*.py"))
+    project = data.get("project", {})
+    readme = project.get("readme")
+    if isinstance(readme, str):
+        add_pattern(Path(), readme)
+    elif isinstance(readme, dict) and "file" in readme:
+        add_pattern(Path(), readme["file"])
+    for pattern in project.get("license-files", []):
+        add_pattern(Path(), pattern)
+    package_data = data["tool"]["setuptools"].get("package-data", {})
+    for package, patterns in package_data.items():
+        targets = package_dirs if package in {"*", ""} else (Path(*package.split(".")),)
+        if any(target not in package_dirs for target in targets):
+            raise ValueError(f"Package data targets an undeclared tooling package: {package}")
+        for target in targets:
+            for pattern in patterns:
+                add_pattern(target, pattern)
+    for relative in paths:
+        source = _REPO_ROOT / relative
+        if not source.is_file() or any(
+            (_REPO_ROOT / parent).is_symlink() for parent in (relative, *relative.parents)
+        ):
+            raise ValueError(f"Tooling build input is not a safe regular file: {relative}")
+    return tuple(sorted(paths))
+
+
+def _stage_tooling_source(destination: Path, *, deadline: float | None = None) -> None:
+    for relative in _tooling_source_files():
+        if deadline is not None:
+            _remaining_runtime_seconds(deadline)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(_REPO_ROOT / relative, target)
 
 
 class TaskRuntimePreparationResult(str, Enum):
@@ -478,12 +533,11 @@ def _evaluator_digest(evaluator_path: Path) -> str:
 
 def _tooling_digest() -> str:
     digest = hashlib.sha256()
-    paths = [_REPO_ROOT / "pyproject.toml", _REPO_ROOT / "src/__init__.py"]
-    for relative_dir in _tooling_package_dirs():
-        paths.extend(sorted((_REPO_ROOT / relative_dir).glob("*.py")))
-    for path in paths:
-        digest.update(path.relative_to(_REPO_ROOT).as_posix().encode("utf-8") + b"\0")
-        digest.update(path.read_bytes())
+    for relative in _tooling_source_files():
+        content = (_REPO_ROOT / relative).read_bytes()
+        digest.update(relative.as_posix().encode("utf-8") + b"\0")
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
     return digest.hexdigest()
 
 
@@ -2205,20 +2259,7 @@ def _prepare_task_runtime(
             environment = _installation_environment(base_environment, temp_path, task_dir)
             if not reuse_runtime and cached_runtime_root is None:
                 (build_root / ".tmp").mkdir(mode=0o700)
-                tooling_source.mkdir()
-                shutil.copy2(_REPO_ROOT / "pyproject.toml", tooling_source)
-                (tooling_source / "src").mkdir()
-                shutil.copy2(_REPO_ROOT / "src" / "__init__.py", tooling_source / "src")
-                for relative_dir in _tooling_package_dirs():
-                    _remaining_runtime_seconds(deadline)
-                    shutil.copytree(
-                        _REPO_ROOT / relative_dir,
-                        tooling_source / relative_dir,
-                        # Declared packages can include both a parent and its
-                        # children; the parent's recursive copy creates them.
-                        dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-                    )
+                _stage_tooling_source(tooling_source, deadline=deadline)
                 create_cid = task_dir.parent / (
                     f".{task_dir.name}.runtime-create-{uuid.uuid4().hex}.cid"
                 )
