@@ -266,6 +266,66 @@ def test_doctor_required_gpus_compares_preset_count_selector_host_and_workers(tm
     assert doctor.check_required_gpus(host, downstream).status == "ok"
 
 
+@pytest.mark.parametrize("phase", ["ablations", "final_evaluation"])
+@pytest.mark.parametrize("gpu_count", [1, 2])
+def test_doctor_downstream_resume_uses_one_slice_of_the_exact_worker_pool(
+    tmp_path, phase, gpu_count,
+) -> None:
+    host = _healthy_host(tmp_path)
+    devices = ["GPU-aaaa", "GPU-bbbb", "GPU-cccc", "GPU-dddd"]
+    pool = '"device=' + ",".join(devices[:gpu_count * 2]) + '"'
+    host.environ = {"AGENT_CONTAINER_GPUS": pool}
+    cfg = _run_config(**{
+        "container.gpu_count": gpu_count, "investigation.execution.workers": 2,
+        "execution.phases": phase,
+    })
+    required = doctor.check_required_gpus(host, cfg)
+    assert required.status == "ok"
+    assert required.detail == f"{gpu_count} selected from configured worker pool"
+    calls = []
+    healthy_run = host.run
+
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return healthy_run(argv, **kwargs)
+
+    host.run = run
+    assert doctor.check_container_gpus(host, cfg).status == "ok"
+    [argv] = calls
+    expected = "device=" + ",".join(devices[:gpu_count])
+    if gpu_count > 1:
+        expected = '"' + expected + '"'
+    assert argv[argv.index("--gpus") + 1] == expected
+    assert host.environ == {"AGENT_CONTAINER_GPUS": pool}
+
+
+@pytest.mark.parametrize("phase", ["ablations", "final_evaluation"])
+def test_doctor_downstream_pool_validation_stays_strict_before_container_probe(tmp_path, phase) -> None:
+    host = _healthy_host(tmp_path)
+    cfg = _run_config(**{
+        "container.gpu_count": 2, "investigation.execution.workers": 2,
+        "execution.phases": phase,
+    })
+
+    def no_run(*_args, **_kwargs):
+        raise AssertionError("invalid selectors must fail before any subprocess")
+
+    host.run = no_run
+    for selector in (
+        "device=GPU-aaaa",
+        "device=GPU-aaaa,GPU-bbbb,GPU-cccc",
+        "device=GPU-aaaa,GPU-bbbb,GPU-cccc,GPU-dddd,GPU-eeee",
+        "device=GPU-aaaa,GPU-bbbb,GPU-cccc,GPU-cccc",
+        "device=0,1,2,3",
+        "device=0,1",
+        "all",
+    ):
+        host.environ = {"AGENT_CONTAINER_GPUS": selector}
+        assert doctor.check_required_gpus(host, cfg).status == "fail"
+        assert doctor.check_container_gpus(host, cfg).status == "fail"
+        assert host.environ == {"AGENT_CONTAINER_GPUS": selector}
+
+
 def _container_gpu_host(
     tmp_path: Path, container_stdout: str, returncode: int = 0
 ) -> tuple[doctor.Host, list[list[str]]]:

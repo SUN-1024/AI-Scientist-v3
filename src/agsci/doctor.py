@@ -455,6 +455,21 @@ def _gpu_need(gpu_count: int, workers: int) -> str:
     return f"{gpu_count * workers} ({gpu_count} x {workers} workers)"
 
 
+def _configured_gpu_selector(cfg: PipelineConfig, selector: str, workers: int) -> str:
+    """Validate an explicit selector with the same pool policy as execution."""
+    from src.pipeline.cli import _settle_configured_gpu_allocation
+    from src.pipeline.config import parse_pipeline_phases
+
+    try:
+        selected = set(parse_pipeline_phases(cfg.execution.phases))
+    except ValueError:
+        selected = set()
+    settled, _pool_workers = _settle_configured_gpu_allocation(cfg, selected, selector)
+    assert settled is not None  # Callers have already handled CPU-only configurations.
+    pool, first_slice = settled
+    return pool if workers > 1 else first_slice
+
+
 def check_required_gpus(host: Host, cfg: PipelineConfig) -> CheckResult:
     gpu_count, workers = _gpu_pool_shape(cfg)
     required = gpu_count * workers
@@ -469,15 +484,20 @@ def check_required_gpus(host: Host, cfg: PipelineConfig) -> CheckResult:
                 hint="unset AGENT_CONTAINER_GPUS for a CPU task",
             )
         return CheckResult("required gpus", OK, "none")
-    if selector:
+    if selector and selector.strip():
         selected = selector.count(",") + 1
-        if selected != required:
+        try:
+            _configured_gpu_selector(cfg, selector, workers)
+        except GpuSelectorError as exc:
             return CheckResult(
                 "required gpus",
                 FAIL,
-                f"task needs {need} but AGENT_CONTAINER_GPUS selects {selected}",
+                (f"task needs {need} but AGENT_CONTAINER_GPUS selects {selected}"
+                 if selected != required else str(exc)),
                 hint="name exactly that many GPU UUIDs, or unset it to discover via nvidia-smi",
             )
+        if selected != required:
+            return CheckResult("required gpus", OK, f"{need} selected from configured worker pool")
         return CheckResult("required gpus", OK, f"{need} selected by AGENT_CONTAINER_GPUS")
     devices = visible_gpus(host)
     if isinstance(devices, str):
@@ -508,7 +528,7 @@ def check_container_gpus(host: Host, cfg: PipelineConfig) -> CheckResult:
     if not exists:
         return CheckResult(name, WARN, f"skipped: {image} is not available locally")
     selector = host.environ.get("AGENT_CONTAINER_GPUS")
-    if not selector:
+    if not selector or not selector.strip():
         devices = visible_gpus(host)
         if isinstance(devices, str):
             return CheckResult(name, WARN, f"skipped: {devices}")
@@ -521,6 +541,7 @@ def check_container_gpus(host: Host, cfg: PipelineConfig) -> CheckResult:
             )
         selector = "device=" + ",".join(devices[:required])
     try:
+        selector = _configured_gpu_selector(cfg, selector, workers)
         expected = validate_gpu_allocation(
             selector, required, label=gpu_pool_label(gpu_count, workers)
         )

@@ -164,6 +164,41 @@ def test_source_task_check_does_not_mutate_resolved_destination(tmp_path):
     assert not destination.exists()
 
 
+@pytest.mark.parametrize("phases", ["ablations", "final_evaluation", "ablations,final_evaluation"])
+def test_harness_downstream_resume_preflight_accepts_exact_saved_worker_pool(
+    tmp_path, monkeypatch, phases,
+):
+    from tests.final_evaluation.test_final_evaluation import _write_contract_task, _write_investigation
+
+    task = _write_contract_task(tmp_path)
+    _write_investigation(tmp_path / "run")
+    contract_path = task / "task_contract.json"
+    contract = json.loads(contract_path.read_text())
+    for compute in contract["compute"].values():
+        compute.update(
+            accelerator="gpu", accelerator_model="fixture", gpu_count=1,
+            evaluator_gpu_count=1, candidate_gpu_count=0, precision="float32",
+        )
+    contract_path.write_text(json.dumps(contract))
+    pool = '"device=GPU-aaaa,GPU-bbbb"'
+    environment = {"AGENT_CONTAINER_GPUS": pool, "AGENTIC_TEMP_ROOT": str(tmp_path)}
+    host = runtime_host(tmp_path, environ=environment)
+    monkeypatch.setattr(preflight.doctor, "Host", lambda: host)
+    cfg = load_pipeline_config([
+        "preset=research_harness", f"task.dir={task}", f"execution.phases={phases}",
+        "container.gpu_count=1", "investigation.execution.workers=2",
+        f"container.auth_root={tmp_path}", "container.env_file=''", f"paths.run_dir={tmp_path / 'run'}",
+    ])
+
+    checks = preflight.execution_checks(cfg, task, host=host)
+    assert not [check for check in checks if check.status == doctor.FAIL]
+    assert next(check for check in checks if check.name == "required gpus").status == doctor.OK
+    preflight.ensure_execution_ready(cfg, task)
+    assert cfg.investigation.workers == 2
+    assert host.environ == environment
+    host.run.assert_not_called()
+
+
 def test_missing_task_brief_is_a_preflight_failure(tmp_path):
     task = complete_task(tmp_path)
     (task / "task.md").unlink()

@@ -1930,6 +1930,37 @@ def _task_name_snapshot_dir(
 GPU_COMPUTE_PHASES = frozenset({"task_drafting", "investigation", "ablations", "final_evaluation"})
 
 
+def _settle_configured_gpu_allocation(
+    cfg: PipelineConfig,
+    selected: set[str],
+    raw_selector: str | None,
+    *,
+    discover: Callable[..., str] = discover_gpu_selector,
+) -> tuple[tuple[str, str] | None, int]:
+    """Share exact pool validation between execution and read-only preflight."""
+    gpu_count = cfg.container.gpu_count
+    workers = cfg.investigation.workers if "investigation" in selected else 1
+    try:
+        return settle_gpu_pool(raw_selector, gpu_count, workers, discover=discover), workers
+    except GpuSelectorError as exc:
+        if (
+            not (raw_selector or "").strip() or workers != 1 or cfg.investigation.workers <= 1
+            or not selected <= _DOWNSTREAM_PHASES
+            or not selected.intersection({"ablations", "final_evaluation"})
+        ):
+            raise
+        # A resumed downstream phase may inherit the original full pool instead
+        # of the slice exported by the earlier pipeline process. Validate every
+        # device and the exact configured pool size before narrowing that selector.
+        try:
+            settled = settle_gpu_pool(
+                raw_selector, gpu_count, cfg.investigation.workers, discover=discover,
+            )
+        except GpuSelectorError:
+            raise exc from None
+        return settled, cfg.investigation.workers
+
+
 def prepare_gpu_allocation(
     cfg: PipelineConfig,
     selected: Iterable[str],
@@ -1952,27 +1983,14 @@ def prepare_gpu_allocation(
     if not GPU_COMPUTE_PHASES.intersection(selected):
         return None
     gpu_count = cfg.container.gpu_count
-    workers = cfg.investigation.workers if "investigation" in selected else 1
     raw_selector = environment.get(GPU_SELECTOR_ENV)
     discovered = not (raw_selector or "").strip()
     try:
-        settled = settle_gpu_pool(raw_selector, gpu_count, workers, discover=discover)
+        settled, workers = _settle_configured_gpu_allocation(
+            cfg, selected, raw_selector, discover=discover,
+        )
     except GpuSelectorError as exc:
-        if (
-            discovered or workers != 1 or cfg.investigation.workers <= 1
-            or not selected <= _DOWNSTREAM_PHASES
-        ):
-            return str(exc)
-        # A resumed downstream phase may inherit the original full pool instead
-        # of the slice exported by the earlier pipeline process. Validate every
-        # device and the exact configured pool size before narrowing that selector.
-        try:
-            settled = settle_gpu_pool(
-                raw_selector, gpu_count, cfg.investigation.workers, discover=discover,
-            )
-        except GpuSelectorError:
-            return str(exc)
-        workers = cfg.investigation.workers
+        return str(exc)
     if settled is None:
         return None
     pool, first_slice = settled
