@@ -182,6 +182,13 @@ class PipelinePathsConfig:
 class ReviewConfig:
     """Execution bounds for the external final-manuscript review phase."""
 
+    backend: str = field(default="openai", metadata={"help": "Independent reviewer backend: openai or agent"})
+    agent_name: Optional[str] = None
+    agent_model: Optional[str] = None
+    agent_profile: Optional[str] = None
+    agent_reasoning_effort: Optional[str] = None
+    reviewer_count: int = 1
+    evidence_paths: list[str] = field(default_factory=list)
     timeout_seconds: int = field(
         default=1800, metadata={"help": "Review subprocess deadline in seconds"}
     )
@@ -451,6 +458,7 @@ class InvestigationConfig(PhasePassthrough):
     )
     rewritten = frozenset({"execution.draft_task_if_missing"})
 
+    adaptive_enabled = _Key[bool]("adaptive_investigation.enabled")
     resume = _Key[bool]("execution.resume")
     draft_task_if_missing = _Key[bool]("execution.draft_task_if_missing")
     max_idea_cycles = _Key[int]("execution.max_idea_cycles")
@@ -1007,6 +1015,20 @@ def validate_pipeline_config(cfg: PipelineConfig) -> list[str]:
         errors.append(
             "paper.final_outcome_policy must be qualified_only or allow_not_qualified"
         )
+    if selected.intersection({"task_drafting", "investigation"}):
+        adaptive = cfg.investigation
+        enabled = adaptive.get("adaptive_investigation.enabled")
+        if type(enabled) is not bool or adaptive.get("adaptive_investigation.policy_version") != 1:
+            errors.append("investigation.adaptive_investigation requires boolean enabled and policy_version=1")
+        for key in ("min_tuning_evals", "min_creative_evals", "min_refinement_evals", "stagnation_evals", "replication_evals", "max_valid_evals", "max_transport_failures"):
+            value = adaptive.get("adaptive_investigation." + key)
+            if type(value) is not int or value < 1:
+                errors.append(f"investigation.adaptive_investigation.{key} must be a positive integer")
+        improvement = adaptive.get("adaptive_investigation.min_improvement")
+        if isinstance(improvement, bool) or not isinstance(improvement, (int, float)) or not math.isfinite(improvement) or improvement < 0:
+            errors.append("investigation.adaptive_investigation.min_improvement must be finite and nonnegative")
+        if enabled and (cfg.investigation.workers != 1 or cfg.investigation.prune_every_n_cycles or not cfg.investigation.harness_evaluated_attempts):
+            errors.append("adaptive investigation requires workers=1, pruning disabled, and harness_evaluated_attempts=true")
     investigation_counts_valid = True
     gpu_count_valid = type(cfg.container.gpu_count) is int and cfg.container.gpu_count >= 0
     if not gpu_count_valid:
@@ -1148,6 +1170,16 @@ def validate_pipeline_config(cfg: PipelineConfig) -> list[str]:
                 errors.append(f"paper.venue_file is not a file: {cfg.paper.venue_file}")
 
     if selected.intersection({"review", "revision"}):
+        if cfg.review.backend not in {"openai", "agent"}:
+            errors.append("review.backend must be openai or agent")
+        if cfg.review.agent_name is not None and cfg.review.agent_name not in VALID_AGENTS:
+            errors.append("review.agent_name must name a supported agent")
+        if type(cfg.review.reviewer_count) is not int or not 1 <= cfg.review.reviewer_count <= 4:
+            errors.append("review.reviewer_count must be from 1 to 4")
+        if cfg.review.agent_reasoning_effort is not None and cfg.review.agent_reasoning_effort not in VALID_REASONING_EFFORTS:
+            errors.append("review.agent_reasoning_effort is invalid")
+        if not isinstance(cfg.review.evidence_paths, list) or not all(isinstance(item, str) and item for item in cfg.review.evidence_paths):
+            errors.append("review.evidence_paths must contain non-empty paths")
         for field_name in ("timeout_seconds", "timeout_grace_seconds"):
             value = getattr(cfg.review, field_name)
             if type(value) is not int:

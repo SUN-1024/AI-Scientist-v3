@@ -9,7 +9,7 @@
 | 配置 | 执行过程 | 需要填写 |
 |---|---|---|
 | `native` | 调用模型及服务端联网工具 → 保存返回文本和结构化来源 → 解析论文记录 | 模型 ID、模型 API key；部分服务还需区域或工作空间地址 |
-| `external` | 模型生成检索词 → 本机请求搜索服务 → 把结果交给同一模型解析 | 模型 ID、模型 API key，以及 SearXNG / Tavily / Brave / 智谱搜索配置 |
+| `external` | 模型生成检索词 → 本机请求搜索服务 → 把结果交给同一模型解析 | 模型 ID、模型 API key，以及 DeepSeek / SearXNG / Tavily / Brave / 智谱搜索配置 |
 
 普通聊天 API 不一定有联网工具。仅让模型“列出论文”不能证明它做过搜索。`native` 必须返回结构化来源；`external` 必须取得搜索服务的结果。没有这些记录时，检索状态为 `unavailable`，不会用模型记忆补成成功结果。
 
@@ -112,11 +112,51 @@ literature:
 
 这是本机已配置网关的示例，端口和模型 ID 可改。上游认证由 Magpie 管理；如网关启用 key，请填写对应的 `api_key_env`。模型必须支持服务端 `web_search`，且返回结构化来源。2026-10-18 的本机连接与搜索检查已通过；这不代表 Magpie 中所有模型都支持搜索。
 
+同一网关也可选择 `model: deepseek/deepseek-flash`。2026-10-18 的该路由检查完成了模型响应，但没有返回结构化搜索来源，因此 `native` 检索被判为 `unavailable`。这与[DeepSeek Responses API 文档](https://api-docs.deepseek.com/guides/responses_api/)一致：Flash 忽略内置 `web_search`；Pro 支持该工具。Flash 可通过 `external` 使用 DeepSeek 新的独立 Search API。模型名称、API 可达和搜索执行是三项不同检查；不能用模型正文中的链接代替搜索回执。
+
+例如，保留 Magpie 模型服务，用 DeepSeek Search API 执行搜索：
+
+```yaml
+literature:
+  model_search:
+    provider: magpie
+    model: deepseek/deepseek-flash
+    base_url: http://127.0.0.1:3425/v1
+    api_format: responses
+    mode: external
+    external_search:
+      provider: deepseek
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      max_results: 5
+```
+
+这条路径要求运行 Harness 的进程持有 `DEEPSEEK_API_KEY`。Magpie 的模型认证与宿主进程的搜索认证分别配置，程序不自动读取 Magpie 的私有设置。外部模式下 GPT 和 DeepSeek 都可以生成查询并解析真实搜索结果；搜索后端也可改为 Tavily、SearXNG、Brave 或智谱。
+
+2026-10-18 的本机小规模检查已验证这条路径：Flash 生成查询，DeepSeek Search API 返回两条结构化来源，Flash 再解析出一篇论文。原始响应、精确查询和来源回执均保存。此检查验证检索连接，不等于完整研究流程或全文证据已就绪。
+
 实验 coding agent 仍需单独配置 Codex profile。快速医学案例见 [PathMNIST MIL](../examples/pathmnist_mil/README.md)。该示例通过项目的正式 `research run` 入口运行。
 
 ## 普通模型加外部搜索
 
 已提供 DeepSeek、Kimi、MiniMax、硅基流动、Groq、Together、Fireworks、Mistral、NVIDIA NIM、百度千帆、腾讯混元、阶跃星辰、Yi、Ollama、LM Studio 和 vLLM 的配置入口。
+
+DeepSeek 直连模板默认使用 Flash 和独立搜索 API：
+
+```yaml
+literature:
+  model_search:
+    provider: deepseek
+    model: deepseek-flash
+    api_key_env: DEEPSEEK_API_KEY
+    mode: external
+    external_search:
+      provider: deepseek
+      api_key_env: DEEPSEEK_API_KEY
+      max_results: 5
+```
+
+模型和搜索使用同一个环境变量中的 key，但分别发出 HTTP 请求。搜索请求发送至 `https://api.deepseek.com/v1/tools/search`，保存结构化 `results` 和调用记录。每条查询须有 1–128 个 Unicode 字符；Harness 将限制写入查询生成提示，并拒绝超长结果，不静默截断。当前只请求摘要级搜索结果；全文由后续文献获取流程下载。[DeepSeek Search API 文档](https://api-docs.deepseek.com/guides/search/)
 
 以 DeepSeek + Tavily 为例：
 
@@ -148,7 +188,7 @@ Tavily 默认使用其官方搜索地址。[Tavily API 文档](https://docs.tavi
 
 另可选择 `brave`（默认环境变量 `BRAVE_SEARCH_API_KEY`）或 `zhipu`（默认 `ZHIPU_API_KEY`）。模型 key 与搜索 key 分开配置。外部模式每批最多执行 `max_search_calls` 条模型生成的查询，每条取回数量是 `external_search.max_results` 与 `literature.results_per_query` 的较小值。
 
-本地模型选择 `ollama`、`lmstudio` 或 `vllm`。这些模板默认不要求模型 key，但仍需配置搜索后端。远程 API 使用 HTTPS；本机回环地址允许 HTTP。
+本地模型选择 `ollama`、`lmstudio` 或 `vllm`。这些模板默认不要求模型 key，但仍需配置搜索后端。远程 API 使用 HTTPS；本机回环地址及 Docker Desktop 的精确别名 `host.docker.internal`、`gateway.docker.internal` 允许 HTTP。容器访问宿主 Magpie 时，可将示例地址改为 `http://host.docker.internal:3425/v1`。
 
 ## 自定义服务、网关和参数
 

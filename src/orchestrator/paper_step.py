@@ -4560,6 +4560,7 @@ def validate_and_compile_paper(
             "hard_errors": [],
         },
         "latex_logs": [],
+        "ai_scientist_disclosure_validation": {"checked": False, "required": False, "hard_errors": []},
         "pdf_path": None,
         "error": None,
     }
@@ -4569,6 +4570,10 @@ def validate_and_compile_paper(
             raise RuntimeError(f"Missing required artifact: {tex_path}")
         if not bib_path.exists():
             raise RuntimeError(f"Missing required artifact: {bib_path}")
+
+        from src.research.upstream.disclosure import paper_requires_disclosure, validate_rendered_disclosure
+        disclosure_required = paper_requires_disclosure(paper_dir)
+        report["ai_scientist_disclosure_validation"]["required"] = disclosure_required
 
         # Mandatory, host-owned watermark: (re)inserted before the manuscript is read,
         # hashed, or compiled so every published PDF carries it.
@@ -4757,6 +4762,10 @@ def validate_and_compile_paper(
                     f"Supplementary Information: {exc}"
                 ) from exc
         if compiled_page_texts is not None:
+            disclosure_report = validate_rendered_disclosure(compiled_page_texts, required=disclosure_required)
+            report["ai_scientist_disclosure_validation"] = disclosure_report
+            if disclosure_report["hard_errors"]:
+                raise RuntimeError("AI Scientist disclosure validation failed: " + "; ".join(disclosure_report["hard_errors"]))
             rendered_supplement_report = validate_rendered_supplementary_information(
                 compiled_page_texts
             )
@@ -4770,6 +4779,9 @@ def validate_and_compile_paper(
                 )
 
         if compiled_page_texts is None:
+            if disclosure_required:
+                report["ai_scientist_disclosure_validation"] = validate_rendered_disclosure(None, required=True)
+                raise RuntimeError("AI Scientist disclosure validation failed: compiled PDF text is unavailable")
             page_report = validate_page_budget(tex_text=tex_text, pdf_path=pdf_path)
         else:
             page_report = validate_page_budget(

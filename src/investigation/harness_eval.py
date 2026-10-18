@@ -146,7 +146,8 @@ def _rubric_status(
 
     metric, comparator, threshold = metric_check
     metric_key = _metric_key_for_check(metric, metrics)
-    raw_actual = metrics.get(metric_key)
+    # Correctness comes from the evaluator-owned boolean, never a candidate metric.
+    raw_actual = int(correct) if metric_key == "correct" else metrics.get(metric_key)
     actual = (
         float(raw_actual)
         if isinstance(raw_actual, (int, float)) and not isinstance(raw_actual, bool)
@@ -201,7 +202,7 @@ def _append_memory(
         handle.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
-def _ensure_agent_only_created_program_1(experiment_dir: Path) -> Path:
+def _ensure_agent_only_created_program_1(experiment_dir: Path, *, allow_completed_host_artifacts: bool = False) -> Path:
     program_1 = experiment_dir / "program_1"
     if program_1.is_symlink() or not program_1.is_dir():
         raise SystemExit("Harness-evaluated attempt requires agent-created program_1")
@@ -217,7 +218,7 @@ def _ensure_agent_only_created_program_1(experiment_dir: Path) -> Path:
 
     for artifact in EVALUATOR_ARTIFACTS:
         path = program_1 / artifact
-        if path.exists() or path.is_symlink():
+        if not allow_completed_host_artifacts and (path.exists() or path.is_symlink()):
             raise SystemExit(f"agent-created evaluator artifact is forbidden: {path}")
 
     entrypoint_rel = entrypoint_relpath_from_spec(program_1)
@@ -370,8 +371,13 @@ def run_harness_evaluation(
     if not evaluate_py.is_file():
         raise SystemExit(f"Missing evaluator: {evaluate_py}")
 
-    entrypoint = _ensure_agent_only_created_program_1(experiment_dir)
     program_dir = experiment_dir / "program_1"
+    from .adaptive_runtime import validated_development_outcome
+    receipt_task = sealed_config.task_source_dir if sealed_config else Path(environment.get("TASK_SOURCE_DIR", str(experiment_dir)))
+    previous_outcome = validated_development_outcome(program_dir, task_dir=receipt_task,
+        attempt_id=attempt_id, idea_id=idea_id, native=sealed_config is None)
+    entrypoint = _ensure_agent_only_created_program_1(experiment_dir,
+        allow_completed_host_artifacts=previous_outcome is not None)
     target_rubrics = _target_rubrics(rubrics_path)
     candidate_tokens = candidate_source_tokens(_read_candidate_sources(program_dir))
     source_patterns = [
@@ -381,15 +387,21 @@ def run_harness_evaluation(
     ]
     missing_candidate_patterns = set(missing_source_patterns(candidate_tokens, source_patterns))
     if sealed_config is not None:
-        returncode = _run_sealed_evaluation(
-            experiment_dir=experiment_dir,
-            attempt_id=attempt_id,
-            idea_id=idea_id,
-            python_bin=python_bin,
-            timeout_seconds=timeout_seconds,
-            config=sealed_config,
-            task_failure_fd=task_failure_fd,
-        )
+        from .harness_incumbent import _program_source_records
+        from .native_harness import _hash
+        source_before = _program_source_records(program_dir)
+        if previous_outcome is not None:
+            returncode = 0
+        else:
+            returncode = _run_sealed_evaluation(
+                experiment_dir=experiment_dir,
+                attempt_id=attempt_id,
+                idea_id=idea_id,
+                python_bin=python_bin,
+                timeout_seconds=timeout_seconds,
+                config=sealed_config,
+                task_failure_fd=task_failure_fd,
+            )
     else:
         returncode = _run_direct_evaluation(
             experiment_dir=experiment_dir,
@@ -405,6 +417,25 @@ def run_harness_evaluation(
                 gpu_evaluation=gpu_evaluation,
             ),
         )
+
+    if sealed_config is not None and returncode == 0:
+        # Host-authored binding for crash recovery and negative-result accounting.
+        # This supplements the sealed evaluator contract; it does not replace it.
+        source_after = _program_source_records(program_dir)
+        manifest_path = program_dir / "evaluation_manifest.json"
+        manifest = _load_json(manifest_path, {})
+        if not source_before or source_after != source_before:
+            returncode = 1
+            manifest.update(exit_code=1, returncode=1, error="candidate changed during sealed evaluation")
+        else:
+            try:
+                manifest.update(adaptive_source_sha256=source_after,
+                                adaptive_evaluator_sha256=_hash(sealed_config.task_source_dir / "evaluate.py"),
+                                adaptive_result_sha256={name: _hash(program_dir / name) for name in ("metrics.json", "correct.json")})
+            except (OSError, ValueError):
+                returncode = 1
+                manifest.update(exit_code=1, returncode=1, error="sealed evaluation artifacts missing")
+        _write_json(manifest_path, manifest)
 
     missing_artifacts = [
         name for name in ("metrics.json", "correct.json") if not (program_dir / name).is_file()

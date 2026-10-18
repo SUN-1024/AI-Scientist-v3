@@ -8,6 +8,7 @@ import re
 import shlex
 import shutil
 import stat
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -357,6 +358,7 @@ def run_final_ai_review(
     paper_root: Path | None = None,
     artifact_stem: str = "ai_review",
     manifest_key: str = "ai_review",
+    reviewer_options: Mapping[str, object] | None = None,
 ) -> FinalAiReviewResult:
     """Create a named review artifact and refresh the latest-review aliases."""
     if not _ARTIFACT_STEM_PATTERN.fullmatch(artifact_stem) or len(artifact_stem) > 128:
@@ -413,6 +415,7 @@ def run_final_ai_review(
                     execute_command=execute_command,
                     env_file=env_file,
                     uv_executable=uv_executable,
+                    reviewer_options=reviewer_options,
                 )
             finally:
                 os.close(paper_dir_fd)
@@ -437,6 +440,7 @@ def _run_pinned_final_ai_review(
     execute_command: ExecuteCommand,
     env_file: Path | None,
     uv_executable: str | None,
+    reviewer_options: Mapping[str, object] | None,
 ) -> FinalAiReviewResult:
     try:
         _read_paper_manifest_at(paper_root_fd)
@@ -473,7 +477,11 @@ def _run_pinned_final_ai_review(
             latest_review_path=latest_review_path,
             latest_log_path=latest_log_path,
         )
-    executable = shutil.which("uv") if uv_executable is None else uv_executable
+    agent_backend = bool(reviewer_options and reviewer_options.get("backend") == "agent")
+    executable = (
+        sys.executable if agent_backend
+        else shutil.which("uv") if uv_executable is None else uv_executable
+    )
     if not executable:
         return _failed_result(
             paper_root_fd=paper_root_fd,
@@ -487,7 +495,11 @@ def _run_pinned_final_ai_review(
             latest_log_path=latest_log_path,
         )
     try:
-        review_environment = final_ai_review_environment(os.environ, env_file=env_file)
+        if agent_backend:
+            from src.review_backend import agent_review_environment
+            review_environment = agent_review_environment(os.environ)
+        else:
+            review_environment = final_ai_review_environment(os.environ, env_file=env_file)
         review_environment["AGENTIC_COST_ROOT"] = str(results_dir)
     except (OSError, ValueError) as exc:
         return _failed_result(
@@ -503,7 +515,7 @@ def _run_pinned_final_ai_review(
         )
 
     with tempfile.TemporaryDirectory(prefix=".ai-review-") as temporary_dir:
-        temporary_root = Path(temporary_dir)
+        temporary_root = Path(temporary_dir).resolve()
         temporary_pdf = temporary_root / "paper.pdf"
         temporary_review = temporary_root / "review.json"
         temporary_log = temporary_root / "review.log"
@@ -540,15 +552,24 @@ def _run_pinned_final_ai_review(
                 latest_review_path=latest_review_path,
                 latest_log_path=latest_log_path,
             )
-        command = [
-            executable,
-            "run",
-            "--script",
+        command = [executable] if agent_backend else [executable, "run", "--script"]
+        command += [
             str(reviewer_script),
             str(temporary_pdf),
             "--output",
             str(temporary_review),
         ]
+        if reviewer_options:
+            for key, flag in {
+                "backend": "--backend", "agent": "--agent", "model": "--agent-model",
+                "profile": "--agent-profile", "reasoning_effort": "--reasoning-effort",
+                "reviewer_count": "--reviewer-count", "timeout_seconds": "--timeout-seconds",
+            }.items():
+                value = reviewer_options.get(key)
+                if value is not None:
+                    command.extend([flag, str(value)])
+            for evidence in reviewer_options.get("evidence_paths", []):
+                command.extend(["--evidence", str(evidence)])
         output, exit_code = execute_command(command, temporary_log, review_environment)
         try:
             log_text = _read_regular_file_no_follow(
@@ -586,6 +607,25 @@ def _run_pinned_final_ai_review(
                 error = (
                     None if isinstance(payload, dict) else f"{review_name} must contain an object"
                 )
+        if error is None and reviewer_options and reviewer_options.get("backend") == "agent":
+            try:
+                from src.review_backend import sha256, validate_agent_review
+                if not isinstance(payload, dict):
+                    raise ValueError("agent review must be an object")
+                provenance = payload.get("Provenance")
+                if not isinstance(provenance, dict) or provenance.get("backend") != "agent" or provenance.get("independent_context") is not True:
+                    raise ValueError("agent review has no independent provenance")
+                if provenance.get("paper_sha256") != sha256(temporary_pdf.read_bytes()):
+                    raise ValueError("agent review is not bound to the reviewed PDF")
+                inputs = provenance.get("inputs")
+                if not isinstance(inputs, list) or not all(isinstance(item, dict) and isinstance(item.get("id"), str) for item in inputs):
+                    raise ValueError("agent review has invalid evidence provenance")
+                validate_agent_review(
+                    {key: value for key, value in payload.items() if key != "Provenance"},
+                    source_ids={item["id"] for item in inputs},
+                )
+            except (OSError, ValueError) as exc:
+                error = str(exc)
         if error is not None:
             return _failed_result(
                 paper_root_fd=paper_root_fd,

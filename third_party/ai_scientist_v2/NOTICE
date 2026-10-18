@@ -1,0 +1,21 @@
+AI Scientist V2 adapted source notice
+Copyright Sakana AI. Upstream repository: https://github.com/SakanaAI/AI-Scientist-v2
+Pinned commit: 96bd51617cfdbb494a9fc283af00fe090edfae48
+License: AI Scientist Source Code License, Version 1.0, December 2025.
+The full upstream license is reproduced verbatim in LICENSE in this directory.
+The adapted files remain subject to that license; the V3 Apache-2.0 license does not replace it.
+The license restrictions apply to use and distribution of these adaptations, including the manuscript disclosure requirement.
+This distribution includes these restrictions by reference as enforceable terms of use/distribution.
+
+Source files:
+- ai_scientist/treesearch/journal.py
+  SHA-256: 5690b2b803300f655788064ec253159f2f41c86802e886e601cf640f798cd5b6
+  Adaptation: src/research/upstream/v2_journal.py
+  Source: https://github.com/SakanaAI/AI-Scientist-v2/blob/96bd51617cfdbb494a9fc283af00fe090edfae48/ai_scientist/treesearch/journal.py
+- ai_scientist/treesearch/utils/metric.py
+  SHA-256: 3d33431a5aceb0093f40c6e108ee3498b3ce36972d84db56b953d95692aa9549
+  Adaptation: src/research/upstream/v2_journal.py
+  Source: https://github.com/SakanaAI/AI-Scientist-v2/blob/96bd51617cfdbb494a9fc283af00fe090edfae48/ai_scientist/treesearch/utils/metric.py
+
+Modifications are documented in each adapted source file and docs/upstream-code-reuse.md.
+No upstream provider client, evaluator, execution sandbox, or credentials are imported.

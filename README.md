@@ -1,36 +1,42 @@
 
 <h1 align="center">
   Unified AI Scientist<br>
-  <sub>V1–V3 Fusion: Literature, Experiment Search, and Verified Execution</sub>
+  <sub>V1–V3 Research Harness: Evidence, Adaptive Experiments, and Papers</sub>
 </h1>
 
 <p align="center">
   <a href="README.zh-CN.md">中文说明</a> ·
-  <a href="docs/research-quality-guide.zh-CN.md">Research quality and budget guide</a>
+  <a href="docs/research-harness.zh-CN.md">Complete Harness guide</a> ·
+  <a href="docs/upstream-code-reuse.md">Actual V1–V3 code reuse</a>
 </p>
 
-This project combines V1-inspired reusable research starts and literature review,
-V2-inspired experiment branching, and the V3 execution and evidence pipeline.
-Start with `./scripts/research-agent`; the integrated workflow is the main entry
-point of this fork. It is not a fourth official SakanaAI release.
+This project integrates adapted V1 idea-reflection code, V2 journal and metric
+selection code, an evidence-driven adaptive stage controller, and the V3 execution
+and manuscript pipeline. Start with `./scripts/research-agent harness`; the
+integrated workflow is the main entry point of this fork. It is not a fourth
+official SakanaAI release.
 
-The current integration includes bounded tree exploration, source-linked ideas,
-host-scored experiments, and evidence-linked writing. It does not yet reproduce
-the full V2 adaptive stage manager. Larger API budgets allow more work; they do
-not establish better scientific results. See the [implementation map](README.zh-CN.md#整合方式)
-and [validation record](docs/unified-research-validation.md).
+The Harness connects full-text literature, bounded idea reflection, independent
+novelty review, adaptive experiments, controls and ablations, sealed confirmation,
+paper generation, independent review, and revision. It records separate checks
+for execution, scientific evidence, novelty, and manuscript readiness. A successful
+run does not establish a publishable contribution. See the
+[implementation map](docs/upstream-code-reuse.md) and
+[complete workflow guide](docs/research-harness.zh-CN.md).
 
 ```bash
 ./scripts/research-agent init playground/circle-study --template circpack \
   --provider openrouter --model 'YOUR_MODEL_ID' \
   --query 'circle packing unequal circles unit square optimization'
-./scripts/research-agent run playground/circle-study \
+./scripts/research-agent harness playground/circle-study \
   --workspace results/unified/circle-study --dry-run
 ```
 
-Configure the selected provider and execution agent before running. The
-[CPU pathology example](examples/pathmnist_mil/README.md) includes a reproducible
-development study and separate settings for a quick check and a larger search.
+Configure the selected provider and execution agent before running. The new
+[contracted CPU pathology example](examples/pathmnist_mil_harness/README.md)
+supports the complete isolated workflow. Native macOS cannot provide all required
+descriptor-pinning interfaces; use the Linux coordinator described in the guide.
+The older [development example](examples/pathmnist_mil/README.md) remains available.
 The [latest improvement report](docs/fusion-improvements-2026-10-18.md) records
 418 passing regression tests, training-budget calibration, and six live search
 cycles. The selected candidate improved the initial development baseline;
@@ -39,13 +45,15 @@ independent confirmation remains outstanding.
 ## Upstream engine and attribution
 
 The execution engine is based on SakanaAI's **The Agentic Scientist / AI Scientist V3**.
-Original authorship and the Apache-2.0 license are retained. V1 and V2 inform the
-integration design; their executors are not copied into this repository.
+Original V3 authorship and Apache-2.0 terms are retained. Adapted V1/V2 components
+retain the AI Scientist Source Code License v1.0 and their original attribution.
+See [source hashes, modifications, and license scope](docs/upstream-code-reuse.md).
+Generated Harness manuscripts include the required visible AI Scientist disclosure.
 
 <p align="center">
   <a href="https://arxiv.org/abs/2610.18933"><img src="https://img.shields.io/badge/arXiv-2610.18933-b31b1b.svg" alt="arXiv"></a>
   <a href="https://arxiv.org/pdf/2610.18933"><img src="https://img.shields.io/badge/Paper-PDF-red.svg" alt="Paper PDF"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="docs/upstream-code-reuse.md">Licenses and provenance</a>
 </p>
 
 Agentic Scientist treats coding agents as AI scientists. Starting from a

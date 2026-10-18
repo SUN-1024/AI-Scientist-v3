@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 import re
+import math
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -61,10 +62,33 @@ class SearchConfig:
 
 
 @dataclass
+class HarnessQualityConfig:
+    """Declared study requirements; these are checks, not venue promises."""
+
+    min_confirmation_seeds: int = 3
+    required_comparisons: list[str] = field(default_factory=list)
+    require_ablation: bool = True
+    require_positive_final: bool = True
+    positive_effect_metric: str = ""
+    positive_effect_interval_low_metric: str = ""
+    positive_effect_min: float = 0.0
+    min_review_score: int = 6
+
+
+@dataclass
+class HarnessConfig:
+    quality_target: str = "high_impact"
+    novelty_review: bool = True
+    novelty_reviewers: int = 2
+    quality: HarnessQualityConfig = field(default_factory=HarnessQualityConfig)
+
+
+@dataclass
 class ResearchConfig:
     schema_version: int = 1
     literature: LiteratureConfig = field(default_factory=LiteratureConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
+    harness: HarnessConfig = field(default_factory=HarnessConfig)
 
 
 def _mapping(value: object, allowed: set[str], label: str) -> dict[str, Any]:
@@ -90,8 +114,8 @@ def validate_model_config(cfg: ModelSearchConfig) -> None:
         if type(value) is not int or not low <= value <= high:
             raise ValueError(f"model_search.{name} must be an integer from {low} to {high}")
     ext = cfg.external_search
-    if not isinstance(ext.provider, str) or ext.provider not in {"searxng", "tavily", "brave", "zhipu"}:
-        raise ValueError("external_search.provider must be searxng, tavily, brave, or zhipu")
+    if not isinstance(ext.provider, str) or ext.provider not in {"searxng", "tavily", "brave", "zhipu", "deepseek"}:
+        raise ValueError("external_search.provider must be searxng, tavily, brave, zhipu, or deepseek")
     for name in ("base_url", "api_key_env"):
         if not isinstance(getattr(ext, name), str):
             raise ValueError(f"external_search.{name} must be a string")
@@ -135,7 +159,7 @@ def load_config(task_dir: Path) -> ResearchConfig:
         raise ValueError(f"Missing {path}; use 'agsci research init' or copy the documented config")
     raw = _mapping(
         yaml.safe_load(path.read_text(encoding="utf-8")),
-        {"schema_version", "literature", "search"}, "research.yaml",
+        {"schema_version", "literature", "search", "harness"}, "research.yaml",
     )
     if type(raw.get("schema_version", 1)) is not int or raw.get("schema_version", 1) != 1:
         raise ValueError("research.yaml schema_version must be 1")
@@ -147,7 +171,34 @@ def load_config(task_dir: Path) -> ResearchConfig:
     external = _mapping(model_search.pop("external_search", {}), set(ExternalSearchConfig.__dataclass_fields__), "external_search")
     model = ModelSearchConfig(**model_search, external_search=ExternalSearchConfig(**external))
     validate_model_config(model)
-    cfg = ResearchConfig(literature=LiteratureConfig(**{**literature, "model_search": model}), search=SearchConfig(**search))
+    harness = dict(_mapping(raw.get("harness", {}), set(HarnessConfig.__dataclass_fields__), "harness"))
+    quality = _mapping(harness.pop("quality", {}), set(HarnessQualityConfig.__dataclass_fields__), "harness.quality")
+    cfg = ResearchConfig(literature=LiteratureConfig(**{**literature, "model_search": model}), search=SearchConfig(**search),
+                         harness=HarnessConfig(**harness, quality=HarnessQualityConfig(**quality)))
+    if cfg.harness.quality_target not in {"high_impact", "development"}:
+        raise ValueError("harness.quality_target must be high_impact or development")
+    if type(cfg.harness.novelty_review) is not bool:
+        raise ValueError("harness.novelty_review must be boolean")
+    if type(cfg.harness.novelty_reviewers) is not int or not 2 <= cfg.harness.novelty_reviewers <= 4:
+        raise ValueError("harness.novelty_reviewers must be from 2 to 4")
+    quality_cfg = cfg.harness.quality
+    if type(quality_cfg.min_confirmation_seeds) is not int or not 1 <= quality_cfg.min_confirmation_seeds <= 1000:
+        raise ValueError("harness.quality.min_confirmation_seeds must be from 1 to 1000")
+    if type(quality_cfg.min_review_score) is not int or not 1 <= quality_cfg.min_review_score <= 10:
+        raise ValueError("harness.quality.min_review_score must be from 1 to 10")
+    if any(type(getattr(quality_cfg, name)) is not bool for name in ("require_ablation", "require_positive_final")):
+        raise ValueError("harness.quality require flags must be boolean")
+    for name in ("positive_effect_metric", "positive_effect_interval_low_metric"):
+        value = getattr(quality_cfg, name)
+        if not isinstance(value, str) or (value and not re.fullmatch(r"[A-Za-z0-9_.-]+", value)):
+            raise ValueError(f"harness.quality.{name} must be a scalar final-metric name")
+    if isinstance(quality_cfg.positive_effect_min, bool) or not isinstance(quality_cfg.positive_effect_min, (int, float)) or not math.isfinite(quality_cfg.positive_effect_min):
+        raise ValueError("harness.quality.positive_effect_min must be finite")
+    if not isinstance(quality_cfg.required_comparisons, list) or not all(
+        isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9_.-]*", item)
+        for item in quality_cfg.required_comparisons
+    ) or len(set(quality_cfg.required_comparisons)) != len(quality_cfg.required_comparisons):
+        raise ValueError("harness.quality.required_comparisons must contain unique variant IDs")
     lit = cfg.literature
     if not isinstance(lit.queries, list) or not all(
         isinstance(query, str) and 1 <= len(query.strip()) <= 500 for query in lit.queries

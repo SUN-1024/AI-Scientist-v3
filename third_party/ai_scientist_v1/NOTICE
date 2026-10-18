@@ -1,0 +1,17 @@
+AI Scientist V1 adapted source notice
+Copyright Sakana AI. Upstream repository: https://github.com/SakanaAI/AI-Scientist
+Pinned commit: 1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb
+License: AI Scientist Source Code License, Version 1.0, December 2025.
+The full upstream license is reproduced verbatim in LICENSE in this directory.
+The adapted files remain subject to that license; the V3 Apache-2.0 license does not replace it.
+The license restrictions apply to use and distribution of these adaptations, including the manuscript disclosure requirement.
+This distribution includes these restrictions by reference as enforceable terms of use/distribution.
+
+Source files:
+- ai_scientist/generate_ideas.py
+  SHA-256: 3d0404f6b25b6e0de80dd009351cbbd58526f43f10aae830d7b0d22790bcd224
+  Adaptation: src/research/upstream/v1_reflection.py
+  Source: https://github.com/SakanaAI/AI-Scientist/blob/1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb/ai_scientist/generate_ideas.py
+
+Modifications are documented in each adapted source file and docs/upstream-code-reuse.md.
+No upstream provider client, evaluator, execution sandbox, or credentials are imported.

@@ -41,6 +41,7 @@ def load_idea_artifacts(
     *,
     require_harness_verification: bool = False,
     harness_incumbent_score: float | None = None,
+    require_score_improvement: bool = True,
 ) -> IdeaArtifacts:
     """Load and cross-check the required idea-generation outputs."""
     bundle_path = workspace / "idea_bundle.json"
@@ -87,7 +88,7 @@ def load_idea_artifacts(
     if require_harness_verification:
         target_rubrics = _replace_metric_rubrics(
             target_rubrics,
-            harness_incumbent_score,
+            harness_incumbent_score if require_score_improvement else None,
         )
         if not any(rubric.get("type") == "implementation" for rubric in target_rubrics):
             raise IdeaArtifactsError(

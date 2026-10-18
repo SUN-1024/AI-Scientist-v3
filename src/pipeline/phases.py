@@ -20,7 +20,7 @@ from typing import Callable, Mapping
 from src.orchestrator.paper_event_bridge import extract_transport_events
 from src.investigation.runtime import terminate_active_process_group
 
-from .config import PaperConfig, PhasePassthrough, PipelineConfig, venue_file_for_format
+from .config import PaperConfig, PhasePassthrough, PipelineConfig, venue_file_for_format, parse_pipeline_phases
 from .paper_workspace import workspace_validation_errors
 from .paths import PipelinePaths
 
@@ -413,7 +413,6 @@ def build_posthoc_cmd(cfg: PipelineConfig, paths: PipelinePaths) -> list[str]:
         "src.posthoc_pipeline.cli",
         _hydra_string_override("paths.task_dir", paths.task_dir),
         _hydra_string_override("paths.results_dir", paths.investigation_workspace_dir),
-        _hydra_string_override("paths.evidence_dir", paths.ablations_dir),
         _hydra_string_override("paths.output_dir", paths.posthoc_dir),
         _hydra_string_override("agent.name", cfg.agent.name),
     ]
@@ -424,6 +423,11 @@ def build_posthoc_cmd(cfg: PipelineConfig, paths: PipelinePaths) -> list[str]:
     if cfg.agent.reasoning_effort is not None:
         cmd.append(_hydra_string_override("agent.reasoning_effort", cfg.agent.reasoning_effort))
     cmd.append(_hydra_string_override("run_id", paths.run_id))
+    # An investigation-only campaign may have no ablations. Passing a missing
+    # directory makes the artifact-only posthoc CLI fail before it can inspect
+    # the investigation evidence.
+    if "ablations" in parse_pipeline_phases(cfg.execution.phases) or paths.ablations_dir.is_dir():
+        cmd.append(_hydra_string_override("paths.evidence_dir", paths.ablations_dir))
     cmd += hydra_overrides_for(cfg.posthoc)
     cmd += [
         "execution.checkpoint_mode='optional'",

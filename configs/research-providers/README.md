@@ -4,6 +4,11 @@ Copy the selected `literature.model_search` into your project research.yaml.
 Fill in a model ID and export the named key. These are configuration templates, not live account certifications.
 See [the Chinese guide](../../docs/model-search.zh-CN.md) for setup and evidence handling.
 
+The DeepSeek template uses `deepseek-flash` plus DeepSeek's standalone Search API.
+Both calls use `DEEPSEEK_API_KEY`. Flash does not execute the Responses API's
+`web_search` tool. The external backend remains configurable, as does the model.
+See the [Search API guide](https://api-docs.deepseek.com/guides/search/).
+
 | Provider | Mode | API format | Model key environment variable | Reference |
 |---|---|---|---|---|
 | [Magpie local gateway](magpie.yaml) | native | `responses` | optional; gateway configured locally | [local setup](../../docs/model-search.zh-CN.md#本机-magpie) |

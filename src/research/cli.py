@@ -59,13 +59,16 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--query", action="append", default=[], help="Repeat for focused literature searches")
     init.add_argument("--provider", choices=tuple(PROVIDERS), default="custom")
     init.add_argument("--model", default="", help="Model ID from your chosen provider")
-    for name in ("prepare", "run"):
+    for name in ("prepare", "run", "harness"):
         command = sub.add_parser(name, help="Prepare literature" if name == "prepare" else "Prepare literature and execute the V1–V3 fusion workflow")
         command.add_argument("task", type=Path, nargs="?")
         command.add_argument("--workspace", type=Path)
         command.add_argument("--resume", type=Path, help="Reuse immutable inputs and continue the saved run")
         command.add_argument("--offline", action="store_true")
         command.add_argument("--dry-run", action="store_true", help="Validate/preview without files, network, agents, or training")
+        if name == "harness":
+            command.add_argument("--quality-target", choices=("high_impact", "development"), default=None)
+
     report = sub.add_parser("report", help="Inspect the saved run summary")
     report.add_argument("workspace", type=Path)
     return parser
@@ -74,13 +77,18 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _parser()
     args, overrides = parser.parse_known_args(argv)
-    if args.command in {"prepare", "run"} and args.task and "=" in str(args.task):
+    if args.command in {"prepare", "run", "harness"} and args.task and "=" in str(args.task):
         overrides.insert(0, str(args.task))
         args.task = None
     try:
         _validate_overrides(overrides)
-        if args.command not in {"prepare", "run"} and overrides:
-            raise ValueError("Pipeline overrides are only accepted by prepare/run")
+        if args.command not in {"prepare", "run", "harness"} and overrides:
+            raise ValueError("Pipeline overrides are only accepted by prepare/run/harness")
+        if args.command == "harness":
+            from .harness import run_harness
+            from .preflight import runtime_tool_path
+            with runtime_tool_path():
+                return run_harness(args, overrides)
         if args.command == "templates":
             for name, description in TEMPLATES.items():
                 print(f"{name}: {description}")
@@ -91,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
                 model_cfg = ResearchConfig().literature.model_search
                 model_cfg.provider, model_cfg.base_url, model_cfg.api_key_env = args.config, spec.base_url, spec.api_key_env
                 model_cfg.api_format, model_cfg.mode = spec.api_format, spec.mode
+                if args.config == "deepseek":
+                    model_cfg.external_search.provider = "deepseek"
                 print(yaml.safe_dump({"literature": {"model_search": asdict(model_cfg)}}, sort_keys=False, allow_unicode=True), end="")
             else:
                 for name, spec in PROVIDERS.items():
@@ -105,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
             cfg.literature.queries = args.query
             cfg.literature.model_search.provider = args.provider
             cfg.literature.model_search.model = args.model
+            if args.provider == "deepseek":
+                cfg.literature.model_search.external_search.provider = "deepseek"
             if args.brief:
                 brief = args.brief.expanduser().read_text(encoding="utf-8")
                 if not brief.strip():

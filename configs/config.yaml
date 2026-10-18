@@ -109,3 +109,16 @@ versioning:
   tag_checkpoints: true
   final_include_environments: false
   finalize_on_exit: true            # pipeline children override false; parent owns final snapshot
+
+# V2-style bounded stage manager. Off for the original investigation command.
+adaptive_investigation:
+  enabled: false
+  policy_version: 1
+  min_tuning_evals: 2
+  min_creative_evals: 3
+  min_refinement_evals: 2
+  stagnation_evals: 2
+  replication_evals: 2
+  max_valid_evals: 20
+  max_transport_failures: 6
+  min_improvement: 0.0

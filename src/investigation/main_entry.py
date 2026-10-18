@@ -1094,7 +1094,8 @@ def run_main_flow(
         )
         state_store.save_best_manifest(results_dir, best_manifest)
 
-    start_cycle = int(outer_state.get("current_cycle", 0)) + 1
+    from .adaptive_runtime import resume_cycle
+    start_cycle = resume_cycle(results_dir, outer_state)
     max_program_evals_per_attempt = cfg.execution.max_program_evals_per_attempt
 
     # Log all Hydra hyperparameters

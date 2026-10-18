@@ -6,7 +6,7 @@ Usage::
     agsci investigate key=value ...               # the investigation loop alone (src.investigation.cli)
     agsci doctor [--json] [--image REF]              # host readiness checks
     agsci inspect [build|start|dev] [options]        # run inspector web UI
-    agsci review <paper.pdf> [--output review.json]  # standalone OpenAI-backed reviewer
+    agsci review <paper.pdf> [--output review.json]  # standalone model reviewer
 
 Subcommand modules are imported lazily so ``agsci doctor``, ``agsci inspect``,
 and ``agsci review`` do not pay for the pipeline's Hydra imports.
@@ -27,7 +27,7 @@ Commands:
   investigate  Run the investigation loop alone: agsci investigate [HYDRA_OVERRIDES...]
   doctor       Check this host for the tools, images, and GPUs the pipeline needs
   inspect      Build and serve the run inspector web UI: agsci inspect [build|start|dev]
-  review       Review a paper PDF with the OpenAI-backed reviewer: agsci review <paper.pdf> [--output review.json]
+  review       Review a paper PDF with a configured model: agsci review <paper.pdf> [--output review.json]
 
 Run `agsci <command> --help` for that command's options.
 """

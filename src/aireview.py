@@ -26,16 +26,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import backoff
-import numpy as np
-import openai
-import pymupdf
-from openai import OpenAI
-from pypdf import PdfReader
-
-with contextlib.redirect_stdout(io.StringIO()):
-    import pymupdf4llm
-
 MODEL = "o4-mini-2025-04-16"
 REVIEWER_COUNT = 5
 REVIEW_ATTEMPTS = 2
@@ -345,12 +335,29 @@ def _record_review_cost(
         print(f"[cost] warning: accounting unavailable ({type(exc).__name__})", file=sys.stderr)
 
 
-@backoff.on_exception(
-    backoff.expo,
-    (openai.RateLimitError, openai.APITimeoutError, openai.InternalServerError),
-    max_tries=6,
-)
 def _get_response(
+    prompt: str,
+    *,
+    system_message: str,
+    client: Any,
+    cost_stage: str = "review",
+    seed: int = 0,
+) -> str:
+    # Agent reviews do not need the legacy OpenAI client or its retry package.
+    import backoff
+    import openai
+
+    request = backoff.on_exception(
+        backoff.expo,
+        (openai.RateLimitError, openai.APITimeoutError, openai.InternalServerError),
+        max_tries=6,
+    )(_get_response_once)
+    return request(
+        prompt, system_message=system_message, client=client, cost_stage=cost_stage, seed=seed
+    )
+
+
+def _get_response_once(
     prompt: str,
     *,
     system_message: str,
@@ -435,6 +442,8 @@ def _request_valid_review(
 
 def _review_text_once(text: str, *, client: Any) -> dict[str, Any]:
     """Run one complete five-reviewer and meta-review ensemble."""
+    import numpy as np
+
     prompt = _review_prompt(text)
     reviews = []
     for index in range(REVIEWER_COUNT):
@@ -481,17 +490,32 @@ def _validated_pdf_path(pdf_path: str | Path) -> Path:
 
 
 def _extract_with_pymupdf(path: Path) -> str:
+    import pymupdf
+
     with pymupdf.open(path) as document:
         return "".join(page.get_text() for page in document)
+
+
+def _extract_with_pymupdf4llm(path: Path) -> str:
+    with contextlib.redirect_stdout(io.StringIO()):
+        import pymupdf4llm
+
+    return pymupdf4llm.to_markdown(str(path))
+
+
+def _extract_with_pypdf(path: Path) -> str:
+    from pypdf import PdfReader
+
+    return "".join(page.extract_text() or "" for page in PdfReader(path).pages)
 
 
 def load_paper(pdf_path: str | Path) -> str:
     """Extract PDF text using the same ordered fallback chain as the source reviewer."""
     path = _validated_pdf_path(pdf_path)
     extractors = (
-        lambda: pymupdf4llm.to_markdown(str(path)),
+        lambda: _extract_with_pymupdf4llm(path),
         lambda: _extract_with_pymupdf(path),
-        lambda: "".join(page.extract_text() or "" for page in PdfReader(path).pages),
+        lambda: _extract_with_pypdf(path),
     )
     for extract in extractors:
         try:
@@ -510,6 +534,8 @@ def review_pdf(pdf_path: str | Path, *, client: Any | None = None) -> dict[str, 
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY is not configured")
+        from openai import OpenAI
+
         client = OpenAI(api_key=api_key)
     return review_text(paper_text, client=client)
 
@@ -546,6 +572,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("pdf_path", type=Path, help="Path to the manuscript PDF")
     parser.add_argument("--output", type=Path, help="Also write the final review JSON here")
+    parser.add_argument("--backend", choices=("openai", "agent"), default="openai")
+    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent-model")
+    parser.add_argument("--agent-profile")
+    parser.add_argument("--reasoning-effort", choices=("low", "medium", "high", "xhigh"))
+    parser.add_argument("--reviewer-count", type=int, default=1)
+    parser.add_argument("--evidence", action="append", type=Path, default=[])
+    parser.add_argument("--timeout-seconds", type=int, default=1800)
     return parser
 
 
@@ -553,16 +587,34 @@ def main(argv: list[str] | None = None) -> int:
     """Run the standalone reviewer CLI."""
     args = _build_parser().parse_args(argv)
     try:
-        review = review_pdf(args.pdf_path)
+        if args.backend == "agent":
+            repo_root = str(Path(__file__).resolve().parents[1])
+            if repo_root not in sys.path:
+                sys.path.insert(0, repo_root)
+            from src.review_backend import review_with_agent
+            review = review_with_agent(
+                _validated_pdf_path(args.pdf_path), load_paper(args.pdf_path), agent=args.agent,
+                model=args.agent_model, profile=args.agent_profile, reasoning_effort=args.reasoning_effort,
+                reviewer_count=args.reviewer_count, evidence_paths=args.evidence,
+                timeout_seconds=args.timeout_seconds,
+            )
+        else:
+            import openai
+
+            try:
+                review = review_pdf(args.pdf_path)
+            except openai.OpenAIError:
+                print("aireview: OpenAI request failed", file=sys.stderr)
+                return 1
         payload = json.dumps(review, indent=2)
         if args.output is not None:
             _write_json_atomic(args.output, payload)
         print(payload)
         return 0
-    except openai.OpenAIError:
-        print("aireview: OpenAI request failed", file=sys.stderr)
     except (OSError, ValueError) as exc:
         print(f"aireview: {exc}", file=sys.stderr)
+        if getattr(exc, "provenance", None):
+            print(json.dumps({"review_failure_provenance": exc.provenance}, indent=2), file=sys.stderr)
     return 1
 
 

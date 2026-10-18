@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from src.orchestrator import state as state_store
+from src.research.upstream.v2_journal import Journal
 from .harness_incumbent import _program_source_records
 
 TREE_FILE = "search_tree.json"
@@ -113,6 +114,7 @@ class SearchTree:
 
     def choose(
         self, cycle: int, incumbent: dict[str, Any], incumbent_dir: Path,
+        *, selection_policy: str = "scheduled",
     ) -> dict[str, Any]:
         nodes = self.data["nodes"]
         if not nodes:
@@ -128,20 +130,21 @@ class SearchTree:
             # A task can legitimately begin with an unqualified baseline.
             if nodes["root"]["score"] is None:
                 nodes["root"]["correct"] = False
+        journal = Journal.from_search_records(nodes)
         leased = self.data["leases"].get(str(cycle))
         if leased is not None:
             chosen = nodes[leased]
         else:
-            eligible = [
-                node for node in nodes.values()
-                if node.get("correct") is True and _score(node.get("score")) is not None
-            ]
-            eligible.sort(key=lambda node: (-node["score"], node["node_id"]))
+            eligible = [nodes[node.id] for node in journal.ranked_nodes()]
             pool = eligible[: self.width]
             root = nodes["root"]
             if root not in pool:
                 pool.append(root)
-            if cycle % self.explore_every == 0:
+            if selection_policy == "incumbent":
+                chosen = next((node for node in eligible if Path(node["program_dir"]).resolve() == incumbent_dir.resolve()), None)
+                if chosen is None:
+                    raise ValueError("Adaptive incumbent is missing from the validated search tree")
+            elif selection_policy == "explore" or (selection_policy == "scheduled" and cycle % self.explore_every == 0):
                 visits = list(self.data["leases"].values())
                 chosen = min(
                     pool,
@@ -152,11 +155,20 @@ class SearchTree:
                     ),
                 )
             else:
-                chosen = eligible[0] if eligible else root
+                debug = [nodes[node.id] for node in journal.debug_candidates()
+                         if nodes[node.id].get("program_dir")]
+                chosen = eligible[0] if eligible else (debug[0] if debug else root)
             self.data["leases"][str(cycle)] = chosen["node_id"]
         self._program_path(chosen)
         self._save()
-        selection = {**chosen, "strategy": "tree", "selected_for_cycle": cycle}
+        selected_node = journal.get_node_by_id(chosen["node_id"])
+        if selected_node is None:
+            raise ValueError("Selected search node is missing from its journal")
+        selection = {**chosen, "strategy": "tree", "selected_for_cycle": cycle,
+                     "journal": {"upstream": "AI-Scientist-v2",
+                                 "stage": selected_node.stage_name,
+                                 "debug_depth": selected_node.debug_depth,
+                                 "candidates": journal.selection_evidence()}}
         parent_file = self.results_dir / PARENT_FILE
         if parent_file.is_symlink():
             raise ValueError("Search parent record must not be a symlink")

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from .adaptive_controller import AdaptiveInvestigationConfig
 from .constants import (
     DEFAULT_HARNESS_EVALUATION_TIMEOUT_SECONDS,
     DEFAULT_CONTAINER_IMAGE,
@@ -393,6 +395,7 @@ class InvestigationConfig:
     agent: AgentConfig = field(default_factory=AgentConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    adaptive_investigation: AdaptiveInvestigationConfig = field(default_factory=AdaptiveInvestigationConfig)
     task_drafting: TaskDraftingConfig = field(default_factory=TaskDraftingConfig)
     paper: PaperConfig = field(default_factory=PaperConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
@@ -442,6 +445,19 @@ def _validate_versioning(cfg: VersioningConfig) -> None:
 
 def validate(cfg: InvestigationConfig) -> None:
     """Validate configuration values, raising ConfigValidationError on problems."""
+    adaptive = cfg.adaptive_investigation
+    if type(adaptive.enabled) is not bool or type(adaptive.policy_version) is not int or adaptive.policy_version != 1:
+        raise ConfigValidationError("adaptive_investigation requires boolean enabled and policy_version=1")
+    for key in ("min_tuning_evals", "min_creative_evals", "min_refinement_evals", "stagnation_evals", "replication_evals", "max_valid_evals", "max_transport_failures"):
+        if type(getattr(adaptive, key)) is not int or getattr(adaptive, key) < 1:
+            raise ConfigValidationError(f"adaptive_investigation.{key} must be a positive integer")
+    if isinstance(adaptive.min_improvement, bool) or not isinstance(adaptive.min_improvement, (int, float)) or not math.isfinite(adaptive.min_improvement) or adaptive.min_improvement < 0:
+        raise ConfigValidationError("adaptive_investigation.min_improvement must be finite and nonnegative")
+    if adaptive.enabled:
+        if cfg.execution.workers != 1 or cfg.execution.campaign_workers > 1:
+            raise ConfigValidationError("adaptive investigation currently requires workers=1; parallel leases are unsupported")
+        if not cfg.execution.harness_evaluated_attempts or cfg.execution.prune_every_n_cycles:
+            raise ConfigValidationError("adaptive investigation requires host evaluation and pruning disabled")
     if cfg.agent.name not in VALID_AGENTS:
         raise ConfigValidationError(
             f"agent.name must be one of {VALID_AGENTS}, got {cfg.agent.name!r}"

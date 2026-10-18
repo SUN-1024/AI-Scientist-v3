@@ -7,7 +7,7 @@ import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.investigation.files import load_task_copy_ignore_patterns, task_copy_path_is_ignored
 from src.orchestrator.state import write_private_text
@@ -46,7 +46,8 @@ def task_digest(task_dir: Path) -> str:
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
-def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[str]) -> dict[str, Any]:
+def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[str],
+            after_literature: Callable[[Path, ResearchConfig], None] | None = None) -> dict[str, Any]:
     cfg = load_config(task_dir)
     if workspace.exists() or workspace.is_symlink():
         raise ValueError("Workspace already exists; use --resume or select a new workspace")
@@ -63,6 +64,8 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
             raise ValueError(".agentic_task_ignore must include the generated research_context in the pipeline snapshot")
     catalog = prepare_literature(staged, cfg.literature, offline=offline)
     load_catalog(staged)
+    if after_literature is not None:
+        after_literature(staged, cfg)
     manifest = {
         "schema_version": 1, "created_at": datetime.now(timezone.utc).isoformat(),
         "source_task": str(task_dir.resolve()), "input_task_sha256": task_digest(staged),
@@ -84,7 +87,11 @@ def resume(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
     if task_digest(staged) != manifest.get("input_task_sha256"):
         raise ValueError("Prepared research inputs changed; create a new workspace to change the study")
     cfg = load_config(staged)
-    if asdict(cfg) != manifest.get("research_config"):
+    saved_config = manifest.get("research_config")
+    if isinstance(saved_config, dict) and "harness" not in saved_config:
+        # Schema-v1 research workspaces created before the harness extension.
+        saved_config = {**saved_config, "harness": asdict(ResearchConfig().harness)}
+    if asdict(cfg) != saved_config:
         raise ValueError("Prepared research configuration does not match its manifest")
     if not isinstance(manifest.get("pipeline_overrides"), list) or not all(
         isinstance(value, str) for value in manifest["pipeline_overrides"]

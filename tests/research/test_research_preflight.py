@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import errno
 import shutil
 from dataclasses import replace
 from pathlib import Path
@@ -11,8 +12,19 @@ import pytest
 from src.agsci import doctor
 from src.investigation.program_spec import render_default_program_spec_toml
 from src.pipeline.cli import load_pipeline_config
+from src.pipeline.descriptor_paths import DescriptorPathError
 from src.research import cli, preflight
+from src.research.preflight import _probe_transaction_filesystem
 from tests.research.test_unified_research import make_task
+
+
+@pytest.fixture(autouse=True)
+def descriptor_pinning_available(monkeypatch):
+    """Fake Host cases must not inherit the test runner's filesystem limits."""
+    probe = Mock()
+    monkeypatch.setattr(preflight, "_probe_descriptor_pinning", probe)
+    monkeypatch.setattr(preflight, "_probe_transaction_filesystem", Mock())
+    return probe
 
 
 def runtime_host(tmp_path: Path, **changes) -> doctor.Host:
@@ -158,3 +170,103 @@ def test_missing_task_brief_is_a_preflight_failure(tmp_path):
     cfg = load_pipeline_config(["container.enabled=false", "execution.phases=investigation"])
     results = preflight.execution_checks(cfg, task, host=runtime_host(tmp_path))
     assert any(result.status == doctor.FAIL and "task.md" in result.detail for result in results)
+
+
+@pytest.mark.parametrize("phases,versioning,required", [
+    ("investigation", True, True),
+    ("review", False, True),
+    ("revision", False, True),
+    ("investigation", False, False),
+    ("task_drafting", False, False),
+])
+def test_descriptor_probe_is_scoped_to_checkpoint_or_recovery_operations(tmp_path, phases, versioning, required):
+    task = complete_task(tmp_path)
+    cfg = load_pipeline_config([f"execution.phases={phases}", f"versioning.enabled={str(versioning).lower()}"])
+    probe = Mock(side_effect=DescriptorPathError("no safe directory descriptor path is available"))
+    results = preflight.execution_checks(cfg, task, host=runtime_host(tmp_path), descriptor_probe=probe)
+    checks = [result for result in results if result.name == "host descriptor pinning"]
+    if required:
+        probe.assert_called_once_with(task)
+        assert len(checks) == 1 and checks[0].status == doctor.FAIL
+        assert "scripts/run-research-harness-container.sh" in checks[0].hint
+    else:
+        probe.assert_not_called()
+        assert checks == []
+
+
+def test_unsupported_descriptor_pinning_stops_harness_before_literature(tmp_path, monkeypatch, capsys):
+    from src.research import harness
+    task = complete_task(tmp_path)
+    workspace = tmp_path / "workspace"
+    before = {path.relative_to(task): path.read_bytes() for path in task.rglob("*") if path.is_file()}
+    host = runtime_host(tmp_path)
+    monkeypatch.setattr(preflight.doctor, "Host", lambda: host)
+    monkeypatch.setattr(preflight, "_probe_descriptor_pinning",
+                        Mock(side_effect=DescriptorPathError("no safe directory descriptor path is available")))
+    prepare = Mock(side_effect=AssertionError("must not prepare or spend literature/model credits"))
+    monkeypatch.setattr(harness, "prepare", prepare)
+    assert cli.main([
+        "harness", str(task), "--workspace", str(workspace), "--quality-target", "development",
+        "execution.phases=investigation", "container.enabled=false", "versioning.enabled=true",
+    ]) == 2
+    prepare.assert_not_called()
+    assert not workspace.exists()
+    assert before == {path.relative_to(task): path.read_bytes() for path in task.rglob("*") if path.is_file()}
+    error = capsys.readouterr().err
+    assert "host descriptor pinning" in error
+    assert "scripts/run-research-harness-container.sh" in error
+
+
+def test_transaction_probe_checks_output_and_explicit_temporary_filesystems(tmp_path):
+    task = complete_task(tmp_path)
+    output_root, temporary_root = tmp_path / "outputs", tmp_path / "temporary"
+    output_root.mkdir()
+    temporary_root.mkdir()
+    workspace = output_root / "new-study"
+    cfg = load_pipeline_config([f"paths.run_dir={workspace / 'run'}", "execution.phases=investigation"])
+    probe = Mock()
+    host = runtime_host(tmp_path, environ={"AGENTIC_TEMP_ROOT": str(temporary_root), "TMPDIR": "/tmp"})
+    results = preflight.execution_checks(cfg, task, host=host, transaction_probe=probe)
+    assert [call.args[0] for call in probe.call_args_list] == [output_root, temporary_root]
+    assert not workspace.exists()
+    assert any(result.name == "runtime filesystem transactions" and result.status == doctor.OK for result in results)
+
+
+def test_transaction_failure_stops_harness_before_paid_calls(tmp_path, monkeypatch, capsys):
+    from src.research import harness
+    task = complete_task(tmp_path)
+    workspace = tmp_path / "workspace"
+    host = runtime_host(tmp_path, environ={"AGENTIC_TEMP_ROOT": str(tmp_path)})
+    monkeypatch.setattr(preflight.doctor, "Host", lambda: host)
+    monkeypatch.setattr(preflight, "_probe_transaction_filesystem",
+                        Mock(side_effect=OSError(errno.ENOTEMPTY, "Directory not empty")))
+    prepare = Mock(side_effect=AssertionError("must not spend literature/model credits"))
+    monkeypatch.setattr(harness, "prepare", prepare)
+    assert cli.main([
+        "harness", str(task), "--workspace", str(workspace), "--quality-target", "development",
+        "execution.phases=investigation", "container.enabled=false", "versioning.enabled=true",
+    ]) == 2
+    prepare.assert_not_called()
+    assert not workspace.exists()
+    assert not (task / "research_context").exists()
+    assert "runtime filesystem transactions" in capsys.readouterr().err
+
+
+def test_failed_transaction_probe_cleans_only_its_private_directory(tmp_path, monkeypatch):
+    from src.pipeline import portable_publication
+    retained = tmp_path / "retained.txt"
+    retained.write_text("keep")
+    monkeypatch.setattr(portable_publication, "atomic_exchange_prepared",
+                        Mock(side_effect=OSError(errno.ENOTEMPTY, "Directory not empty")))
+    with pytest.raises(OSError, match="Directory not empty"):
+        _probe_transaction_filesystem(tmp_path)
+    assert list(tmp_path.iterdir()) == [retained]
+    assert retained.read_text() == "keep"
+
+
+def test_successful_transaction_probe_removes_its_private_directory(tmp_path):
+    retained = tmp_path / "retained.txt"
+    retained.write_text("keep")
+    _probe_transaction_filesystem(tmp_path)
+    assert list(tmp_path.iterdir()) == [retained]
+    assert retained.read_text() == "keep"

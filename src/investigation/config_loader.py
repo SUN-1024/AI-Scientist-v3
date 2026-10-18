@@ -20,6 +20,7 @@ from .constants import (
     DEFAULT_PAPER_TIMEOUT_SECONDS,
 )
 from .config import (
+    AdaptiveInvestigationConfig,
     AgentConfig,
     ConfigValidationError,
     ContainerConfig,
@@ -206,6 +207,7 @@ _KNOWN_TOP_LEVEL_KEYS = {
     "agent",
     "paths",
     "execution",
+    "adaptive_investigation",
     "task_drafting",
     "paper",
     "container",
@@ -220,6 +222,7 @@ _GROUP_FIELDS: dict[str, set[str]] = {
         ("agent", AgentConfig),
         ("paths", PathsConfig),
         ("execution", ExecutionConfig),
+        ("adaptive_investigation", AdaptiveInvestigationConfig),
         ("task_drafting", TaskDraftingConfig),
         ("paper", PaperConfig),
         ("container", ContainerConfig),
@@ -289,6 +292,7 @@ def _dict_to_config(d: dict) -> InvestigationConfig:
     versioning_d = d.get("versioning", {})
 
     return InvestigationConfig(
+        adaptive_investigation=AdaptiveInvestigationConfig(**d.get("adaptive_investigation", {})),
         agent=AgentConfig(
             name=str(agent_d.get("name", "claude")),
             model=agent_d.get("model"),

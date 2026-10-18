@@ -15,6 +15,7 @@ def write_campaign_budget(
     results_dir: Path, cfg: InvestigationConfig, *, cycle: int,
     max_program_evals_per_attempt: int, outer_state: dict[str, Any],
     selected_agent: str | None = None, selected_model: str | None = None,
+    adaptive_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Refresh from resolved config on every cycle, including resumed campaigns."""
     execution = cfg.execution
@@ -61,6 +62,8 @@ def write_campaign_budget(
         "observed_local_history": {"attempt_records": len(attempts), "evaluated_attempts": len(evaluated), "provider_retry_records": sum(row.get("retry_scheduled") is True for row in attempts)},
         "stage": {"name": stage, "policy": "advisory fixed cycle fractions: exploration <=40%, refinement <=80%, confirmation >80%; not an adaptive experiment manager"},
     }
+    if adaptive_context is not None:
+        budget["stage"] = adaptive_context
     state_store.write_json(results_dir / BUDGET_FILE, budget)
     snapshot = results_dir / "campaign_budgets" / f"cycle_{cycle:04d}.json"
     snapshot.parent.mkdir(parents=True, exist_ok=True)
@@ -81,11 +84,19 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
         "refinement": "Use recorded development evidence to refine a promising mechanism or resolve a concrete failure. Do not infer scientific failure from provider errors.",
         "confirmation": "Prefer a matched control or narrow robustness check for the strongest supported idea. Use only permitted development data; request no hidden test data and claim no independent confirmation unless the fixed protocol supplies it.",
     }
+    adaptive_guidance = {
+        "tune_baseline_training": "Keep the model architecture fixed. Test a single allowed training setting or convergence diagnosis; do not change frozen protocol, data, seeds, or the evaluator. If training settings are protocol-fixed, diagnose baseline behavior instead of silently tuning them.",
+        "test_distinct_mechanism": "Develop a distinct, falsifiable mechanism for the selected branch. State its difference from the nearest baseline, the matched control, predicted observations and the condition that would refute it. Use development evidence only.",
+        "refine_supported_mechanism": "Refine a supported mechanism or resolve the specific stagnation diagnosis. Change one component, retain matched controls and report negative findings. A comparison need not beat the incumbent to provide valid evidence.",
+        "replicate_frozen_candidate": "The host repeats the exact frozen candidate without coding-agent edits. This measures repeatability under the same development protocol, not independent confirmation.",
+    }
+    stage = budget["stage"]
+    stage_guidance = adaptive_guidance.get(stage.get("action"), guidance.get(stage.get("name"), "Follow the host stage lease."))
     return (
         "The host resolved this scheduling budget from the current configuration and state. "
         "It overrides stale campaign round counts or scheduler examples in the task brief. "
         "It does not override hard data, supervision, training, compute, interface, or acceptance constraints. "
         "One scheduled cycle is not proof of one completed evaluation.\n\n```json\n"
         + json.dumps(budget, ensure_ascii=False, indent=2)
-        + "\n```\n\nStage guidance (advisory): " + guidance[budget["stage"]["name"]]
+        + "\n```\n\nStage action: " + stage_guidance
     )

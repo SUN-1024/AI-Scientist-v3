@@ -241,7 +241,7 @@ def check_pipeline_config(host: Host) -> CheckResult:
 
 def check_presets(host: Host) -> CheckResult:
     preset_dir = host.repo_root / "configs" / "preset"
-    paths = sorted(path for path in preset_dir.glob("*.yaml") if path.stem != "paper")
+    paths = sorted(path for path in preset_dir.glob("*.yaml") if path.stem not in {"paper", "research_harness"})
     names = [path.stem for path in paths]
     if not names:
         return CheckResult("task presets", FAIL, f"no task presets under {preset_dir}")

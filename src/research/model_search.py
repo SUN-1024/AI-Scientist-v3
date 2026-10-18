@@ -22,6 +22,13 @@ from .config import LiteratureConfig, ModelSearchConfig, validate_model_config
 from .providers import PROVIDERS
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+# Docker Desktop resolves these exact names to the local host/gateway. Do not
+# accept arbitrary .internal names or private network addresses over plain HTTP.
+LOCAL_HTTP_HOSTS = {"localhost", "127.0.0.1", "::1", "host.docker.internal", "gateway.docker.internal"}
+EXTERNAL_SEARCH_KEY_ENVS = {
+    "tavily": "TAVILY_API_KEY", "brave": "BRAVE_SEARCH_API_KEY", "zhipu": "ZHIPU_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+}
 PAPER_SCHEMA = (
     'Return one JSON object: {"papers":[{"title":"exact paper title",'
     '"year":null,"venue":null,"url":"source URL","pdf_url":null,'
@@ -71,8 +78,8 @@ def _http_json(url: str, body: dict[str, Any] | None, headers: dict[str, str], *
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme not in {"https", "http"} or not parsed.hostname or parsed.username:
         raise ValueError("Invalid API endpoint")
-    if parsed.scheme == "http" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-        raise ValueError("Remote API endpoints require HTTPS; loopback HTTP is allowed")
+    if parsed.scheme == "http" and parsed.hostname not in LOCAL_HTTP_HOSTS:
+        raise ValueError("Remote API endpoints require HTTPS; loopback and Docker Desktop host aliases allow HTTP")
     choices = [proxy]
     if not proxy and fallback:
         choices.append(fallback)
@@ -354,7 +361,7 @@ class SearchSession:
         spec = PROVIDERS[self.model.provider]
         self.secrets = [os.environ.get(self.model.api_key_env or spec.api_key_env, "")]
         ext = self.model.external_search
-        env = ext.api_key_env or {"tavily": "TAVILY_API_KEY", "brave": "BRAVE_SEARCH_API_KEY", "zhipu": "ZHIPU_API_KEY"}.get(ext.provider, "")
+        env = ext.api_key_env or EXTERNAL_SEARCH_KEY_ENVS.get(ext.provider, "")
         self.secrets.append(os.environ.get(env, ""))
         self.calls: list[dict[str, Any]] = []
 
@@ -421,11 +428,18 @@ class SearchSession:
         elif cfg.provider == "brave":
             url = (base or "https://api.search.brave.com/res/v1") + "/web/search?" + urllib.parse.urlencode({"q": query, "count": count})
             headers["X-Subscription-Token"] = _key(cfg.api_key_env or "BRAVE_SEARCH_API_KEY")
+        elif cfg.provider == "deepseek":
+            if not isinstance(query, str) or not query.strip() or len(query) > 128:
+                raise ValueError("DeepSeek search queries must contain 1 to 128 Unicode characters")
+            url = (base or "https://api.deepseek.com") + "/v1/tools/search"
+            headers["Authorization"] = "Bearer " + _key(cfg.api_key_env or "DEEPSEEK_API_KEY")
+            body = {"query": query, "count": count, "need_content": False}
         else:
             url = (base or "https://open.bigmodel.cn/api/paas/v4") + "/web_search"
             headers["Authorization"] = "Bearer " + _key(cfg.api_key_env or "ZHIPU_API_KEY")
             body = {"search_engine": "search_pro", "search_query": query, "count": count}
         payload = self.request("external_search", url, body, headers)
+        self.calls[-1].update(search_provider=cfg.provider, search_query=query)
         rows = payload.get("results", [])
         if cfg.provider == "brave":
             rows = payload.get("web", {}).get("results", [])
@@ -437,7 +451,8 @@ class SearchSession:
         for row in rows[:count]:
             if isinstance(row, dict) and _url(row.get("url") or row.get("link")):
                 result.append({"url": row.get("url") or row["link"], "title": str(row.get("title", ""))[:1000],
-                               "snippet": str(row.get("content") or row.get("description") or "")[:2500]})
+                               "snippet": str(row.get("snippet") or row.get("summary") or row.get("content")
+                                              or row.get("description") or "")[:2500]})
         return result
 
 
@@ -456,7 +471,7 @@ def search_literature(cfg: LiteratureConfig, output: Path) -> tuple[list[dict[st
             external = model.external_search
             if external.provider == "searxng" and not external.base_url:
                 raise ValueError("Configure external_search.base_url for a SearXNG instance with JSON enabled")
-            key_env = external.api_key_env or {"tavily": "TAVILY_API_KEY", "brave": "BRAVE_SEARCH_API_KEY", "zhipu": "ZHIPU_API_KEY"}.get(external.provider, "")
+            key_env = external.api_key_env or EXTERNAL_SEARCH_KEY_ENVS.get(external.provider, "")
             _key(key_env)
         query_text = json.dumps(cfg.queries, ensure_ascii=False)
         prompt = (f"Search for up to {cfg.max_papers} closest research papers for these topics: {query_text}. "
@@ -464,15 +479,17 @@ def search_literature(cfg: LiteratureConfig, output: Path) -> tuple[list[dict[st
         if mode == "native":
             text, sources = session.ask("Use live web search. " + prompt, "native_search", native=True)
         else:
+            query_limit = 128 if model.external_search.provider == "deepseek" else 500
             planning, _ = session.ask(
                 f"Design at most {model.max_search_calls} focused scholarly search queries for {query_text}. "
+                f"Each query must contain at most {query_limit} Unicode characters. "
                 'Return JSON {"queries":["query"]}. Do not answer from memory.', "query_plan", native=False,
             )
             queries = parse_object(planning, "queries")["queries"]
             if not isinstance(queries, list) or not queries or not all(
-                isinstance(query, str) and 1 <= len(query.strip()) <= 500 for query in queries
+                isinstance(query, str) and query.strip() and len(query) <= query_limit for query in queries
             ):
-                raise ValueError("Model query plan must contain non-empty queries of at most 500 characters")
+                raise ValueError(f"Model query plan must contain non-empty queries of at most {query_limit} characters")
             for query in list(dict.fromkeys(queries))[:model.max_search_calls]:
                 try:
                     sources.extend(session.external(query))

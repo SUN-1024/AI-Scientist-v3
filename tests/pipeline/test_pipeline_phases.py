@@ -1056,8 +1056,8 @@ def test_effective_stage_config_is_unchanged(case: str) -> None:
 
 PRESET_DIR = REPO_ROOT / "configs" / "preset"
 EXAMPLES_DIR = REPO_ROOT / "examples"
-SHARED_PROFILE = "paper"
-TASK_PROFILES = sorted(path.stem for path in PRESET_DIR.glob("*.yaml") if path.stem != SHARED_PROFILE)
+SHARED_PROFILES = {"paper", "research_harness"}
+TASK_PROFILES = sorted(path.stem for path in PRESET_DIR.glob("*.yaml") if path.stem not in SHARED_PROFILES)
 FULL_PHASES = "task_drafting,investigation,ablations,final_evaluation,posthoc,paper,review,revision"
 # The campaign allocations, as container.gpu_count in each task preset.
 GPU_COUNTS = {"grpo": 2}
@@ -1069,15 +1069,17 @@ def _preset(profile: str, *overrides: str):
 
 def test_every_drafted_task_profile_reproduces_campaign_settings() -> None:
     # every drafted task has a profile and a task directory
-    assert set(TASK_PROFILES) == set(GPU_COUNTS)
-    for profile in TASK_PROFILES:
+    assert set(GPU_COUNTS) <= set(TASK_PROFILES)
+    # These historical full GPU campaigns retain their original settings.
+    # Development and generic harness presets have separate quality/budget contracts.
+    for profile in GPU_COUNTS:
         assert (EXAMPLES_DIR / profile / "task.md").is_file()
         text = (PRESET_DIR / f"{profile}.yaml").read_text()
         assert text.startswith("# @package _global_\n")
         assert "  - paper\n" in text
 
-    # each profile reproduces the campaign settings
-    for profile in TASK_PROFILES:
+    # each full GPU profile reproduces the campaign settings
+    for profile in GPU_COUNTS:
         cfg = _preset(profile)
         assert cfg.agent.reasoning_effort == "high", profile
         assert cfg.execution.phases == FULL_PHASES, profile

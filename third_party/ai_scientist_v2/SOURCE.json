@@ -1,0 +1,20 @@
+{
+  "upstream": "SakanaAI/AI-Scientist-v2",
+  "commit": "96bd51617cfdbb494a9fc283af00fe090edfae48",
+  "license": "AI Scientist Source Code License, Version 1.0, December 2025",
+  "license_sha256": "9c82e554a54dfcf2550b452801475a36f9cb909ede00b03e492089e4836a7462",
+  "files": [
+    {
+      "path": "ai_scientist/treesearch/journal.py",
+      "sha256": "5690b2b803300f655788064ec253159f2f41c86802e886e601cf640f798cd5b6",
+      "adapted_path": "src/research/upstream/v2_journal.py",
+      "url": "https://github.com/SakanaAI/AI-Scientist-v2/blob/96bd51617cfdbb494a9fc283af00fe090edfae48/ai_scientist/treesearch/journal.py"
+    },
+    {
+      "path": "ai_scientist/treesearch/utils/metric.py",
+      "sha256": "3d33431a5aceb0093f40c6e108ee3498b3ce36972d84db56b953d95692aa9549",
+      "adapted_path": "src/research/upstream/v2_journal.py",
+      "url": "https://github.com/SakanaAI/AI-Scientist-v2/blob/96bd51617cfdbb494a9fc283af00fe090edfae48/ai_scientist/treesearch/utils/metric.py"
+    }
+  ]
+}

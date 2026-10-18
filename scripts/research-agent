@@ -11,9 +11,15 @@ for RESEARCH_BASH in "$RESEARCH_ROOT/scratch/tools/bin/bash" /opt/homebrew/bin/b
 done
 # Keep host tempfile users on the same canonical path as the V3 runtime.
 RESEARCH_TEMP_ROOT="${AGENTIC_TEMP_ROOT:-$RESEARCH_ROOT/scratch/tmp}"
-mkdir -p "$RESEARCH_TEMP_ROOT"
-export AGENTIC_TEMP_ROOT="$(cd "$RESEARCH_TEMP_ROOT" && pwd -P)"
-export TMPDIR="$AGENTIC_TEMP_ROOT"
+RESEARCH_DRY_RUN=false
+for RESEARCH_ARGUMENT in "$@"; do
+  case "$RESEARCH_ARGUMENT" in --dry-run|execution.dry_run=true) RESEARCH_DRY_RUN=true ;; esac
+done
+if [ "$RESEARCH_DRY_RUN" = false ]; then
+  mkdir -p "$RESEARCH_TEMP_ROOT"
+  export AGENTIC_TEMP_ROOT="$(cd "$RESEARCH_TEMP_ROOT" && pwd -P)"
+  export TMPDIR="$AGENTIC_TEMP_ROOT"
+fi
 if [ ! -x "$RESEARCH_ROOT/.venv/bin/agsci" ]; then
   printf '%s\n' "Missing .venv/bin/agsci. Run uv sync --frozen in $RESEARCH_ROOT first." >&2
   exit 2

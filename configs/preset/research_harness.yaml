@@ -1,0 +1,23 @@
+# @package _global_
+# Reusable complete research lifecycle; study quality is audited separately.
+execution:
+  phases: task_drafting,investigation,ablations,final_evaluation,posthoc,paper,review,revision
+  no_winner_policy: best_available
+  fail_fast: true
+investigation:
+  execution:
+    max_idea_cycles: 24
+    max_program_evals_per_attempt: 1
+    harness_evaluated_attempts: true
+    workers: 1
+  adaptive_investigation:
+    enabled: true
+ablations:
+  execution:
+    num_replications: 3
+paper:
+  paper_review_rounds: 2
+  final_outcome_policy: allow_not_qualified
+review:
+  backend: agent
+  reviewer_count: 2

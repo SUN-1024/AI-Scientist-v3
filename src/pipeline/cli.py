@@ -25,6 +25,7 @@ Uses the Hydra Compose API (same pattern as ``src/variants_pipeline/cli.py``).
 from __future__ import annotations
 
 import dataclasses
+from contextvars import ContextVar
 import json
 import logging
 import os
@@ -74,7 +75,7 @@ from src.investigation.runtime import (
     configure_standard_logging,
     event_logging_configured,
     format_elapsed,
-    log_event,
+    log_event as _runtime_log_event,
     shutdown_event_logging,
 )
 from src.investigation.task_runtime import discard_managed_task_runtime
@@ -181,6 +182,17 @@ from .phases import (
 )
 
 logger = logging.getLogger(__name__)
+
+_EVENT_OBSERVER: ContextVar[Callable[..., None] | None] = ContextVar("pipeline_event_observer", default=None)
+
+
+def log_event(event: str, **fields: Any) -> None:
+    """Emit the ordinary event and an optional host-side lifecycle observation."""
+    _runtime_log_event(event, **fields)
+    observer = _EVENT_OBSERVER.get()
+    if observer is not None:
+        observer(event, **fields)
+
 
 _CONFIGS_DIR = str(Path(__file__).resolve().parent.parent.parent / "configs")
 
@@ -1847,8 +1859,9 @@ def _main(argv: list[str] | None = None) -> int:
                 logger.warning("Could not remove qualified runtime cache: %s", exc)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the pipeline and always release structured logging resources."""
+def main(argv: list[str] | None = None, *, event_callback: Callable[..., None] | None = None) -> int:
+    """Run the existing pipeline, optionally recording its lifecycle for a harness."""
+    observer_token = _EVENT_OBSERVER.set(event_callback)
     pipeline_started_at = time.monotonic()
     try:
         return _main(argv)
@@ -1871,6 +1884,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         raise
     finally:
+        _EVENT_OBSERVER.reset(observer_token)
         shutdown_event_logging()
 
 
@@ -2232,7 +2246,9 @@ def load_pipeline_config(overrides: list[str] | None = None) -> PipelineConfig:
     with interpolations resolved. There is no per-key code here.
     """
     register_pipeline_schema()
-    for override in overrides or []:
+    overrides = [_quote_comma_separated_phases(item) if item.startswith("execution.phases=") else item
+                 for item in overrides or []]
+    for override in overrides:
         if override.startswith("+"):
             # Hydra's append syntax bypasses struct checking and to_object drops
             # keys the schema does not declare, so an appended key would vanish.

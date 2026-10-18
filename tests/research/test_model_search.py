@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 import json
 import threading
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -120,7 +122,7 @@ def test_native_api_http_and_grounded_paper_extraction(tmp_path, monkeypatch, pr
         assert body["tools"] == [{"type": "google_search"}]
 
 
-@pytest.mark.parametrize("backend", ["searxng", "tavily", "brave", "zhipu"])
+@pytest.mark.parametrize("backend", ["searxng", "tavily", "brave", "zhipu", "deepseek"])
 def test_plain_chat_model_plans_real_search_then_extracts(tmp_path, monkeypatch, backend):
     monkeypatch.setenv("TEST_RESEARCH_KEY", SECRET)
     monkeypatch.setenv("TEST_SEARCH_KEY", "fixture-search-secret")
@@ -130,6 +132,10 @@ def test_plain_chat_model_plans_real_search_then_extracts(tmp_path, monkeypatch,
             return 200, {"choices": [{"message": {"content": '{"queries":["AI Scientist original paper"]}'}}]}, {}
         if len(calls) == 2:
             assert "AI Scientist" in json.dumps(calls[-1]["body"]) or "AI+Scientist" in calls[-1]["path"]
+            if backend == "deepseek":
+                assert calls[-1]["path"] == "/v1/tools/search"
+                assert calls[-1]["body"] == {"query": "AI Scientist original paper", "count": 5, "need_content": False}
+                assert calls[-1]["headers"]["Authorization"] == "Bearer fixture-search-secret"
             rows = [{"url": URL, "title": "The AI Scientist", "content": "Original publication"}]
             payload = {"web": {"results": rows}} if backend == "brave" else {"search_result" if backend == "zhipu" else "results": rows}
             return 200, payload, {}
@@ -219,6 +225,8 @@ def test_all_provider_templates_are_valid_and_cli_does_not_write_secrets(capsys,
         assert SECRET not in text
         raw = yaml.safe_load(text)["literature"]["model_search"]
         ext = raw.pop("external_search")
+        if name == "deepseek":
+            assert ext["provider"] == "deepseek"
         validate_model_config(ModelSearchConfig(**raw, external_search=ExternalSearchConfig(**ext)))
     assert cli.main(["providers"]) == 0
     assert "deepseek" in capsys.readouterr().out
@@ -273,3 +281,81 @@ def test_custom_gateway_path_auth_and_parameter_removal(monkeypatch):
     cfg.api_path = "/responses?api_key=inline-secret"
     with pytest.raises(ValueError, match="environment|api_key_env"):
         validate_model_config(cfg)
+
+
+@pytest.mark.parametrize("host", ["host.docker.internal", "gateway.docker.internal"])
+def test_docker_desktop_host_api_allows_local_http(monkeypatch, host):
+    called = []
+    def open_request(request, timeout):
+        called.append(request.full_url)
+        return BytesIO(b'{"status":"completed"}')
+    monkeypatch.setattr(model_search.urllib.request, "build_opener",
+                        lambda *_: SimpleNamespace(open=open_request))
+    url = f"http://{host}:3425/v1/responses"
+    assert model_search._http_json(url, {}, {}, timeout=5, proxy="", fallback="") == {"status": "completed"}
+    assert called == [url]
+
+
+@pytest.mark.parametrize("host", ["api.example.org", "192.168.1.10", "10.0.0.1",
+                                  "host.docker.internal.example.org", "anything.internal"])
+def test_remote_or_lookalike_http_api_is_rejected_before_network(monkeypatch, host):
+    monkeypatch.setattr(model_search.urllib.request, "build_opener",
+                        lambda *_: pytest.fail("must reject before opening a connection"))
+    with pytest.raises(ValueError, match="require HTTPS"):
+        model_search._http_json(f"http://{host}/v1/responses", {}, {}, timeout=5, proxy="", fallback="")
+
+
+@pytest.mark.parametrize("model", ["deepseek/deepseek-flash", "codex/gpt-6.1-sol"])
+def test_magpie_model_can_switch_without_provider_code_changes(model):
+    cfg = ModelSearchConfig(provider="magpie", model=model, mode="native")
+    validate_model_config(cfg)
+    url, body, headers = model_search.build_request(cfg, "Search original papers", native=True)
+    assert url == "http://127.0.0.1:3425/v1/responses"
+    assert body["model"] == model
+    assert body["tools"] == [{"type": "web_search"}]
+    assert headers == {}
+
+
+def test_deepseek_search_default_endpoint_and_key_are_separate_from_model(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", SECRET)
+    cfg = LiteratureConfig(results_per_query=2, model_search=ModelSearchConfig(
+        provider="magpie", model="deepseek/deepseek-flash",
+        external_search=ExternalSearchConfig(provider="deepseek", max_results=5),
+    ))
+    session = model_search.SearchSession(cfg, tmp_path / "search")
+    calls = []
+    def request(url, body, headers, **_kwargs):
+        calls.append((url, body, headers))
+        return {"results": [{"url": URL, "title": "The AI Scientist", "summary": "Original paper result"}]}
+    monkeypatch.setattr(model_search, "_http_json", request)
+    sources = session.external("文" * 128)
+    assert calls == [("https://api.deepseek.com/v1/tools/search",
+                      {"query": "文" * 128, "count": 2, "need_content": False},
+                      {"Authorization": "Bearer " + SECRET})]
+    assert sources == [{"url": URL, "title": "The AI Scientist", "snippet": "Original paper result"}]
+    assert session.calls[0]["search_provider"] == "deepseek"
+    assert session.calls[0]["search_query"] == "文" * 128
+    assert (tmp_path / "search/01_external_search.json").is_file()
+
+
+@pytest.mark.parametrize("query", ["", "  ", "文" * 129])
+def test_deepseek_search_rejects_invalid_query_without_truncation_or_network(tmp_path, monkeypatch, query):
+    session = model_search.SearchSession(LiteratureConfig(model_search=ModelSearchConfig(
+        external_search=ExternalSearchConfig(provider="deepseek"))), tmp_path / "search")
+    monkeypatch.setattr(model_search, "_http_json", lambda *_args, **_kwargs: pytest.fail("must not call network"))
+    with pytest.raises(ValueError, match="1 to 128 Unicode"):
+        session.external(query)
+
+
+def test_deepseek_model_plan_is_bounded_before_search(tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_RESEARCH_KEY", SECRET)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fixture-search-secret")
+    def respond(calls):
+        assert len(calls) == 1
+        assert "128 Unicode characters" in calls[0]["body"]["messages"][0]["content"]
+        return 200, {"choices": [{"message": {"content": json.dumps({"queries": ["文" * 129]})}}]}, {}
+    with server(respond) as (base, calls):
+        cfg = config(base, "deepseek", external_search=ExternalSearchConfig(provider="deepseek", base_url=base))
+        papers, errors = model_search.search_literature(cfg, tmp_path)
+    assert not papers and len(calls) == 1
+    assert "at most 128 characters" in errors[0]["error"]

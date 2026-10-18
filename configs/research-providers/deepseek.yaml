@@ -1,9 +1,9 @@
-# Fill in model. API keys belong in environment variables, never in this file.
-# Fill in an existing SearXNG base_url with JSON enabled, or configure Tavily/Brave/Zhipu.
+# Example model. API keys belong in environment variables, never in this file.
+# DeepSeek Flash and the standalone Search API use the same key in separate calls.
 literature:
   model_search:
     provider: deepseek
-    model: ''
+    model: deepseek-flash
     base_url: https://api.deepseek.com
     api_key_env: DEEPSEEK_API_KEY
     api_format: chat_completions
@@ -12,6 +12,7 @@ literature:
     max_search_calls: 4
     timeout_seconds: 180
     external_search:
-      provider: searxng
-      base_url: ''
+      provider: deepseek
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
       max_results: 5

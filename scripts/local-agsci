@@ -10,5 +10,11 @@ if [ -d /opt/homebrew/opt/node@22/bin ]; then
   export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
 fi
 export AGENTIC_TEMP_ROOT="${AGENTIC_TEMP_ROOT:-$PROJECT_ROOT/scratch/tmp}"
-mkdir -p "$AGENTIC_TEMP_ROOT"
+AGENTIC_DRY_RUN=false
+for AGENTIC_ARGUMENT in "$@"; do
+  case "$AGENTIC_ARGUMENT" in --dry-run|execution.dry_run=true) AGENTIC_DRY_RUN=true ;; esac
+done
+if [ "$AGENTIC_DRY_RUN" = false ]; then
+  mkdir -p "$AGENTIC_TEMP_ROOT"
+fi
 exec "$PROJECT_ROOT/.venv/bin/agsci" "$@"

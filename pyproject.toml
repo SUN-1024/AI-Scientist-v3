@@ -8,8 +8,14 @@ version = "0.1.0"
 description = "Unified AI Scientist: V1-V3 fusion for literature, experiment search, and verified execution"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = "Apache-2.0 AND LicenseRef-AI-Scientist-Source-1.0"
+license-files = [
+    "LICENSE",
+    "third_party/ai_scientist_v1/LICENSE",
+    "third_party/ai_scientist_v1/NOTICE",
+    "third_party/ai_scientist_v2/LICENSE",
+    "third_party/ai_scientist_v2/NOTICE",
+]
 authors = [
     { name = "Robert Tjarko Lange" },
     { name = "Luca Grillotti" },
@@ -72,7 +78,11 @@ packages = [
     "src.final_evaluation",
     "src.task_drafting",
     "src.research",
+    "src.research.upstream",
 ]
+
+[tool.setuptools.package-data]
+"src.research.upstream" = ["provenance.json"]
 
 [tool.ruff]
 line-length = 100

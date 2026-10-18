@@ -1,16 +1,9 @@
-"""``agsci review``: run the standalone OpenAI-backed reviewer on a paper PDF.
+"""``agsci review``: independently review a manuscript PDF.
 
-The command wraps ``src/aireview.py``, the same PEP 723 ``uv`` script the
-pipeline's final AI review phase runs, without touching paper manifests or
-cost ledgers: it validates the PDF, builds the reviewer's restricted
-environment (only OpenAI settings are loaded from the repo ``.env`` or
-``--env-file``), and executes ``uv run --script src/aireview.py <pdf>`` with
-inherited standard streams. The reviewer prints the review JSON itself and
-``--output`` additionally writes it to a file.
-
-The ``uv`` lookup and the subprocess runner are injectable so the command is
-testable without ``uv`` or the network. Messages never print secret values,
-only variable names.
+OpenAI remains the default. ``--backend agent`` uses the locally configured
+Headless agent/profile with a fresh read-only context and strict JSON evidence.
+Only approved runtime settings reach the subprocess; secrets are not logged.
+The pipeline additionally binds and publishes the review through its manifest.
 """
 
 from __future__ import annotations
@@ -37,10 +30,11 @@ def _run_inherit_streams(command: list[str], environment: dict[str, str]) -> int
 
 
 def reviewer_command(
-    pdf_path: Path, *, uv: str, output: Path | None, reviewer_script: Path = REVIEWER_SCRIPT
+    pdf_path: Path, *, uv: str | None, output: Path | None, reviewer_script: Path = REVIEWER_SCRIPT
 ) -> list[str]:
-    """The ``uv run --script`` invocation the pipeline's review phase also uses."""
-    command = [uv, "run", "--script", str(reviewer_script), str(pdf_path)]
+    """Use current Python for agent review, or uv for legacy OpenAI dependencies."""
+    command = [sys.executable] if uv is None else [uv, "run", "--script"]
+    command.extend([str(reviewer_script), str(pdf_path)])
     if output is not None:
         command.extend(["--output", str(output)])
     return command
@@ -50,9 +44,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agsci review",
         description=(
-            "Review a paper PDF with the standalone OpenAI-backed reviewer "
-            "(src/aireview.py). Requires uv and OPENAI_API_KEY in the environment "
-            "or in the repo .env / --env-file."
+            "Independently review a paper PDF. The default openai backend needs "
+            "OPENAI_API_KEY; --backend agent uses HEADLESS_BIN and your local agent "
+            "profile with the current Python environment. The OpenAI backend runs through uv."
         ),
     )
     parser.add_argument("pdf", type=Path, help="paper PDF to review")
@@ -70,6 +64,14 @@ def _parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="env file to load OpenAI settings from (default: <repo>/.env when it exists)",
     )
+    parser.add_argument("--backend", choices=("openai", "agent"), default="openai")
+    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent-model")
+    parser.add_argument("--agent-profile")
+    parser.add_argument("--reasoning-effort", choices=("low", "medium", "high", "xhigh"))
+    parser.add_argument("--reviewer-count", type=int, default=1)
+    parser.add_argument("--evidence", action="append", type=Path, default=[])
+    parser.add_argument("--timeout-seconds", type=int, default=1800)
     return parser
 
 
@@ -98,8 +100,12 @@ def main(
         return 2
 
     source = os.environ if environ is None else environ
-    environment = final_ai_review_environment(source, env_file=env_file)
-    if not environment.get("OPENAI_API_KEY"):
+    if args.backend == "agent":
+        from src.review_backend import agent_review_environment
+        environment = agent_review_environment(source)
+    else:
+        environment = final_ai_review_environment(source, env_file=env_file)
+    if args.backend == "openai" and not environment.get("OPENAI_API_KEY"):
         where = f" or in {env_file}" if env_file is not None else ""
         print(
             "agsci review: OPENAI_API_KEY is not set in the environment"
@@ -108,8 +114,8 @@ def main(
         )
         return 1
 
-    uv = which("uv")
-    if uv is None:
+    uv = which("uv") if args.backend == "openai" else None
+    if args.backend == "openai" and uv is None:
         print(
             "agsci review: 'uv' not found on PATH; the reviewer runs as a uv script "
             "(see docs/install.md)",
@@ -119,6 +125,16 @@ def main(
 
     reviewer_script = repo_root / "src" / "aireview.py"
     command = reviewer_command(pdf_path, uv=uv, output=args.output, reviewer_script=reviewer_script)
+    if args.backend == "agent":
+        command.extend(["--backend", "agent", "--agent", args.agent,
+                        "--reviewer-count", str(args.reviewer_count),
+                        "--timeout-seconds", str(args.timeout_seconds)])
+        for flag, value in [("--agent-model", args.agent_model), ("--agent-profile", args.agent_profile),
+                            ("--reasoning-effort", args.reasoning_effort)]:
+            if value:
+                command.extend([flag, value])
+        for evidence in args.evidence:
+            command.extend(["--evidence", str(evidence.expanduser().absolute())])
     return runner(command, environment)
 
 

@@ -22,7 +22,9 @@ from .idea_generation import IdeaArtifactsError, load_idea_artifacts
 from .harness_incumbent import validated_harness_candidate_score
 from .idea_retry_feedback import sanitize_validation_feedback, validation_feedback_from_output
 from .models import IdeaGenerationResult, PaperGenerationResult, RunAttemptResult
-from .search_tree import SearchTree
+from .search_tree import SearchTree, _fingerprint
+from .adaptive_controller import AdaptiveController, STATE_FILE as ADAPTIVE_STATE_FILE
+from .adaptive_runtime import recovered_attempt, run_frozen_replication, validated_development_outcome, resume_cycle
 from src.research.evidence import validate_basis_for_task
 from .script_runners import copy_output_log_no_follow, write_output_log_no_follow
 from .task_failure import (
@@ -104,8 +106,25 @@ def run_cycles_and_finalize(
     if conclusions_dir is None:
         conclusions_dir = global_memory_dir
     state_store.ensure_conclusions_files(conclusions_dir)
+    native_evaluation = not containerize and not (task_dir / ".agentic_runtime.json").is_file() and not (task_dir / "task_contract.json").is_file()
+    controller = None
+    if not cfg.adaptive_investigation.enabled and (results_dir / ADAPTIVE_STATE_FILE).exists():
+        log_event_fn("campaign_failed", reason="adaptive_state_requires_original_policy")
+        return 2
+    if cfg.adaptive_investigation.enabled:
+        try:
+            controller = AdaptiveController(results_dir, task_dir, cfg.adaptive_investigation)
+            if cfg.execution.resume:
+                controller.resume_schedule(cfg.execution.max_idea_cycles)
+            controller.qualify_baseline(best_manifest, best_program_dir)
+            start_cycle = controller.reconcile(outer_state)
+        except (ValueError, OSError) as exc:
+            log_event_fn("campaign_failed", reason="invalid_adaptive_state", detail=str(exc))
+            return 2
+    elif cfg.execution.resume:
+        start_cycle = resume_cycle(results_dir, outer_state)
     search_tree = None
-    if cfg.execution.search_strategy == "tree":
+    if cfg.execution.search_strategy == "tree" or controller is not None:
         try:
             search_tree = SearchTree(
                 results_dir, task_dir, width=cfg.execution.search_width,
@@ -128,6 +147,10 @@ def run_cycles_and_finalize(
         confirm_prune_warning()
 
     for cycle_idx in range(start_cycle, cfg.execution.max_idea_cycles + 1):
+        adaptive_lease = controller.plan_cycle(cycle_idx) if controller else None
+        if controller and adaptive_lease is None:
+            break
+        is_replication = bool(adaptive_lease and adaptive_lease["action"] == "replicate_frozen_candidate")
         # Parallel workers number cycles locally; events also carry the
         # campaign-wide position so progress output reads "Cycle 2/3".
         cycle_position = {
@@ -144,6 +167,7 @@ def run_cycles_and_finalize(
             max_program_evals_per_attempt=max_program_evals_per_attempt,
             outer_state=outer_state,
             selected_agent=cycle_agent.agent, selected_model=cycle_agent.model,
+            adaptive_context=controller.context(adaptive_lease) if controller else None,
         )
         assignments_after = outer_state.get("agent_cycle_assignments")
         selected_after = (
@@ -198,9 +222,12 @@ def run_cycles_and_finalize(
             )
 
         cycle_seed = best_program_dir
-        if search_tree is not None:
+        if is_replication:
+            cycle_seed = Path(adaptive_lease["frozen_candidate"]["program_dir"])
+        elif search_tree is not None:
             try:
-                search_parent = search_tree.choose(cycle_idx, best_manifest, best_program_dir)
+                search_parent = search_tree.choose(cycle_idx, best_manifest, best_program_dir,
+                                                  selection_policy=adaptive_lease["parent_policy"] if adaptive_lease else "scheduled")
                 cycle_seed = Path(search_parent["program_dir"])
             except (ValueError, OSError) as exc:
                 log_event_fn("campaign_failed", reason="invalid_search_parent", detail=str(exc))
@@ -209,6 +236,13 @@ def run_cycles_and_finalize(
                 "search_parent_selected", cycle=cycle_idx,
                 node_id=search_parent["node_id"], seed_program_dir=cycle_seed,
             )
+        if controller:
+            pending_parent = adaptive_lease.get("selected_parent")
+            chosen_parent = {"program_dir": str(cycle_seed.resolve()), "source_hash": _fingerprint(cycle_seed)}
+            if pending_parent is not None and pending_parent != chosen_parent:
+                log_event_fn("campaign_failed", reason="adaptive_parent_changed")
+                return 2
+            controller.update_pending(selected_parent=chosen_parent)
         cycle_started_at = time.monotonic()
         log_event_fn(
             "cycle_start",
@@ -223,7 +257,36 @@ def run_cycles_and_finalize(
         idea_result: IdeaGenerationResult | None = None
         idea_workspace: Path | None = None
         validation_feedback = ""
-        for generation_attempt in range(1, cfg.execution.max_idea_generation_attempts + 1):
+        resume_idea = (controller.data.get("pending") or {}).get("idea_dir") if controller else None
+        resume_idea = resume_idea or (outer_state.get("pending_idea_dir") if outer_state.get("pending_cycle") == cycle_idx else None)
+        if is_replication:
+            # This action is host-owned: no model writes or changes the frozen source.
+            idea_bundle = {"idea_id": f"replication_{cycle_idx:04d}", "title": "Frozen development replication",
+                           "hypothesis": "The frozen candidate is repeatable under the unchanged development protocol.",
+                           "implementation_plan": ["Host copies exact candidate bytes and runs existing evaluator"],
+                           "target_rubrics": [{"id": "frozen_candidate_correct", "description": "Frozen candidate passes evaluator correctness", "type": "metric", "metric": "correct", "operator": ">=", "threshold": 1}],
+                           "notes_for_agent": "No coding agent is dispatched for this action."}
+            idea_workspace = results_dir / "_idea_generation" / f"replication_{cycle_idx:04d}"
+            idea_workspace.mkdir(parents=True, exist_ok=True)
+            idea_result = IdeaGenerationResult("Host scheduled frozen development replication.", 0, idea_workspace)
+            idea_log_path = idea_workspace / "wrapper_output.log"
+            write_output_log_no_follow(idea_result.output, idea_log_path)
+        elif resume_idea:
+            idea_workspace = Path(resume_idea)
+            try:
+                artifacts = load_idea_artifacts(idea_workspace, cycle_idx, read_json_fn,
+                    require_harness_verification=cfg.execution.harness_evaluated_attempts,
+                    harness_incumbent_score=_correct_incumbent_score(best_manifest, harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts),
+                    require_score_improvement=controller is None)
+                idea_bundle = artifacts.bundle
+                validate_basis_for_task(task_dir, idea_bundle)
+            except (IdeaArtifactsError, ValueError, OSError) as exc:
+                log_event_fn("campaign_failed", reason="invalid_pending_idea", detail=str(exc))
+                return 2
+            idea_log_path = idea_workspace / "idea_generation_wrapper_output.log"
+            idea_result = IdeaGenerationResult("Resumed previously generated idea.", 0, idea_workspace)
+            log_event_fn("idea_resumed", cycle=cycle_idx, idea_id=idea_bundle["idea_id"])
+        for generation_attempt in ([] if idea_bundle is not None else range(1, cfg.execution.max_idea_generation_attempts + 1)):
             idea_staging_dir = (
                 results_dir
                 / "_idea_generation"
@@ -327,6 +390,7 @@ def run_cycles_and_finalize(
                         read_json_fn,
                         require_harness_verification=cfg.execution.harness_evaluated_attempts,
                         harness_incumbent_score=harness_incumbent_score,
+                        require_score_improvement=controller is None,
                     )
                     try:
                         validate_basis_for_task(task_dir, artifacts.bundle)
@@ -380,6 +444,8 @@ def run_cycles_and_finalize(
                 )
 
         if idea_bundle is None or idea_result is None or idea_workspace is None:
+            if controller:
+                controller.stop("idea_generation_attempts_exhausted")
             failure_streak = int(outer_state.get("failure_streak", 0)) + 1
             outer_state["current_cycle"] = cycle_idx - 1
             outer_state["failure_streak"] = failure_streak
@@ -461,12 +527,12 @@ def run_cycles_and_finalize(
         state_store.write_json(idea_file, idea_bundle)
         state_store.write_json(rubrics_file, idea_bundle["target_rubrics"])
         canonical_idea_log_path = idea_dir / "idea_generation_wrapper_output.log"
-        if idea_log_path.is_file():
+        if idea_log_path.is_file() and idea_log_path != canonical_idea_log_path:
             copy_output_log_no_follow(idea_log_path, canonical_idea_log_path)
         else:
             write_output_log_no_follow(idea_result.output, canonical_idea_log_path)
 
-        state_store.append_jsonl(
+        state_store.append_jsonl_if_absent(
             state_store.ideas_history_path(results_dir),
             {
                 "timestamp": utc_now_fn(),
@@ -475,13 +541,20 @@ def run_cycles_and_finalize(
                 "idea_dir_name": idea_dir_name,
                 "title": idea_bundle.get("title"),
                 "target_rubrics": idea_bundle.get("target_rubrics", []),
-                "agent": cycle_agent.agent,
-                "agent_model": cycle_agent.model,
-                "reasoning_effort": reasoning_effort,
+                "agent": "host" if is_replication else cycle_agent.agent,
+                "agent_model": None if is_replication else cycle_agent.model,
+                "reasoning_effort": None if is_replication else reasoning_effort,
             },
+            matching={"cycle_index": cycle_idx, "idea_id": idea_id},
         )
 
-        outer_state["current_cycle"] = cycle_idx
+        outer_state["pending_cycle"] = cycle_idx
+        outer_state["pending_idea_dir"] = str(idea_dir)
+        if controller:
+            controller.update_pending(idea_dir=str(idea_dir), idea_id=idea_id,
+                                      phase="outcome_recorded" if controller.data["pending"].get("phase") == "outcome_recorded" else "idea_ready")
+        # current_cycle advances only after an outcome is durably recorded.
+        outer_state["current_cycle"] = cycle_idx - 1
         outer_state["last_idea_id"] = idea_id
         outer_state["failure_streak"] = 0
         state_store.save_outer_state(results_dir, outer_state)
@@ -504,8 +577,12 @@ def run_cycles_and_finalize(
             target_rubric_ids=target_ids,
         )
 
+        prior_attempt_rows = state_store.tail_jsonl(state_store.attempts_history_path(results_dir), max_lines=100000)
+        prior_retries = {row.get("attempt_id") for row in prior_attempt_rows if isinstance(row, dict) and row.get("retry_scheduled") is True}
         for attempt_number in range(1, cfg.execution.agent_transient_max_attempts + 1):
             attempt_id = f"{idea_id}_attempt_{attempt_number:02d}"
+            if attempt_id in prior_retries and attempt_number < cfg.execution.agent_transient_max_attempts:
+                continue
             attempt_started_at = log_step_start_fn(
                 "attempt",
                 cycle=cycle_idx,
@@ -518,37 +595,49 @@ def run_cycles_and_finalize(
                 agent_model=cycle_agent.model,
             )
 
-            attempt_result = run_single_attempt_fn(
-                agent=cycle_agent.agent,
-                agent_model=cycle_agent.model,
-                agent_profile=agent_profile if cycle_agent.agent == "codex" else None,
-                reasoning_effort=reasoning_effort,
-                task_dir=task_dir,
-                results_dir=results_dir,
-                global_memory_dir=global_memory_dir,
-                conclusions_dir=conclusions_dir,
-                worker_index=worker_index,
-                seed_program_dir=cycle_seed,
-                idea_file=idea_file,
-                rubrics_file=rubrics_file,
-                attempt_id=attempt_id,
-                idea_dir_name=idea_dir_name,
-                attempt_dir_name=f"{attempt_number:02d}_attempt",
-                instruct_path=instruct_path,
-                timeout_seconds=cfg.execution.run_timeout_seconds,
-                timeout_grace_seconds=cfg.execution.run_timeout_grace_seconds,
-                max_program_evals_per_attempt=max_program_evals_per_attempt,
-                harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts,
-                gpu_evaluation=cfg.execution.gpu_evaluation,
-                harness_evaluation_timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
-                containerize=containerize,
-                container_image=container_image,
-                container_network=container_network,
-                container_auth_root=container_auth_root,
-                container_env_file=container_env_file,
-                container_session_name=container_session_name,
-                container_mount_root=container_mount_root,
-            )
+            expected_workspace = idea_dir / f"{attempt_number:02d}_attempt"
+            attempt_result = recovered_attempt(expected_workspace, task_dir=task_dir,
+                attempt_id=attempt_id, idea_id=idea_id, native=native_evaluation) if cfg.execution.harness_evaluated_attempts else None
+            if attempt_result is not None:
+                log_event_fn("host_evaluation_recovered", cycle=cycle_idx, attempt_id=attempt_id)
+            elif is_replication:
+                attempt_result = run_frozen_replication(task_dir=task_dir, experiment_dir=expected_workspace,
+                    candidate_dir=cycle_seed, source_hash=adaptive_lease["frozen_candidate"]["source_hash"],
+                    attempt_id=attempt_id, idea_id=idea_id, rubrics_file=rubrics_file,
+                    global_memory_dir=global_memory_dir, timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
+                    containerize=containerize, container_image=container_image, gpu_evaluation=cfg.execution.gpu_evaluation)
+            else:
+                attempt_result = run_single_attempt_fn(
+                    agent=cycle_agent.agent,
+                    agent_model=cycle_agent.model,
+                    agent_profile=agent_profile if cycle_agent.agent == "codex" else None,
+                    reasoning_effort=reasoning_effort,
+                    task_dir=task_dir,
+                    results_dir=results_dir,
+                    global_memory_dir=global_memory_dir,
+                    conclusions_dir=conclusions_dir,
+                    worker_index=worker_index,
+                    seed_program_dir=cycle_seed,
+                    idea_file=idea_file,
+                    rubrics_file=rubrics_file,
+                    attempt_id=attempt_id,
+                    idea_dir_name=idea_dir_name,
+                    attempt_dir_name=f"{attempt_number:02d}_attempt",
+                    instruct_path=instruct_path,
+                    timeout_seconds=cfg.execution.run_timeout_seconds,
+                    timeout_grace_seconds=cfg.execution.run_timeout_grace_seconds,
+                    max_program_evals_per_attempt=max_program_evals_per_attempt,
+                    harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts,
+                    gpu_evaluation=cfg.execution.gpu_evaluation,
+                    harness_evaluation_timeout_seconds=cfg.execution.harness_evaluation_timeout_seconds,
+                    containerize=containerize,
+                    container_image=container_image,
+                    container_network=container_network,
+                    container_auth_root=container_auth_root,
+                    container_env_file=container_env_file,
+                    container_session_name=container_session_name,
+                    container_mount_root=container_mount_root,
+                )
 
             retry_workspace = attempt_result.experiment_dir or idea_dir / f"{attempt_number:02d}_attempt"
             retryable = (
@@ -559,7 +648,9 @@ def run_cycles_and_finalize(
                 and attempt_result.infrastructure_failure_category is None
                 and not has_evaluation_artifacts(retry_workspace)
             )
-            if not retryable or attempt_number >= cfg.execution.agent_transient_max_attempts:
+            if controller and retryable:
+                controller.record_transport_failure(attempt_id)
+            if not retryable or attempt_number >= cfg.execution.agent_transient_max_attempts or (controller and controller.data["transport_failures"] >= controller.policy.max_transport_failures):
                 break
             retry_log_path = retry_workspace / "wrapper_output.log"
             retry_log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -691,7 +782,7 @@ def run_cycles_and_finalize(
                 candidate_dir, candidate_entrypoint, candidate_score, candidate_correct = candidate
                 evaluated_score = candidate_score
                 evaluated_correct = candidate_correct
-                if candidate_correct and (
+                if candidate_correct and not is_replication and (
                     best_score_before is None or candidate_score > best_score_before
                 ):
                     previous_best_score = best_score_before
@@ -711,7 +802,13 @@ def run_cycles_and_finalize(
                     outer_state["best_correct"] = True
                     best_updated = True
 
-        if search_tree is not None:
+        trusted_outcome = None
+        if cfg.execution.harness_evaluated_attempts and attempt_result.experiment_dir is not None:
+            trusted_outcome = validated_development_outcome(attempt_result.experiment_dir / "program_1",
+                task_dir=task_dir, attempt_id=attempt_id, idea_id=idea_id, native=native_evaluation)
+            if trusted_outcome:
+                evaluated_score, evaluated_correct = trusted_outcome["score"], trusted_outcome["correct"]
+        if search_tree is not None and not is_replication:
             try:
                 search_tree.record(
                     cycle=cycle_idx, idea=idea_bundle, candidate=candidate,
@@ -720,6 +817,8 @@ def run_cycles_and_finalize(
             except (ValueError, OSError) as exc:
                 log_event_fn("campaign_failed", reason="invalid_search_outcome", detail=str(exc))
                 return 2
+        if controller:
+            controller.record_outcome(attempt_id, trusted_outcome, failure_kind=attempt_result.agent_failure_kind)
         run_failed = attempt_result.exit_code != 0
         attempt_pass = (not run_failed) and validation.valid and validation.overall_pass
         idea_success = attempt_pass
@@ -735,8 +834,9 @@ def run_cycles_and_finalize(
             "attempt_number": attempt_number,
             "failure_category": attempt_result.agent_failure_kind,
             "retry_scheduled": False,
-            "evaluation_performed": candidate is not None or (
-                isinstance(status_data, dict) and validation.valid and attempt_result.exit_code == 0
+            "evaluation_performed": trusted_outcome is not None or candidate is not None or (
+                not cfg.execution.harness_evaluated_attempts
+                and isinstance(status_data, dict) and validation.valid and attempt_result.exit_code == 0
             ),
             "run_exit_code": attempt_result.exit_code,
             "attempt_status": attempt_status,
@@ -750,9 +850,9 @@ def run_cycles_and_finalize(
             "failure_streak_after": 0,
             "best_updated": best_updated,
             "output_tail": output_tail,
-            "agent": cycle_agent.agent,
-            "agent_model": cycle_agent.model,
-            "reasoning_effort": reasoning_effort,
+            "agent": "host" if is_replication else cycle_agent.agent,
+            "agent_model": None if is_replication else cycle_agent.model,
+            "reasoning_effort": None if is_replication else reasoning_effort,
         }
         metrics: dict[str, Any] | None = None
         if isinstance(status_data, dict) and (
@@ -762,8 +862,15 @@ def run_cycles_and_finalize(
             if isinstance(metrics, dict):
                 attempt_record["metrics"] = metrics
 
-        state_store.append_jsonl(state_store.attempts_history_path(results_dir), attempt_record)
+        if adaptive_lease:
+            attempt_record.update(adaptive_stage=adaptive_lease["main_stage"], adaptive_substage=adaptive_lease["substage"], adaptive_action=adaptive_lease["action"], scientific_evaluation=trusted_outcome is not None)
+        state_store.append_jsonl_if_absent(state_store.attempts_history_path(results_dir), attempt_record, matching={"attempt_id": attempt_id, "retry_scheduled": False})
+        outer_state["current_cycle"] = cycle_idx
+        outer_state.pop("pending_cycle", None)
+        outer_state.pop("pending_idea_dir", None)
         state_store.save_outer_state(results_dir, outer_state)
+        if controller:
+            controller.finish_cycle(cycle_idx)
         checkpoint_fn(
             label=f"evaluation c{cycle_idx:03d} a{attempt_number:02d}",
             phase="investigation",
@@ -902,6 +1009,20 @@ def run_cycles_and_finalize(
                     cycle_idx,
                     worker_index,
                 )
+
+    if controller:
+        if controller.data["status"] == "running":
+            if controller.data["valid_evaluations"] >= controller.policy.max_valid_evals:
+                controller.stop("scientific_evaluation_budget_exhausted")
+            elif controller.data["transport_failures"] >= controller.policy.max_transport_failures:
+                controller.stop("transport_failure_budget_exhausted")
+            else:
+                controller.stop("scheduled_cycle_budget_exhausted", cycle_limit=cfg.execution.max_idea_cycles)
+        log_event_fn("adaptive_investigation_finished", status=controller.data["status"],
+                     reason=controller.data["transition_reason"], valid_evaluations=controller.data["valid_evaluations"])
+        if controller.data["status"] != "ready_for_validation":
+            checkpoint_fn(label="adaptive incomplete", phase="investigation", event="incomplete", final=finalize_on_exit)
+            return 2
 
     if cfg.paper.enabled:
         paper_output_dir = (

@@ -1,0 +1,12 @@
+schema_version = 1
+code_root = "src"
+[entrypoint]
+path = "program.py"
+language = "python"
+type = "script"
+[copy]
+exclude = ["**/__pycache__/**", "**/*.pyc"]
+include = []
+[integration]
+kind = "generic"
+notes = "JSON python_rpc_v1 handle. Implement only the candidate; host owns data and scoring."

@@ -26,7 +26,7 @@ def describe_pipeline_review(
         f"managed src/aireview.py phase ({repo_root / 'src' / 'aireview.py'}): "
         f"{paths.paper_dir / 'paper.pdf'} -> "
         f"{paths.paper_dir / 'ai_review.json'} "
-        f"(restricted environment, timeout={cfg.review.timeout_seconds}s, "
+        f"(backend={cfg.review.backend}, restricted environment, timeout={cfg.review.timeout_seconds}s, "
         "manifest publication enabled)"
     )
 
@@ -66,6 +66,22 @@ def run_pipeline_review(
             env=environment,
         )
 
+    reviewer_options = None
+    if cfg.review.backend == "agent":
+        evidence_paths = []
+        for item in cfg.review.evidence_paths:
+            path = Path(item).expanduser()
+            evidence_paths.append(path if path.is_absolute() else paths.run_dir / path)
+        reviewer_options = {
+            "backend": "agent",
+            "agent": cfg.review.agent_name or cfg.agent.name,
+            "model": cfg.review.agent_model or cfg.agent.model,
+            "profile": cfg.review.agent_profile or cfg.agent.profile,
+            "reasoning_effort": cfg.review.agent_reasoning_effort or cfg.agent.reasoning_effort,
+            "reviewer_count": cfg.review.reviewer_count,
+            "timeout_seconds": cfg.review.timeout_seconds,
+            "evidence_paths": evidence_paths,
+        }
     return run_final_ai_review(
         repo_root=repo_root,
         paper_dir=paths.paper_dir,
@@ -75,4 +91,5 @@ def run_pipeline_review(
         env_file=_review_env_file(cfg, repo_root=repo_root),
         artifact_stem=artifact_stem,
         manifest_key=manifest_key,
+        **({"reviewer_options": reviewer_options} if reviewer_options else {}),
     )

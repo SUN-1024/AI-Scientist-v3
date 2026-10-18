@@ -120,10 +120,17 @@ def evaluation_inputs_fingerprint(evaluator: Path) -> dict[str, str | None] | No
     return records
 
 
-def validated_native_score(program_dir: Path, evaluator: Path) -> float | None:
-    """Read a successful receipt only when code, evaluation inputs, and results match."""
+def validated_native_outcome(program_dir: Path, evaluator: Path) -> dict[str, Any] | None:
+    """Read a completed host evaluation, including an explicit failed correctness check.
+
+    A valid measurement is distinct from a promotable candidate. The receipt ID
+    binds the returned outcome to the exact manifest bytes so a stage manager
+    can consume each measurement once, including negative experimental results.
+    """
     try:
-        manifest = _json(program_dir / "evaluation_manifest.json")
+        manifest_path = program_dir / "evaluation_manifest.json"
+        receipt_id = _hash(manifest_path)
+        manifest = _json(manifest_path, unique_keys=True)
         if not (
             manifest.get("producer") == "harness_eval"
             and manifest.get("execution_boundary") == "host"
@@ -138,13 +145,34 @@ def validated_native_score(program_dir: Path, evaluator: Path) -> float | None:
             }
         ):
             return None
-        metrics, correct = _json(program_dir / "metrics.json"), _json(program_dir / "correct.json")
+        metrics = _json(program_dir / "metrics.json", unique_keys=True)
+        correct = _json(program_dir / "correct.json", unique_keys=True)
         score = metrics.get("combined_score")
-        if correct.get("correct") is not True or isinstance(score, bool) or not isinstance(score, (int, float)):
+        if (
+            type(correct.get("correct")) is not bool
+            or isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(float(score))
+            or _hash(manifest_path) != receipt_id
+        ):
             return None
-        return float(score) if math.isfinite(float(score)) else None
-    except (OSError, ValueError, TypeError):
+        return {
+            "receipt_id": receipt_id,
+            "score": float(score),
+            "correct": correct["correct"],
+            "program_dir": str(program_dir.resolve()),
+            "source_sha256": manifest["source_sha256"],
+            "attempt_id": manifest.get("attempt_id"),
+            "idea_id": manifest.get("idea_id"),
+        }
+    except (OSError, ValueError, TypeError, OverflowError):
         return None
+
+
+def validated_native_score(program_dir: Path, evaluator: Path) -> float | None:
+    """Read a promotable score only when the full receipt and correctness pass."""
+    outcome = validated_native_outcome(program_dir, evaluator)
+    return outcome["score"] if outcome is not None and outcome["correct"] else None
 
 
 def run_native_evaluation(
@@ -153,6 +181,13 @@ def run_native_evaluation(
     attempt_id: str, idea_id: str,
 ) -> int:
     """Execute once and retain a receipt distinct from sandbox evaluation."""
+    outcome = validated_native_outcome(program_dir, evaluator)
+    if (
+        outcome is not None
+        and outcome["attempt_id"] == attempt_id
+        and outcome["idea_id"] == idea_id
+    ):
+        return 0
     entrypoint_rel = entrypoint_relpath_from_spec(program_dir)
     if entrypoint_rel is None:
         raise ValueError("Candidate has no entrypoint")
@@ -169,6 +204,12 @@ def run_native_evaluation(
     }
     manifest_path = program_dir / "evaluation_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    # A rerun must produce its own results. Otherwise an evaluator that exits
+    # without writing outputs could accidentally reseal an older measurement.
+    for name in ("metrics.json", "correct.json"):
+        result_path = program_dir / name
+        if result_path.is_symlink() or result_path.is_file():
+            result_path.unlink()
     try:
         result = subprocess.run(command, cwd=evaluator.parent, env=dict(environment),
                                 capture_output=True, text=True, timeout=timeout_seconds, check=False)

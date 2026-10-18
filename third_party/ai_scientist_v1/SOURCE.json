@@ -1,0 +1,14 @@
+{
+  "upstream": "SakanaAI/AI-Scientist",
+  "commit": "1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb",
+  "license": "AI Scientist Source Code License, Version 1.0, December 2025",
+  "license_sha256": "9c82e554a54dfcf2550b452801475a36f9cb909ede00b03e492089e4836a7462",
+  "files": [
+    {
+      "path": "ai_scientist/generate_ideas.py",
+      "sha256": "3d0404f6b25b6e0de80dd009351cbbd58526f43f10aae830d7b0d22790bcd224",
+      "adapted_path": "src/research/upstream/v1_reflection.py",
+      "url": "https://github.com/SakanaAI/AI-Scientist/blob/1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb/ai_scientist/generate_ideas.py"
+    }
+  ]
+}

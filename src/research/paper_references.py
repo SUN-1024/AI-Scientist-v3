@@ -23,6 +23,9 @@ from .evidence import load_catalog
 from .literature import download
 from .model_search import _identity, search_literature
 
+_MAX_REFERENCE_SEARCH_ROUNDS = 3
+_MAX_SEARCH_CANDIDATES = 20
+
 
 class CitationTags(HTMLParser):
     def __init__(self) -> None:
@@ -140,6 +143,27 @@ def bibliography_entry(metadata: dict[str, Any]) -> tuple[str, str]:
     return citation_key, f"@{kind}{{{citation_key},\n{body}\n}}"
 
 
+def _metadata_identities(metadata: dict[str, Any]) -> set[str]:
+    """Count alternate URLs for the same source-verified paper only once."""
+    identities = {"title:" + re.sub(r"\W+", "", str(metadata["title"]).casefold())}
+    doi = str(metadata.get("doi") or "").strip().casefold()
+    if doi:
+        identities.add("doi:" + doi.removeprefix("https://doi.org/").removeprefix("http://doi.org/"))
+    return identities
+
+
+def _supplementary_queries(queries: list[str], checked: list[str], *, remaining: int) -> list[str]:
+    # Keep repair context bounded even when supplied sources have very long URLs.
+    guidance = (f"Find at least {remaining} additional distinct papers on the same topics. "
+                "Prefer primary pages with title, author and date metadata. "
+                "Do not repeat checked papers or their preprint/publisher versions. Checked sources: ")
+    for identity in reversed(checked):
+        addition = json.dumps(identity, ensure_ascii=False) + "; "
+        if len(guidance) + len(addition) <= 500:
+            guidance += addition
+    return [*queries[:7], guidance]
+
+
 def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list[str], min_refs: int,
                               max_refs: int, plan_metadata: dict[str, Any], context: dict[str, Any]) -> int:
     cfg = load_config(task_dir).literature
@@ -148,7 +172,8 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
         raise ValueError("Invalid paper reference count limits")
     fingerprint = hashlib.sha256(json.dumps({
         "config": asdict(cfg), "catalog": catalog, "plan": plan_metadata,
-        "min_refs": min_refs, "max_refs": max_refs, "context": context,
+        "min_refs": min_refs, "max_refs": max_refs, "context": context, "queries": queries,
+        "retrieval_policy": "bounded_supplement_v1",
     }, sort_keys=True).encode()).hexdigest()[:24]
     root = output_dir / "reference_search" / fingerprint
     if root.is_symlink() or (root.parent.exists() and root.parent.is_symlink()):
@@ -170,6 +195,11 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
             if (path.is_symlink() or not path.resolve().is_relative_to(output_dir.resolve())
                     or hashlib.sha256(path.read_bytes()).hexdigest() != row["metadata_sha256"]):
                 raise ValueError("Cached source citation metadata changed")
+        for relative, expected_hash in cached_receipt.get("search_artifacts", {}).items():
+            path = output_dir / relative
+            if (path.is_symlink() or not path.resolve().is_relative_to(root.resolve())
+                    or hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash):
+                raise ValueError("Cached reference search artifact changed")
         for name, content in cached.items():
             write_private_text(output_dir / name, content)
         return int(cached_receipt["count"])
@@ -180,51 +210,98 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
     candidates: list[dict[str, Any]] = list(cfg.sources)
     offline = bool(catalog.get("offline"))
     if not offline:
-        search_cfg = replace(cfg, queries=queries, max_papers=min(max_refs, 20), fetch_full_text=False)
-        retrieved, errors = search_literature(search_cfg, attempt)
-        candidates.extend(retrieved)
         candidates.extend(catalog["sources"])
-    references = []
-    bibtex = []
+    references: list[dict[str, Any]] = []
+    bibtex: list[str] = []
     seen: set[str] = set()
+    checked: list[str] = []
     seen_keys: set[str] = set()
-    for candidate in candidates:
-        identity = _identity(str(candidate.get("url") or "")) or str(candidate.get("path") or candidate["title"])
-        if identity in seen:
-            continue
-        seen.add(identity)
-        try:
-            if offline and not (candidate.get("path") and candidate.get("authors")):
-                raise ValueError("Offline references require local sources with user-supplied authors, title and year")
-            metadata = source_metadata(candidate, cfg, metadata_dir)
-            key, entry = bibliography_entry(metadata)
-            if key in seen_keys:
+    seen_metadata: set[str] = set()
+
+    def add_candidates(batch: list[dict[str, Any]], batch_queries: list[str]) -> int:
+        considered = 0
+        for candidate in batch:
+            if len(references) >= max_refs:
+                break
+            considered += 1
+            identity = _identity(str(candidate.get("url") or "")) or str(candidate.get("path") or candidate["title"])
+            if identity in seen:
                 continue
-            seen_keys.add(key)
-            metadata["metadata_file"] = str((metadata_dir / metadata["metadata_file"]).relative_to(output_dir))
-            references.append({
-                "id": "ref.model_search." + key, "paper_id": str(candidate.get("url") or candidate.get("path")),
-                "citation_key": key, "query": " | ".join(queries), "source_url": metadata.get("url") or str(candidate.get("path")),
-                "retrieved_at": datetime.now(timezone.utc).isoformat(), **metadata,
-            })
-            bibtex.append(entry)
-        except (ValueError, OSError, TypeError, AttributeError, KeyError) as exc:
-            errors.append({"stage": "citation_metadata", "source": str(candidate.get("url") or candidate.get("path")), "error": str(exc)})
-        if len(references) >= max_refs:
+            seen.add(identity)
+            checked.append(identity)
+            try:
+                if offline and not (candidate.get("path") and candidate.get("authors")):
+                    raise ValueError("Offline references require local sources with user-supplied authors, title and year")
+                metadata = source_metadata(candidate, cfg, metadata_dir)
+                key, entry = bibliography_entry(metadata)
+                identities = _metadata_identities(metadata)
+                if key in seen_keys or identities & seen_metadata:
+                    seen_metadata.update(identities)
+                    continue
+                seen_keys.add(key)
+                seen_metadata.update(identities)
+                metadata["metadata_file"] = str((metadata_dir / metadata["metadata_file"]).relative_to(output_dir))
+                references.append({
+                    "id": "ref.model_search." + key, "paper_id": str(candidate.get("url") or candidate.get("path")),
+                    "citation_key": key, "query": " | ".join(batch_queries), "source_url": metadata.get("url") or str(candidate.get("path")),
+                    "retrieved_at": datetime.now(timezone.utc).isoformat(), **metadata,
+                })
+                bibtex.append(entry)
+            except (ValueError, OSError, TypeError, AttributeError, KeyError) as exc:
+                errors.append({"stage": "citation_metadata", "source": str(candidate.get("url") or candidate.get("path")), "error": str(exc)})
+        return considered
+
+    add_candidates(candidates, queries)
+    rounds: list[dict[str, Any]] = []
+    search_artifacts: dict[str, str] = {}
+    stop_reason = "offline_sources_exhausted" if offline else "request_budget_exhausted"
+    for index in range(0 if offline else _MAX_REFERENCE_SEARCH_ROUNDS):
+        if len(references) >= min_refs:
             break
+        remaining = min_refs - len(references)
+        round_queries = queries if index == 0 else _supplementary_queries(queries, checked, remaining=remaining)
+        # Some candidates overlap or lack usable metadata. Permit bounded excess
+        # retrieval while capping the published bibliography at max_refs.
+        limit = min(_MAX_SEARCH_CANDIDATES, max_refs, max(2 * remaining, cfg.results_per_query))
+        search_cfg = replace(cfg, queries=round_queries, max_papers=limit, fetch_full_text=False)
+        round_dir = attempt / f"search_round_{index + 1:02d}"
+        round_dir.mkdir()
+        retrieved, search_errors = search_literature(search_cfg, round_dir)
+        errors.extend(search_errors)
+        before = len(references)
+        considered = add_candidates(retrieved[:limit], round_queries)
+        trace_path = round_dir / "model_search" / "trace.json"
+        for path in sorted((round_dir / "model_search").glob("*")):
+            if path.is_symlink():
+                raise ValueError("Reference search artifact cannot be a symlink")
+            if path.is_file():
+                search_artifacts[str(path.relative_to(output_dir))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        rounds.append({
+            "round": index + 1, "queries": round_queries, "requested_limit": limit,
+            "candidates_returned": len(retrieved), "candidates_checked": considered,
+            "new_verified_references": len(references) - before, "verified_total": len(references),
+            "search_trace": str(trace_path.relative_to(output_dir)) if trace_path.is_file() else None,
+        })
+        if not retrieved:
+            stop_reason = "search_unavailable" if search_errors else "no_candidates"
+            break
+    if len(references) >= min_refs:
+        stop_reason = "minimum_met"
     summary = {
         "generated_at": datetime.now(timezone.utc).isoformat(), **context,
         "provider": "configured_model_search", "model_provider": cfg.model_search.provider,
         "queries": queries, "reference_query_plan": plan_metadata, "count": len(references),
         "references": references, "retrieval_errors": errors, "offline": offline,
-        "search_trace": str((attempt / "model_search/trace.json").relative_to(output_dir)) if not offline else None,
+        "status": "ready" if len(references) >= min_refs else "exhausted", "stop_reason": stop_reason,
+        "search_round_limit": _MAX_REFERENCE_SEARCH_ROUNDS, "search_rounds": rounds,
+        "search_trace": rounds[0]["search_trace"] if rounds else None,
     }
     write_private_text(attempt / "result.json", json.dumps(summary, ensure_ascii=False, indent=2))
     if len(references) < min_refs:
-        raise ValueError(f"Only {len(references)}/{min_refs} references have source metadata; inspect {attempt}. No legacy API fallback was used.")
+        raise ValueError(f"Only {len(references)}/{min_refs} references have source metadata; stopped after {len(rounds)} search rounds ({stop_reason}); inspect {attempt}. No legacy API fallback was used.")
     contents = {"references.bib": "\n\n".join(bibtex) + "\n",
                 "references_provenance.json": json.dumps(summary, ensure_ascii=False, indent=2)}
-    receipt: dict[str, Any] = {"count": len(references)}
+    receipt: dict[str, Any] = {"count": len(references), "search_artifacts": search_artifacts}
     for name, content in contents.items():
         write_private_text(root / name, content)
         receipt[name] = hashlib.sha256(content.encode()).hexdigest()
