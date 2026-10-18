@@ -13,6 +13,7 @@ import functools
 from dataclasses import MISSING, dataclass, field, fields, is_dataclass, make_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import (
     Any,
     ClassVar,
@@ -36,6 +37,9 @@ from src.investigation.config import (
     ContainerConfig,
     LoggingConfig,
     VersioningConfig,
+    PortfolioConfig,
+    portfolio_validation_errors,
+    validate_portfolio_resume,
 )
 from src.investigation.checkpoint_paths import validate_git_dir_name
 from src.investigation.program_spec import entrypoint_relpath_from_spec
@@ -454,11 +458,13 @@ class InvestigationConfig(PhasePassthrough):
         "execution.task_only",
         "execution.worker_index",
         "execution.campaign_workers",
+        "execution.portfolio_lease_file",
         "paper.",
     )
     rewritten = frozenset({"execution.draft_task_if_missing"})
 
     adaptive_enabled = _Key[bool]("adaptive_investigation.enabled")
+    portfolio_enabled = _Key[bool]("portfolio.enabled")
     resume = _Key[bool]("execution.resume")
     draft_task_if_missing = _Key[bool]("execution.draft_task_if_missing")
     max_idea_cycles = _Key[int]("execution.max_idea_cycles")
@@ -1029,6 +1035,19 @@ def validate_pipeline_config(cfg: PipelineConfig) -> list[str]:
             errors.append("investigation.adaptive_investigation.min_improvement must be finite and nonnegative")
         if enabled and (cfg.investigation.workers != 1 or cfg.investigation.prune_every_n_cycles or not cfg.investigation.harness_evaluated_attempts):
             errors.append("adaptive investigation requires workers=1, pruning disabled, and harness_evaluated_attempts=true")
+    if selected.intersection({"task_drafting", "investigation"}):
+        portfolio_policy = PortfolioConfig(**{
+            item.name: cfg.investigation.get("portfolio." + item.name)
+            for item in fields(PortfolioConfig)
+        })
+        portfolio_execution = SimpleNamespace(**{
+            key: cfg.investigation.get("execution." + key)
+            for key in ("workers", "harness_evaluated_attempts", "max_program_evals_per_attempt", "prune_every_n_cycles", "max_idea_cycles", "portfolio_lease_file")
+        })
+        errors.extend(portfolio_validation_errors(
+            portfolio_policy, execution=portfolio_execution, container=cfg.container,
+            adaptive_enabled=cfg.investigation.adaptive_enabled, prefix="investigation.",
+        ))
     investigation_counts_valid = True
     gpu_count_valid = type(cfg.container.gpu_count) is int and cfg.container.gpu_count >= 0
     if not gpu_count_valid:
@@ -1210,6 +1229,13 @@ def validate_pipeline_config(cfg: PipelineConfig) -> list[str]:
             resume_mode_supported = (
                 cfg.investigation.workers == 1 and pruning == 0
             ) or 0 < pruning < cfg.investigation.max_idea_cycles
+            if cfg.investigation.portfolio_enabled:
+                resume_mode_supported = True
+                if cfg.paths.run_dir and "paths.run_dir" not in unexpandable_paths:
+                    errors.extend(validate_portfolio_resume(
+                        investigation_workspace(Path(cfg.paths.run_dir).expanduser()),
+                        policy=portfolio_policy,
+                    ))
             if not resume_mode_supported:
                 qualifier = "parallel " if cfg.investigation.workers > 1 else ""
                 errors.append(
@@ -1539,6 +1565,73 @@ def validate_investigation_resume_state(results_dir: Path) -> list[str]:
     return errors
 
 
+def _portfolio_completion_evidence(
+    results_dir: Path, manifest: dict[str, object],
+) -> tuple[list[str], dict[str, str]]:
+    """Bind a portfolio handoff to its terminal ledger and exact frozen source."""
+    from src.investigation.portfolio_controller import HANDOFF_FILE, STATE_FILE, read_portfolio_state
+    from src.investigation.search_tree import _fingerprint
+
+    try:
+        with open_directory(results_dir, role="investigation workspace") as workspace_fd:
+            outer = _read_investigation_state_at(workspace_fd, "outer_state.json")
+            active = (
+                "portfolio_lease_id" in manifest
+                or bool(outer and (outer.get("portfolio_enabled") or outer.get("portfolio_status")))
+                or (results_dir / STATE_FILE).exists()
+                or (results_dir / STATE_FILE).is_symlink()
+            )
+            if not active:
+                return [], {}
+            handoff = _read_investigation_state_at(workspace_fd, HANDOFF_FILE)
+        state = read_portfolio_state(results_dir)
+        if state.get("status") != "ready_for_validation" or state.get("pending"):
+            raise ValueError("controller has not completed its portfolio schedule")
+        candidate = state.get("frozen_candidate")
+        if not isinstance(candidate, dict) or not isinstance(handoff, dict):
+            raise ValueError("frozen candidate or validation handoff is missing")
+        if handoff.get("candidate") != candidate:
+            raise ValueError("validation handoff does not match the frozen candidate")
+        if (
+            handoff.get("status") != "ready_for_validation"
+            or handoff.get("mode") != "whole_idea_portfolio"
+            or handoff.get("development_aggregates") != state.get("aggregates")
+            or handoff.get("selection_reason") != state.get("selection_reason")
+            or handoff.get("independent_confirmation_complete") is not False
+            or handoff.get("submission_ready") is not False
+        ):
+            raise ValueError("validation handoff does not match the completed development evidence")
+        for key in ("policy_hash", "task_hash", "protocol_hash"):
+            if handoff.get(key) != state.get(key):
+                raise ValueError(f"validation handoff has a different {key}")
+        expected = {
+            "program_dir": candidate.get("program_dir"),
+            "combined_score": candidate.get("score"),
+            "source_hash": candidate.get("source_hash"),
+            "root_idea_id": candidate.get("root_idea_id"),
+            "portfolio_lease_id": candidate.get("lease_id"),
+            "correct": True,
+        }
+        if any(manifest.get(key) != value for key, value in expected.items()):
+            raise ValueError("best-program manifest does not match the frozen candidate")
+        if not outer or any(outer.get(key) != value for key, value in {
+            "best_program_dir": candidate.get("program_dir"),
+            "best_combined_score": candidate.get("score"),
+            "best_correct": True,
+            "portfolio_status": state.get("status"),
+        }.items()):
+            raise ValueError("outer state does not match the frozen candidate")
+        candidate_path = Path(str(candidate.get("program_dir", "")))
+        if not candidate_path.resolve().is_relative_to(results_dir.resolve()):
+            raise ValueError("frozen candidate is outside the investigation workspace")
+        if _fingerprint(candidate_path) != candidate.get("source_hash"):
+            raise ValueError("frozen candidate source has changed")
+        handoff_sha = hashlib.sha256(json.dumps(handoff, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        return [], {"portfolio_state_hash": str(state["state_hash"]), "portfolio_handoff_sha256": handoff_sha}
+    except (OSError, ValueError, RuntimeError, UnsafeGluePathError) as exc:
+        return [f"portfolio investigation completion is invalid: {exc}"], {}
+
+
 def validate_completed_investigation(results_dir: Path) -> list[str]:
     """Require a real, scored winner before downstream scientific phases."""
     manifest_path = results_dir / "best_program_manifest.json"
@@ -1551,6 +1644,9 @@ def validate_completed_investigation(results_dir: Path) -> list[str]:
         return [f"investigation produced no valid best-program manifest: {manifest_path}"]
     if not _manifest_program_is_usable(manifest, results_dir=results_dir):
         return [f"investigation produced no usable best program: {manifest_path}"]
+    portfolio_errors, _ = _portfolio_completion_evidence(results_dir, manifest)
+    if portfolio_errors:
+        return portfolio_errors
     if _manifest_retains_baseline(manifest):
         return [
             "investigation retained its baseline and produced no optimized winner: "
@@ -1576,6 +1672,9 @@ def _investigation_manifest_outcome(results_dir: Path) -> tuple[str, str] | None
     except (FileNotFoundError, UnsafeGluePathError, OSError):
         return None
     if manifest is None or not _manifest_program_is_usable(manifest, results_dir=results_dir):
+        return None
+    portfolio_errors, _ = _portfolio_completion_evidence(results_dir, manifest)
+    if portfolio_errors:
         return None
     score = manifest.get("combined_score")
     scored = (
@@ -1605,6 +1704,8 @@ def _investigation_manifest_outcome(results_dir: Path) -> tuple[str, str] | None
 
 
 def _manifest_retains_baseline(manifest: dict[str, object]) -> bool:
+    if manifest.get("root_idea_id") == "baseline" or manifest.get("portfolio_lease_id") == "baseline":
+        return True
     source_attempt_id = manifest.get("source_attempt_id")
     return (
         isinstance(source_attempt_id, str)
@@ -1621,7 +1722,18 @@ def investigation_completion_payload(results_dir: Path) -> dict[str, object] | N
     if classified is None:
         return None
     outcome, manifest_sha256 = classified
+    try:
+        with open_directory(results_dir, role="investigation workspace") as workspace_fd:
+            manifest = _read_investigation_state_at(workspace_fd, "best_program_manifest.json")
+    except (FileNotFoundError, UnsafeGluePathError, OSError):
+        return None
+    if manifest is None:
+        return None
+    portfolio_errors, portfolio_binding = _portfolio_completion_evidence(results_dir, manifest)
+    if portfolio_errors:
+        return None
     return {
+        **portfolio_binding,
         "schema_version": 1,
         "status": "completed",
         "outcome": outcome,

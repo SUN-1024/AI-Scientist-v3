@@ -125,6 +125,7 @@ Supported environment settings:
 | Variable | Purpose |
 | --- | --- |
 | `RESEARCH_RUNNER_IMAGE` | Runner image, default `unified-ai-scientist/research-runner:2026.10` |
+| `RESEARCH_RUNNER_NETWORK` | Coordinator Docker network, default `bridge`. On Linux, `host` can reach a task-scoped SSH reverse tunnel bound to host loopback. Set the agent container network separately. |
 | `RESEARCH_CPU_IMAGE` | CPU base image and default preflight target |
 | `RESEARCH_RUNNER_AUTH_ROOT` | Directory containing the private `.codex/<profile>.config.toml` |
 | `RESEARCH_RUNNER_CODEX_PROFILE` | Named profile, default `agsci-magpie` |

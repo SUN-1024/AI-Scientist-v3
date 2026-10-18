@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
 import json
 import math
 import os
@@ -351,6 +352,7 @@ def build_parallel_worker_command(
         cmd.append("container.enabled=true")
         cmd.append(f"container.image={cfg.container.image}")
         cmd.append(f"container.network={cfg.container.network}")
+        cmd.append(f"container.gpu_count={cfg.container.gpu_count}")
         # Resolve ~ to absolute path — Hydra's parser rejects bare tildes.
         _auth_root = str(Path(cfg.container.auth_root).expanduser())
         cmd.append(f"container.auth_root={_auth_root}")
@@ -387,6 +389,44 @@ def _parallel_worker_network_hint(plan: ParallelWorkerPlan, output: str) -> str 
     )
 
 
+
+def portfolio_process_identity(pid: int) -> dict[str, Any] | None:
+    """Capture a process instance, so PID reuse does not block recovery.
+
+    Linux uses the existing boot/start-tick identity. Other POSIX hosts retain
+    the observed start time, user and full command fingerprint. Failed queries
+    return no identity; a live PID without an identity remains conservative.
+    """
+    if type(pid) is not int or pid <= 0:
+        return None
+    if sys.platform == "linux":
+        from .gpu_owner_process import ProcessIdentity, ProcessIdentityError, _boot_id, _read_process
+        try:
+            observed = _read_process(pid)
+            if observed is None or observed[2] in {"Z", "X", "x"}:
+                return None
+            return {"platform": "linux", **ProcessIdentity(pid, observed[0], _boot_id(), observed[1]).fields()}
+        except ProcessIdentityError:
+            return None
+    try:
+        result = subprocess.run(["ps", "-ww", "-p", str(pid), "-o", "uid=,lstart=,args="],
+                                capture_output=True, text=True, timeout=5, check=False,
+                                env={**os.environ, "LC_ALL": "C"})
+        fields = result.stdout.strip().split(None, 6)
+        if result.returncode != 0 or len(fields) != 7 or not fields[0].isdigit():
+            return None
+        return {"platform": "posix-ps", "pid": pid, "uid": int(fields[0]),
+                "start_time": " ".join(fields[1:6]),
+                "command_sha256": hashlib.sha256(fields[6].encode()).hexdigest()}
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def write_portfolio_process_marker(path: Path, fields: dict[str, Any]) -> None:
+    """Publish a complete lifecycle record with an atomic owner-only replace."""
+    state_store.write_private_text(path, json.dumps(fields, sort_keys=True, indent=2) + "\n")
+
+
 def run_parallel_worker(
     plan: ParallelWorkerPlan,
     *,
@@ -412,6 +452,7 @@ def run_parallel_worker(
         "" if worker_log_format in {"human", "json"} else _worker_output_prefix(plan.worker_index)
     )
     suppressed_output_lines = 0
+    process_identity: dict[str, Any] | None = None
 
     def _record_output(text: str, *, emit: bool = True) -> None:
         nonlocal suppressed_output_lines
@@ -440,6 +481,12 @@ def run_parallel_worker(
             env=_worker_exec_env(plan),
         )
         register_subprocess(proc)
+        if _command_flag_value(plan.command, "execution.portfolio_lease_file"):
+            process_identity = portfolio_process_identity(proc.pid)
+            write_portfolio_process_marker(plan.results_dir / "portfolio_process.json", {
+                "pid": proc.pid, "process_identity": process_identity,
+                "status": "running", "worker_index": plan.worker_index,
+            })
         stderr_thread = threading.Thread(
             target=_stream_worker_output,
             kwargs={
@@ -474,6 +521,13 @@ def run_parallel_worker(
         )
         exit_code = 130
     except OSError as exc:
+        # A post-spawn lifecycle-marker or stream error must not orphan an
+        # unregistered process. Stop it before releasing the parent's handle.
+        if proc is not None and proc.poll() is None:
+            terminate_process_group(proc, grace_seconds=interrupt_grace_seconds)
+            proc.wait()
+            if stderr_thread is not None:
+                stderr_thread.join()
         _record_output(
             f"[wrapper] failed to launch worker {plan.worker_index}: {exc}\n",
             emit=worker_log_format not in {"human", "json"},
@@ -481,7 +535,15 @@ def run_parallel_worker(
         exit_code = 127
     finally:
         if proc is not None:
-            unregister_subprocess(proc)
+            try:
+                if _command_flag_value(plan.command, "execution.portfolio_lease_file") and proc.poll() is not None:
+                    write_portfolio_process_marker(plan.results_dir / "portfolio_process.json", {
+                        "pid": proc.pid, "process_identity": process_identity,
+                        "status": "exited", "exit_code": proc.returncode,
+                        "worker_index": plan.worker_index,
+                    })
+            finally:
+                unregister_subprocess(proc)
         if stderr_thread is not None and stderr_thread.is_alive():
             stderr_thread.join(timeout=1)
 

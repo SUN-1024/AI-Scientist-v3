@@ -97,6 +97,7 @@ from .config import (
     parse_pipeline_phases,
     register_pipeline_schema,
     validate_investigation_resume_state,
+    validate_portfolio_resume,
     validate_completed_investigation,
     completed_investigation_outcome,
     downstream_study_available,
@@ -2078,6 +2079,8 @@ def _log_resume_hint(phase: str, cfg: PipelineConfig, paths: PipelinePaths) -> N
         resume_mode_supported = (
             cfg.investigation.workers == 1 and pruning == 0
         ) or 0 < pruning < cfg.investigation.max_idea_cycles
+        if cfg.investigation.portfolio_enabled:
+            resume_mode_supported = True
         if not resume_mode_supported:
             logger.error(
                 "  This investigation run cannot be resumed; restart with %s.",
@@ -2085,6 +2088,8 @@ def _log_resume_hint(phase: str, cfg: PipelineConfig, paths: PipelinePaths) -> N
             )
             return
         state_errors = validate_investigation_resume_state(paths.investigation_workspace_dir)
+        if cfg.investigation.portfolio_enabled:
+            state_errors.extend(validate_portfolio_resume(paths.investigation_workspace_dir))
         if state_errors:
             harness_workspace = paths.run_dir.parent
             if (harness_workspace / "research_manifest.json").is_file() and (harness_workspace / "harness_state.json").is_file():

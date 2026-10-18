@@ -646,6 +646,23 @@ def run_parallel_campaign(
     )
 
 
+
+def run_portfolio_campaign(**kwargs: Any) -> int:
+    """Dispatch complete ideas through the host-owned portfolio coordinator."""
+    from src.investigation.portfolio_campaign import run_portfolio_campaign as run
+
+    return run(
+        **kwargs,
+        build_parallel_worker_command_fn=build_parallel_worker_command,
+        run_parallel_worker_fn=run_parallel_worker,
+        log_event_fn=log_event,
+        terminate_all_active_processes_fn=_terminate_all_active_processes,
+        stop_container_session_fn=_stop_container_session,
+        build_container_session_name_fn=_build_container_session_name,
+        interrupt_grace_seconds=DEFAULT_INTERRUPT_GRACE_SECONDS,
+    )
+
+
 _active_image_lease: DockerImageLease | None = None
 
 
@@ -687,7 +704,7 @@ def main(
     )
     assert cfg.paths.results_dir is not None
     logging_results_dir = resolve_path(cfg.paths.results_dir)
-    if cfg.execution.workers > 1:
+    if cfg.execution.workers > 1 and not cfg.portfolio.enabled:
         logging_results_dir = normalize_agent_results_dir(
             logging_results_dir,
             cfg.agent.name,
@@ -733,6 +750,7 @@ def main(
             log_step_end_fn=log_step_end,
             run_task_drafting_fn=run_task_drafting,
             run_parallel_campaign_fn=run_parallel_campaign,
+            run_portfolio_campaign_fn=run_portfolio_campaign,
             run_idea_generation_fn=run_idea_generation,
             run_single_attempt_fn=run_single_attempt,
             run_paper_generation_fn=run_paper_generation,

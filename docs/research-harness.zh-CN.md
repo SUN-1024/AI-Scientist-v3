@@ -10,11 +10,11 @@ flowchart TD
     B --> C[检索全文并冻结来源]
     C --> D[研究议程与两次独立创新性审查]
     D --> E[任务契约与基线验证]
-    E --> F[基线调参]
-    F --> G[冻结代码并检查开发协议重复性]
-    G --> H[分支探索不同机制]
-    H --> I[依据改善或停滞细化研究]
-    I --> J[冻结候选并复查重复性]
+    E --> F[多个完整 idea 并行最小验证]
+    F --> G[整批筛选并保留所有结果]
+    G --> H[各 idea 从自己的最佳结果联合调参]
+    H --> I[依据统一开发协议选择候选]
+    I --> J[冻结候选与配置并检查重复性]
     J --> K[基线、对照与消融]
     K --> L[隔离的最终确认]
     L --> M[分析、图表、论文与主张审计]
@@ -28,8 +28,8 @@ flowchart TD
 
 | 来源 | 本项目保留的机制 | 实际实现 |
 |---|---|---|
-| V1 | 可复用任务起点、idea 有界反思、实验记录 | 实际适配 `generate_ideas.py` 的反思循环；每轮保留完整证据和模型回执 |
-| V2 | Journal、MetricValue、分支选择、分阶段研究 | 实际源码适配负责节点排序和分支语义；`AdaptiveController` 根据有效结果、改善、停滞和预算切换阶段 |
+| V1 | 可复用任务起点、idea 有界反思、历史 idea 档案 | 实际适配 `generate_ideas.py` 的反思与档案序列化；每轮保留完整证据和模型回执 |
+| V2 | Journal、MetricValue、分支选择、分阶段研究 | 实际源码适配用于搜索树节点排序；原单路自适应模式继续可用，新的组合调度器负责并行筛选和每个 idea 的调参历史 |
 | V3 | coding agent、任务契约、封闭评价、对照消融、最终确认与论文审计 | 复用原有 pipeline 和执行器；每个阶段写入宿主生命周期记录 |
 | 本次整合 | 把文献差异与实验依据连接起来 | 研究议程、最近工作全文片段、替代解释、判别实验、独立创新性审查与就绪报告 |
 
@@ -109,23 +109,44 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 仅验证部分阶段时，显式使用 `--quality-target development`。完整 Harness 默认使用 `high_impact` 目标并要求所有研究阶段。该字段是检查要求，不是论文质量结论。
 
-## 自适应控制与预算
+## 完整 idea、并行调参与预算
 
-默认策略位于 `configs/preset/research_harness.yaml`。关键参数通过 `investigation.adaptive_investigation.*` 设置：
+新 Harness 默认使用 `configs/preset/research_harness.yaml` 中的 portfolio 模式。
+多个 worker 共用一个宿主控制器和总预算。GPU 按明确的设备池分配，单个 worker
+只接收自己的设备。配置要求容器执行、每个候选一次宿主评价，并关闭旧的周期剪枝。
+
+关键参数通过 `investigation.portfolio.*` 设置：
 
 | 参数 | 默认值 | 作用 |
 |---|---:|---|
-| `min_tuning_evals` | 2 | 进入基线冻结重复前的有效调参次数 |
-| `min_creative_evals` | 3 | 进入细化前至少开展的机制探索次数 |
-| `min_refinement_evals` | 2 | 冻结最终候选前至少开展的细化次数 |
-| `stagnation_evals` | 2 | 连续未改善时触发诊断或冻结 |
-| `replication_evals` | 2 | 每次冻结后的开发协议重复次数 |
-| `max_valid_evals` | 20 | 有效科学评价上限 |
+| `initial_ideas` | 4 | 首批完整 idea 数；整批完成后再晋级 |
+| `promote_ideas` | 2 | 进入联合调参的 idea 数 |
+| `tuning_trials_per_idea` | 4 | 每个晋级 idea 的调参次数 |
+| `replication_evals` | 2 | 最终冻结候选的开发协议重复次数 |
+| `max_valid_evals` | 14 | 筛选、调参与重复检查的总上限 |
 | `max_transport_failures` | 6 | 基础设施/API 失败上限 |
+| `min_improvement` | 0 | 比较开发分数的最小改善阈值 |
 
 网络失败不消耗有效科学评价次数。评价器完成但正确性判据失败的实验，会计入证据和预算，但不会晋级为最佳候选。重复实验不能凭一次较高分数替换已冻结的获选代码。
 
-自适应控制当前要求 `workers=1`。普通 V3 并行流程仍可使用；自适应阶段的并行工作分配尚未实现。阶段策略是可检查的确定性规则，模型负责提出实验和解释证据。
+完整 idea 可以围绕问题、效率、数据使用、目标函数、优化或结构展开。先实现一个
+可检验的整体方案，再联合调整任务允许的参数。每个 idea 保留自己的最佳父版本，
+不会因另一 idea 分数更高就换掉研究方向。同一 idea 内的问题、贡献、协议与允许
+参数空间保持固定；改动这些内容应成为新 idea 或新任务。需要不同数据或指标的
+研究问题不能直接加入同一个分数排名。
+
+新工作区将策略冻结在 `research_context/whole_idea_policy.json`。旧工作区保留其原有
+配置与策略，恢复不自动升级。筛选、调参、失败、未入选结果和配置都保存在完整
+ledger 中。论文可以选择有解释力的比较，但必须说明选择理由，并保留完整记录。
+独立调参的方法比较、匹配条件的组件消融、配置敏感性分析是三类不同证据。
+
+开发 handoff 分别记录选择时的提升和固定候选的复验均值。只有两者均超过阈值，
+才支持有限的开发均值改善判断。它不代表统计显著性或独立确认。若所有新方法弱于
+基线，保留基线并标记未产生新赢家。
+
+原 `investigation.adaptive_investigation.*` 单路模式仍要求 `workers=1`，不能与
+portfolio 同时启用。普通 V3 并行流程也继续保留。新 portfolio 的子任务复用现有
+V3 编码、宿主评价、收据与进程清理，不启动另一套评价器。
 
 新建搜索树使用选择策略版本 2：先按源码哈希合并探索候选，再限制候选宽度；同一源码的访问次数合计。完整实验节点、假设和证据继续保留。已有树缺失版本号或保存版本 1 时保持原规则，恢复不会自动升级，已分配的父节点也不会改变。
 
@@ -161,7 +182,7 @@ WORKSPACE/
 ├── paper_readiness.md       # 可阅读的就绪报告
 └── run/
     ├── task/
-    ├── investigation/      # 含 adaptive_investigation.json
+    ├── investigation/      # portfolio_investigation.json、租约与完整记录
     ├── ablations/
     ├── final_evaluation/
     ├── posthoc/

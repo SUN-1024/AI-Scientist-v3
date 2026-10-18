@@ -16,6 +16,7 @@ def write_campaign_budget(
     max_program_evals_per_attempt: int, outer_state: dict[str, Any],
     selected_agent: str | None = None, selected_model: str | None = None,
     adaptive_context: dict[str, Any] | None = None,
+    portfolio_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Refresh from resolved config on every cycle, including resumed campaigns."""
     execution = cfg.execution
@@ -64,6 +65,17 @@ def write_campaign_budget(
     }
     if adaptive_context is not None:
         budget["stage"] = adaptive_context
+    if portfolio_context is not None:
+        from src.research.whole_idea_policy import validate_portfolio_context
+
+        portfolio = validate_portfolio_context(portfolio_context)
+        budget["portfolio"] = portfolio
+        budget["stage"] = {
+            "name": portfolio["stage"], "action": portfolio.get("action"),
+            "policy": "host_whole_idea_portfolio",
+            "root_idea_id": portfolio["root_idea_id"], "lease_id": portfolio["lease_id"],
+            "trial_index": portfolio["trial_index"],
+        }
     state_store.write_json(results_dir / BUDGET_FILE, budget)
     snapshot = results_dir / "campaign_budgets" / f"cycle_{cycle:04d}.json"
     snapshot.parent.mkdir(parents=True, exist_ok=True)
@@ -74,13 +86,15 @@ def write_campaign_budget(
 def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) -> str:
     """One renderer for every prompt; direct standalone wrappers may lack a campaign."""
     methodology = ""
+    from src.research.whole_idea_policy import render_whole_idea_guidance
+
+    task_dir = results_dir / "task"
     # idea.sh supplies a cycle index and gets idea rules from render_context.
     # run.sh omits it, so the coding prompt gets exactly one rules block here.
     if cycle_index is None:
         from src.research.methodology import load_methodology, render_methodology
         from src.research.research_agenda import load_agenda
 
-        task_dir = results_dir / "task"
         marker = load_methodology(task_dir)
         if marker is not None:
             methodology = render_methodology(
@@ -88,7 +102,9 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
             )
     path = results_dir / BUDGET_FILE
     if not path.is_file():
-        return "No resolved campaign budget was supplied. Follow the explicit wrapper evaluation limit and the task's scientific constraints; do not infer total cycles." + methodology
+        whole_idea = render_whole_idea_guidance(task_dir, stage="coding" if cycle_index is None else "idea",
+                                               include_policy=cycle_index is None)
+        return "No resolved campaign budget was supplied. Follow the explicit wrapper evaluation limit and the task's scientific constraints; do not infer total cycles." + methodology + whole_idea
     budget = json.loads(path.read_text(encoding="utf-8"))
     if cycle_index is not None and budget["cycle"]["local_index"] != cycle_index:
         raise ValueError("effective campaign budget does not match this idea cycle")
@@ -105,11 +121,18 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
     }
     stage = budget["stage"]
     stage_guidance = adaptive_guidance.get(stage.get("action"), guidance.get(stage.get("name"), "Follow the host stage lease."))
+    portfolio = budget.get("portfolio")
+    whole_idea = render_whole_idea_guidance(
+        task_dir, stage="coding" if cycle_index is None else "idea", portfolio_context=portfolio,
+        include_policy=cycle_index is None,
+    )
+    if portfolio is not None:
+        stage_guidance = "Follow the verified whole-idea host lease and its stage guidance below."
     return (
         "The host resolved this scheduling budget from the current configuration and state. "
         "It overrides stale campaign round counts or scheduler examples in the task brief. "
         "It does not override hard data, supervision, training, compute, interface, or acceptance constraints. "
         "One scheduled cycle is not proof of one completed evaluation.\n\n```json\n"
         + json.dumps(budget, ensure_ascii=False, indent=2)
-        + "\n```\n\nStage action: " + stage_guidance + methodology
+        + "\n```\n\nStage action: " + stage_guidance + methodology + whole_idea
     )

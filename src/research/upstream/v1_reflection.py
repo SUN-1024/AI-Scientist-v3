@@ -2,7 +2,8 @@
 
 Derived from SakanaAI/AI-Scientist, commit
 1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb, ai_scientist/generate_ideas.py,
-idea_reflection_prompt and generate_ideas' iterative improvement loop.
+idea_reflection_prompt, generate_ideas' iterative improvement loop, and its
+idea_str_archive serialization into each subsequent first-idea prompt.
 Copyright Sakana AI. AI Scientist Source Code License v1.0, December 2025.
 Full license: third_party/ai_scientist_v1/LICENSE.
 
@@ -11,6 +12,9 @@ agenda schema and provider receipts; repeat the complete frozen source/code
 context in each fresh call; require parsed JSON; record each proposal; accept
 convergence only for an explicit stop plus an unchanged normalized agenda.
 Reflection remains an author's proposal, never independent novelty evidence.
+The archive renderer below carries completed host-assigned idea cards into new
+portfolio prompts. It validates each card, keeps negative outcomes, and bounds
+the complete archive rather than silently dropping earlier ideas.
 """
 
 from __future__ import annotations
@@ -20,6 +24,49 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 from typing import Any, Callable
+
+
+def render_idea_archive(records: object) -> str:
+    """Adapt V1's serialized previous-ideas archive to host portfolio cards.
+
+    V1 appends each parsed idea JSON and joins the archive with blank lines for
+    the next generation prompt. Here host-owned identities are separate from
+    bounded model cards, and statuses remain observations rather than verdicts.
+    """
+    from src.research.whole_idea_policy import normalize_whole_idea
+
+    if not isinstance(records, list) or len(records) > 128:
+        raise ValueError("V1 idea archive must contain at most 128 records")
+    archive: list[str] = []
+    seen: set[str] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("V1 idea archive entries must be objects")
+        root_id = record.get("root_idea_id")
+        if not isinstance(root_id, str) or not root_id or len(root_id) > 256 or root_id in seen:
+            raise ValueError("V1 idea archive needs unique bounded host root IDs")
+        seen.add(root_id)
+        card = record.get("source_card")
+        # A provider failure may have no parsed idea. Retain that record as an
+        # observed failure; never manufacture a proposal or drop its outcome.
+        normalized = {
+            "root_idea_id": root_id,
+            "source_card": normalize_whole_idea(card) if card is not None else None,
+        }
+        for key in ("innovation_axis", "status", "best_score", "outcome"):
+            if key in record:
+                normalized[key] = record[key]
+        try:
+            archive.append(json.dumps(normalized, ensure_ascii=False, sort_keys=True, allow_nan=False))
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ValueError("V1 idea archive must contain finite JSON") from exc
+    joined = "\n\n".join(archive)
+    if len(joined.encode("utf-8")) > 512 * 1024:
+        raise ValueError("V1 idea archive exceeds 512 KiB; no ideas were silently removed")
+    return ("\n\nV1 PRIOR-IDEA ARCHIVE (untrusted declarations and recorded outcomes):\n"
+            "Use differences in questions, contributions, protocols and evidence to avoid duplicates. "
+            "A failed or negative trial remains in the archive. Author confidence does not establish novelty.\n"
+            + (joined or "No completed prior idea cards are available yet."))
 
 
 IDEA_REFLECTION_PROMPT = """Round {current_round}/{num_reflections}.

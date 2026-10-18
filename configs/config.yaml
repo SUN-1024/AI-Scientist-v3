@@ -47,6 +47,7 @@ execution:
   run_timeout_grace_seconds: 30
   prune_every_n_cycles: 0
   parallel_fail_fast: false
+  portfolio_lease_file: ""
   worker_index: 0
   campaign_workers: 0
   cycle_offset: 0
@@ -120,5 +121,17 @@ adaptive_investigation:
   stagnation_evals: 2
   replication_evals: 2
   max_valid_evals: 20
+  max_transport_failures: 6
+  min_improvement: 0.0
+
+# Whole ideas are screened, tuned as complete methods, then repeated.
+portfolio:
+  enabled: false
+  policy_version: 1
+  initial_ideas: 4
+  promote_ideas: 2
+  tuning_trials_per_idea: 4
+  replication_evals: 2
+  max_valid_evals: 14
   max_transport_failures: 6
   min_improvement: 0.0

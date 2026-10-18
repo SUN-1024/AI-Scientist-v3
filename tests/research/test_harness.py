@@ -43,22 +43,34 @@ def test_agenda_author_and_independent_review_use_separate_config(tmp_path, monk
     assert harness._author_settings(cfg) == author
 
 
-def test_harness_dry_run_selects_complete_adaptive_pipeline_without_effects(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("legacy_adaptive", [False, True])
+def test_harness_dry_run_selects_complete_controlled_pipeline_without_effects(tmp_path, monkeypatch, capsys, legacy_adaptive):
     task = make_task(tmp_path / "task")
     workspace = tmp_path / "workspace"
     monkeypatch.setattr(harness, "prepare", Mock(side_effect=AssertionError("must not prepare")))
     monkeypatch.setattr(harness, "ensure_execution_ready", Mock(side_effect=AssertionError("must not probe runtime")))
-    assert cli.main(["harness", str(task), "--workspace", str(workspace), "--dry-run"]) == 0
+    overrides = (["investigation.portfolio.enabled=false", "investigation.adaptive_investigation.enabled=true",
+                  "investigation.execution.workers=1"] if legacy_adaptive else [])
+    assert cli.main(["harness", str(task), "--workspace", str(workspace), "--dry-run", *overrides]) == 0
     preview = json.loads(capsys.readouterr().out)
     assert preview["requested_phases"] == ["task_drafting", "investigation", "ablations", "final_evaluation", "posthoc", "paper", "review", "revision"]
     from src.pipeline.cli import load_pipeline_config
     from src.pipeline.paths import derive_paths
     from src.pipeline.phases import build_investigation_cmd
     cfg = load_pipeline_config(preview["pipeline_argv"])
-    assert "adaptive_investigation.enabled=true" in build_investigation_cmd(cfg, derive_paths(cfg))
+    command = build_investigation_cmd(cfg, derive_paths(cfg))
+    assert ("adaptive_investigation.enabled=true" in command) is legacy_adaptive
+    assert ("portfolio.enabled=true" in command) is not legacy_adaptive
     assert cfg.review.backend == "agent"
     assert not workspace.exists()
     assert not (task / "research_context").exists()
+
+
+def test_high_impact_still_requires_a_controlled_investigation(tmp_path, capsys):
+    task = make_task(tmp_path / "task")
+    assert cli.main(["harness", str(task), "--dry-run", "investigation.portfolio.enabled=false",
+                     "investigation.adaptive_investigation.enabled=false"]) == 2
+    assert "requires portfolio.enabled=true or adaptive_investigation.enabled=true" in capsys.readouterr().err
 
 
 def test_high_impact_cannot_silently_skip_required_phases(tmp_path, capsys):

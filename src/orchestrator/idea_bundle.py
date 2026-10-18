@@ -233,4 +233,11 @@ def normalize_idea_bundle(raw: Any, cycle_index: int) -> dict[str, Any]:
             normalized["research_basis"] = normalize_basis(raw["research_basis"])
         except ValueError as exc:
             raise IdeaBundleValidationError(str(exc)) from exc
+    if "whole_idea" in raw:
+        from src.research.whole_idea_policy import normalize_whole_idea
+
+        try:
+            normalized["whole_idea"] = normalize_whole_idea(raw["whole_idea"])
+        except ValueError as exc:
+            raise IdeaBundleValidationError(str(exc)) from exc
     return normalized

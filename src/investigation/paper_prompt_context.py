@@ -95,7 +95,8 @@ def paper_workspace_context_replacements(workspace_dir: Path) -> dict[str, str]:
 
     return {
         "RESEARCH_CONTEXT": render_context(workspace_dir / "task", for_paper=True)
-                            + _render_selected_novelty_context(workspace_dir),
+                            + _render_selected_novelty_context(workspace_dir)
+                            + _render_portfolio_context(workspace_dir),
         "POSTHOC_ANALYSES_CONTEXT": _render_posthoc_analyses_context(workspace_dir),
         "POSTHOC_RANKING_PATH": "./posthoc_ranking.json",
         "DRAFT_REFERENCE_GAPS_PATH": "./draft_reference_gaps.md",
@@ -146,6 +147,31 @@ def _render_selected_novelty_context(workspace_dir: Path) -> str:
             "Missing or stale proof must remain needs_evidence. Do not tune on the sealed final holdout "
             "or use final observations to repair a development novelty claim.\n"
             + json.dumps(selected, ensure_ascii=False, indent=2))
+
+
+def _render_portfolio_context(workspace_dir: Path) -> str:
+    """Recheck the complete development ledger at every paper prompt boundary."""
+    from src.research.portfolio_evidence import verify_portfolio_for_paper
+
+    path = workspace_dir / "paper_data.json"
+    if not path.exists() and not path.is_symlink():
+        return ""
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 64 * 1024 * 1024:
+            raise ValueError("Unsafe or oversized paper data")
+        paper_data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(paper_data, dict):
+            raise ValueError("Paper data must be a JSON object")
+        portfolio = verify_portfolio_for_paper(paper_data)
+    except (ValueError, OSError, TypeError) as exc:
+        portfolio = {"status": "needs_evidence", "gaps": [{"code": "paper_data_invalid", "detail": str(exc)}]}
+    if portfolio is None:
+        return ""
+    return ("\n\nWHOLE-IDEA PORTFOLIO DEVELOPMENT EVIDENCE:\n"
+            "This host-revalidated projection covers development search and selection. Inspect its full "
+            "ledger index for omitted trials and failures. It does not certify novelty, isolated component "
+            "effects, independent final confirmation, or publication acceptance.\n"
+            + json.dumps(portfolio, ensure_ascii=False, indent=2))
 
 
 def venue_context_text(venue_file_path: str | Path | None) -> str:

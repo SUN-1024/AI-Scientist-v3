@@ -21,6 +21,7 @@ from .constants import (
 )
 from .config import (
     AdaptiveInvestigationConfig,
+    PortfolioConfig,
     AgentConfig,
     ConfigValidationError,
     ContainerConfig,
@@ -208,6 +209,7 @@ _KNOWN_TOP_LEVEL_KEYS = {
     "paths",
     "execution",
     "adaptive_investigation",
+    "portfolio",
     "task_drafting",
     "paper",
     "container",
@@ -223,6 +225,7 @@ _GROUP_FIELDS: dict[str, set[str]] = {
         ("paths", PathsConfig),
         ("execution", ExecutionConfig),
         ("adaptive_investigation", AdaptiveInvestigationConfig),
+        ("portfolio", PortfolioConfig),
         ("task_drafting", TaskDraftingConfig),
         ("paper", PaperConfig),
         ("container", ContainerConfig),
@@ -293,6 +296,7 @@ def _dict_to_config(d: dict) -> InvestigationConfig:
 
     return InvestigationConfig(
         adaptive_investigation=AdaptiveInvestigationConfig(**d.get("adaptive_investigation", {})),
+        portfolio=PortfolioConfig(**d.get("portfolio", {})),
         agent=AgentConfig(
             name=str(agent_d.get("name", "claude")),
             model=agent_d.get("model"),
@@ -343,6 +347,7 @@ def _dict_to_config(d: dict) -> InvestigationConfig:
             run_timeout_grace_seconds=int(execution_d.get("run_timeout_grace_seconds", 30)),
             prune_every_n_cycles=int(execution_d.get("prune_every_n_cycles", 0)),
             parallel_fail_fast=bool(execution_d.get("parallel_fail_fast", False)),
+            portfolio_lease_file=execution_d.get("portfolio_lease_file", ""),
             worker_index=int(execution_d.get("worker_index", 0)),
             campaign_workers=execution_d.get("campaign_workers", 0),
             cycle_offset=int(execution_d.get("cycle_offset", 0)),

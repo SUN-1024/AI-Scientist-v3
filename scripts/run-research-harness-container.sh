@@ -121,7 +121,8 @@ if [ -z "$socket_group" ]; then
     socket_group="$(stat -c '%g' "$socket")"
   fi
 fi
-args=(run --rm --init --user "$(id -u):$(id -g)" --group-add "$socket_group"
+args=(run --rm --init --network "${RESEARCH_RUNNER_NETWORK:-bridge}"
+  --user "$(id -u):$(id -g)" --group-add "$socket_group"
   --entrypoint "$root/src/docker/research-runner/entrypoint.sh"
   --mount "$source_mount"
   --mount "type=bind,source=$socket,target=/var/run/docker.sock"

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .adaptive_controller import AdaptiveInvestigationConfig
+from .portfolio_controller import PortfolioConfig
 from .constants import (
     DEFAULT_HARNESS_EVALUATION_TIMEOUT_SECONDS,
     DEFAULT_CONTAINER_IMAGE,
@@ -198,6 +199,10 @@ class ExecutionConfig:
     parallel_fail_fast: bool = field(
         default=False,
         metadata={"help": "Stop scheduling new parallel leases after the first worker failure."},
+    )
+    portfolio_lease_file: str = field(
+        default="",
+        metadata={"help": "Host-owned frozen portfolio lease file; internal child worker input"},
     )
     worker_index: int = field(
         default=0,
@@ -396,6 +401,7 @@ class InvestigationConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     adaptive_investigation: AdaptiveInvestigationConfig = field(default_factory=AdaptiveInvestigationConfig)
+    portfolio: PortfolioConfig = field(default_factory=PortfolioConfig)
     task_drafting: TaskDraftingConfig = field(default_factory=TaskDraftingConfig)
     paper: PaperConfig = field(default_factory=PaperConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
@@ -443,8 +449,76 @@ def _validate_versioning(cfg: VersioningConfig) -> None:
         raise ConfigValidationError("versioning.run_root must be non-empty when provided")
 
 
+def portfolio_validation_errors(
+    portfolio: PortfolioConfig, *, execution: Any, container: Any,
+    adaptive_enabled: bool, prefix: str = "",
+) -> list[str]:
+    """Use the same portfolio contract for stage and pipeline configuration."""
+    errors: list[str] = []
+    if type(portfolio.enabled) is not bool or type(portfolio.policy_version) is not int or portfolio.policy_version != 1:
+        errors.append("portfolio requires boolean enabled and policy_version=1")
+    count_keys = (
+        "initial_ideas", "promote_ideas", "tuning_trials_per_idea", "replication_evals",
+        "max_valid_evals", "max_transport_failures",
+    )
+    counts_valid = True
+    for key in count_keys:
+        value = getattr(portfolio, key)
+        if type(value) is not int or value < 1:
+            counts_valid = False
+            errors.append(f"portfolio.{key} must be a positive integer")
+    improvement = portfolio.min_improvement
+    if isinstance(improvement, bool) or not isinstance(improvement, (int, float)) or not math.isfinite(improvement) or improvement < 0:
+        errors.append("portfolio.min_improvement must be finite and nonnegative")
+    lease_file = getattr(execution, "portfolio_lease_file", "")
+    if not isinstance(lease_file, str):
+        errors.append("execution.portfolio_lease_file must be a string")
+    elif lease_file:
+        if not lease_file.strip() or not Path(lease_file).is_absolute():
+            errors.append("execution.portfolio_lease_file must be an absolute host lease path")
+        if execution.workers != 1 or portfolio.enabled or adaptive_enabled:
+            errors.append("portfolio child lease requires workers=1, portfolio.enabled=false, and adaptive_investigation.enabled=false")
+        if not container.enabled or not execution.harness_evaluated_attempts or execution.max_program_evals_per_attempt != 1 or execution.prune_every_n_cycles:
+            errors.append("portfolio child lease requires containers, host evaluation, max_program_evals_per_attempt=1, and pruning disabled")
+    if portfolio.enabled:
+        if adaptive_enabled:
+            errors.append("portfolio and adaptive_investigation cannot both be enabled")
+        if not container.enabled:
+            errors.append("portfolio requires container.enabled=true")
+        if not execution.harness_evaluated_attempts or execution.max_program_evals_per_attempt != 1 or execution.prune_every_n_cycles:
+            errors.append("portfolio requires host evaluation, max_program_evals_per_attempt=1, and pruning disabled")
+        if counts_valid:
+            if portfolio.promote_ideas > portfolio.initial_ideas:
+                errors.append("portfolio.promote_ideas must not exceed portfolio.initial_ideas")
+            if type(execution.workers) is int and execution.workers > portfolio.initial_ideas:
+                errors.append("execution.workers must not exceed portfolio.initial_ideas")
+            planned = portfolio.initial_ideas + portfolio.promote_ideas * portfolio.tuning_trials_per_idea + portfolio.replication_evals
+            if portfolio.max_valid_evals < planned:
+                errors.append(f"portfolio.max_valid_evals must cover at least {planned} planned evaluations")
+            if type(execution.max_idea_cycles) is int and execution.max_idea_cycles < portfolio.max_valid_evals + portfolio.max_transport_failures:
+                errors.append("execution.max_idea_cycles must cover portfolio.max_valid_evals plus portfolio.max_transport_failures")
+    return [prefix + error for error in errors]
+
+
+def validate_portfolio_resume(results_dir: Path, *, task_dir: Path | None = None, policy: PortfolioConfig | None = None) -> list[str]:
+    """Parallel portfolio resume needs a durable controller record, not only a winner."""
+    from .portfolio_controller import read_portfolio_state
+
+    try:
+        read_portfolio_state(results_dir, task_dir=task_dir, policy=policy)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return [f"portfolio resume state is missing or invalid: {exc}"]
+    return []
+
+
 def validate(cfg: InvestigationConfig) -> None:
     """Validate configuration values, raising ConfigValidationError on problems."""
+    portfolio_errors = portfolio_validation_errors(
+        cfg.portfolio, execution=cfg.execution, container=cfg.container,
+        adaptive_enabled=cfg.adaptive_investigation.enabled,
+    )
+    if portfolio_errors:
+        raise ConfigValidationError(portfolio_errors[0])
     adaptive = cfg.adaptive_investigation
     if type(adaptive.enabled) is not bool or type(adaptive.policy_version) is not int or adaptive.policy_version != 1:
         raise ConfigValidationError("adaptive_investigation requires boolean enabled and policy_version=1")
@@ -664,6 +738,13 @@ def validate(cfg: InvestigationConfig) -> None:
         resume_mode_supported = (
             cfg.execution.workers == 1 and pruning == 0
         ) or 0 < pruning < cfg.execution.max_idea_cycles
+        if cfg.portfolio.enabled:
+            resume_errors = validate_portfolio_resume(
+                Path(cfg.paths.results_dir or ""), task_dir=Path(cfg.paths.task_dir), policy=cfg.portfolio
+            )
+            if resume_errors:
+                raise ConfigValidationError(resume_errors[0])
+            resume_mode_supported = True
         if not resume_mode_supported:
             qualifier = "parallel " if cfg.execution.workers > 1 else "pruned "
             raise ConfigValidationError(

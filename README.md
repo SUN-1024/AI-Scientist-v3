@@ -10,14 +10,14 @@
   <a href="docs/upstream-code-reuse.md">Actual V1–V3 code reuse</a>
 </p>
 
-This project integrates adapted V1 idea-reflection code, V2 journal and metric
-selection code, an evidence-driven adaptive stage controller, and the V3 execution
+This project integrates adapted V1 idea-reflection and archive code, V2 journal and metric
+selection code, a parallel whole-idea controller, and the V3 execution
 and manuscript pipeline. Start with `./scripts/research-agent harness`; the
 integrated workflow is the main entry point of this fork. It is not a fourth
 official SakanaAI release.
 
 The Harness connects full-text literature, bounded idea reflection, independent
-novelty review, adaptive experiments, controls and ablations, sealed confirmation,
+novelty review, parallel idea screening, joint tuning, controls and ablations, sealed confirmation,
 paper generation, independent review, and revision. It records separate checks
 for execution, scientific evidence, novelty, and manuscript readiness. A successful
 run does not establish a publishable contribution. See the
@@ -37,7 +37,10 @@ Configure the selected provider and execution agent before running. The new
 supports the complete isolated workflow. Native macOS cannot provide all required
 descriptor-pinning interfaces; use the Linux coordinator described in the guide.
 The older [development example](examples/pathmnist_mil/README.md) remains available.
-The [latest improvement report](docs/fusion-improvements-2026-10-18.md) records
+The [GPU portfolio example](examples/pathmnist_mil_portfolio/README.md) adds bounded
+joint HPO and per-worker GPU execution. Its README separates unit checks from live
+CUDA and research validation. Existing workspaces retain their frozen policies.
+The [earlier improvement report](docs/fusion-improvements-2026-10-18.md) records
 418 passing regression tests, training-budget calibration, and six live search
 cycles. The selected candidate improved the initial development baseline;
 independent confirmation remains outstanding.

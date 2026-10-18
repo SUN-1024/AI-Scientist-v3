@@ -301,6 +301,8 @@ _DRAFTING_DERIVED_KEYS = (
     "execution.resume",
     "execution.workers",
     "execution.run_timeout_seconds",
+    "portfolio.enabled",
+    "adaptive_investigation.enabled",
 )
 
 
@@ -310,6 +312,8 @@ def build_task_drafting_cmd(cfg: PipelineConfig, paths: PipelinePaths) -> list[s
     cmd += hydra_overrides_for(cfg.investigation, exclude_prefixes=_DRAFTING_DERIVED_KEYS)
     cmd += [
         "execution.workers=1",
+        "portfolio.enabled=false",
+        "adaptive_investigation.enabled=false",
         "execution.draft_task_if_missing=true",
         f"execution.run_timeout_seconds={cfg.task_drafting.timeout_seconds}",
         "execution.task_only=true",

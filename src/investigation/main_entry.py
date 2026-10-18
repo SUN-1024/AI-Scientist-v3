@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import tempfile
+from functools import wraps
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -230,6 +231,33 @@ def _log_checkpoint(result: CheckpointResult, log_event_fn: LogEventFn) -> None:
         )
 
 
+def _portfolio_worker_lock(function: Callable[..., int]) -> Callable[..., int]:
+    """Claim the root or child writer lock before task/bootstrap state changes."""
+    @wraps(function)
+    def wrapped(*args: Any, **kwargs: Any) -> int:
+        cfg = kwargs["cfg"]
+        if not cfg.execution.portfolio_lease_file and not cfg.portfolio.enabled:
+            return function(*args, **kwargs)
+        from .portfolio_campaign import external_portfolio_worker_lock, portfolio_coordinator_lock
+
+        task_dir = resolve_path(cfg.paths.task_dir)
+        results_dir = (
+            resolve_path(cfg.paths.results_dir) if cfg.paths.results_dir
+            else kwargs["default_results_path_fn"](task_dir, cfg.agent.name)
+        )
+        try:
+            lock = (external_portfolio_worker_lock(cfg=cfg, task_dir=task_dir, results_dir=results_dir)
+                    if cfg.execution.portfolio_lease_file else portfolio_coordinator_lock(results_dir))
+            with lock:
+                return function(*args, **kwargs)
+        except (OSError, ValueError) as exc:
+            reason = "invalid_portfolio_lease" if cfg.execution.portfolio_lease_file else "portfolio_coordinator_error"
+            kwargs["log_event_fn"]("config_error", reason=reason, error=str(exc))
+            return 2
+    return wrapped
+
+
+@_portfolio_worker_lock
 def run_main_flow(
     *,
     cfg: InvestigationConfig,
@@ -254,6 +282,7 @@ def run_main_flow(
     run_idea_generation_fn: RunIdeaGenerationFn,
     run_single_attempt_fn: RunSingleAttemptFn,
     run_paper_generation_fn: RunPaperGenerationFn,
+    run_portfolio_campaign_fn: RunParallelCampaignFn | None = None,
     run_task_setup_fn: RunTaskSetupFn = run_task_setup,
     prepare_task_runtime_fn: PrepareTaskRuntimeFn = prepare_task_runtime_report,
     pin_container_image_fn: Callable[[str, str], str] | None = None,
@@ -466,8 +495,8 @@ def run_main_flow(
         )
         return 2
 
-    use_parallel_campaign = cfg.execution.workers > 1 or (
-        cfg.execution.workers == 1 and cfg.execution.prune_every_n_cycles > 0
+    use_parallel_campaign = not cfg.portfolio.enabled and (
+        cfg.execution.workers > 1 or cfg.execution.prune_every_n_cycles > 0
     )
 
     container_session_name: str | None = None
@@ -476,6 +505,7 @@ def run_main_flow(
         containerize
         and cfg.execution.workers == 1
         and not use_parallel_campaign
+        and not cfg.portfolio.enabled
         and not cfg.agent.pool
     )
     if use_reusable_container_session:
@@ -658,7 +688,7 @@ def run_main_flow(
     # the drafting runtime and the next phase builds and validates the same one.
     should_prepare_task_runtime = (
         cfg.execution.draft_task_if_missing or containerize
-    ) and (drafted_scaffold or not cfg.execution.task_only)
+    ) and (drafted_scaffold or not cfg.execution.task_only) and not cfg.execution.portfolio_lease_file
     if should_prepare_task_runtime:
         runtime_gpu_evaluation = cfg.execution.gpu_evaluation
         contract_path = task_dir / "task_contract.json"
@@ -808,68 +838,10 @@ def run_main_flow(
                 fallback=str(seed_program_dir),
             )
 
-    if use_parallel_campaign:
-        parallel_results_dir = (
-            normalize_agent_results_dir_fn(results_dir, cfg.agent.name)
-            if cfg.execution.workers > 1
-            else results_dir
-        )
-        parallel_results_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            seed_program_dir = _freeze_seed_program(
-                seed_program_dir, parallel_results_dir
-            )
-        except (OSError, ProgramSpecError, ValueError) as exc:
-            log_event_fn(
-                "config_error",
-                reason="seed_program_snapshot_failed",
-                path=seed_program_dir,
-                error=str(exc),
-            )
-            return 2
-        write_hydra_snapshot(cfg, parallel_results_dir)
-        log_event_fn("run_hydra_config", **config_to_flat_dict(cfg))
-        log_event_fn("run_config", **run_config_fields)
-        parallel_checkpoint_fn = _make_checkpoint_fn(cfg, parallel_results_dir, log_event_fn)
-        finalize_on_exit = cfg.versioning.finalize_on_exit
-        parallel_checkpoint_fn(label="run start", phase="investigation", event="run_start")
-        parallel_global_memory_dir = (
-            parallel_results_dir
-            if global_memory_dir_raw is None
-            else global_memory_dir
-        )
-        parallel_exit_code = run_parallel_campaign_fn(
-            cfg=cfg,
-            task_dir=task_dir,
-            results_dir=parallel_results_dir,
-            global_memory_dir=parallel_global_memory_dir,
-            instruct_path=instruct_path,
-            seed_program_dir=seed_program_dir,
-        )
-        if parallel_exit_code != 0:
-            parallel_checkpoint_fn(
-                label="final" if finalize_on_exit else "parallel campaign failed",
-                phase="investigation",
-                event="parallel_end",
-                final=finalize_on_exit,
-            )
-            return parallel_exit_code
-
-        if not cfg.paper.enabled:
-            parallel_checkpoint_fn(
-                label="final" if finalize_on_exit else "parallel campaign",
-                phase="investigation",
-                event="parallel_end",
-                final=finalize_on_exit,
-            )
-            return 0
-
-        parallel_checkpoint_fn(
-            label="parallel campaign",
-            phase="investigation",
-            event="parallel_end",
-        )
-
+    def finish_campaign_paper(
+        parallel_results_dir: Path, parallel_global_memory_dir: Path,
+        parallel_checkpoint_fn: Callable[..., Any], finalize_on_exit: bool,
+    ) -> int:
         log_event_fn(
             "paper_config",
             paper_instruct=paper_instruct_path,
@@ -976,6 +948,81 @@ def run_main_flow(
         )
         return 0
 
+    if use_parallel_campaign:
+        parallel_results_dir = (
+            normalize_agent_results_dir_fn(results_dir, cfg.agent.name)
+            if cfg.execution.workers > 1
+            else results_dir
+        )
+        parallel_results_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            seed_program_dir = _freeze_seed_program(
+                seed_program_dir, parallel_results_dir
+            )
+        except (OSError, ProgramSpecError, ValueError) as exc:
+            log_event_fn(
+                "config_error",
+                reason="seed_program_snapshot_failed",
+                path=seed_program_dir,
+                error=str(exc),
+            )
+            return 2
+        write_hydra_snapshot(cfg, parallel_results_dir)
+        log_event_fn("run_hydra_config", **config_to_flat_dict(cfg))
+        log_event_fn("run_config", **run_config_fields)
+        parallel_checkpoint_fn = _make_checkpoint_fn(cfg, parallel_results_dir, log_event_fn)
+        finalize_on_exit = cfg.versioning.finalize_on_exit
+        parallel_checkpoint_fn(label="run start", phase="investigation", event="run_start")
+        parallel_global_memory_dir = (
+            parallel_results_dir
+            if global_memory_dir_raw is None
+            else global_memory_dir
+        )
+        parallel_exit_code = run_parallel_campaign_fn(
+            cfg=cfg,
+            task_dir=task_dir,
+            results_dir=parallel_results_dir,
+            global_memory_dir=parallel_global_memory_dir,
+            instruct_path=instruct_path,
+            seed_program_dir=seed_program_dir,
+        )
+        if parallel_exit_code != 0:
+            parallel_checkpoint_fn(
+                label="final" if finalize_on_exit else "parallel campaign failed",
+                phase="investigation",
+                event="parallel_end",
+                final=finalize_on_exit,
+            )
+            return parallel_exit_code
+
+        if not cfg.paper.enabled:
+            parallel_checkpoint_fn(
+                label="final" if finalize_on_exit else "parallel campaign",
+                phase="investigation",
+                event="parallel_end",
+                final=finalize_on_exit,
+            )
+            return 0
+
+        parallel_checkpoint_fn(
+            label="parallel campaign",
+            phase="investigation",
+            event="parallel_end",
+        )
+
+        return finish_campaign_paper(
+            parallel_results_dir, parallel_global_memory_dir,
+            parallel_checkpoint_fn, finalize_on_exit,
+        )
+
+    external_portfolio_context = None
+    if cfg.execution.portfolio_lease_file:
+        from .portfolio_campaign import load_external_portfolio_context
+
+        external_portfolio_context = load_external_portfolio_context(
+            cfg=cfg, task_dir=task_dir, results_dir=results_dir,
+            seed_program_dir=seed_program_dir,
+        )
     results_dir.mkdir(parents=True, exist_ok=True)
     seed_is_validated_baseline = seed_matches_validated_baseline(
         seed_program_dir, task_seed_program_dir
@@ -1001,7 +1048,33 @@ def run_main_flow(
 
     outer_state = state_store.load_or_init_outer_state(results_dir, seed_program_dir, cfg.execution.resume)
     best_manifest = state_store.load_or_init_best_manifest(results_dir, seed_program_dir, cfg.execution.resume)
-    if cfg.execution.harness_evaluated_attempts:
+    if external_portfolio_context is not None:
+        # The locked host lease already authenticates the original source and its
+        # receipt. Cloning that source changes its directory name, not its score.
+        from .search_tree import _fingerprint
+
+        parent = external_portfolio_context["parent"]
+        if _fingerprint(seed_program_dir) != parent["source_hash"]:
+            log_event_fn("config_error", reason="portfolio_parent_snapshot_changed")
+            return 2
+        best_manifest.update(
+            program_dir=str(seed_program_dir),
+            entrypoint_path=entrypoint_relpath_from_spec(seed_program_dir) or "src/program.py",
+            combined_score=parent["score"], correct=parent["correct"],
+            source_attempt_id="bootstrap", source_idea_id=external_portfolio_context["root_idea_id"],
+            parent_receipt_id=parent["receipt_id"], source_hash=parent["source_hash"],
+        )
+        outer_state.update(
+            best_program_dir=str(seed_program_dir), best_combined_score=parent["score"],
+            best_correct=parent["correct"],
+        )
+        state_store.save_best_manifest(results_dir, best_manifest)
+        state_store.save_outer_state(results_dir, outer_state)
+        log_event_fn(
+            "portfolio_parent_receipt_reused", lease_id=external_portfolio_context["lease_id"],
+            receipt_id=parent["receipt_id"], source_hash=parent["source_hash"],
+        )
+    elif cfg.execution.harness_evaluated_attempts:
         baseline_score = (
             runtime_baseline_score(task_dir) if should_prepare_task_runtime else None
         )
@@ -1123,6 +1196,29 @@ def run_main_flow(
                 "paper.min_refs": cfg.paper.min_refs,
                 "paper.max_refs": cfg.paper.max_refs,
             },
+        )
+
+    if cfg.portfolio.enabled:
+        if run_portfolio_campaign_fn is None:
+            from .cli import run_portfolio_campaign as run_portfolio_campaign_fn
+        outer_state["portfolio_enabled"] = True
+        state_store.save_outer_state(results_dir, outer_state)
+        exit_code = run_portfolio_campaign_fn(
+            cfg=cfg, task_dir=task_dir, results_dir=results_dir,
+            global_memory_dir=global_memory_dir, instruct_path=instruct_path,
+            outer_state=outer_state, best_manifest=best_manifest,
+            best_program_dir=best_program_dir,
+        )
+        finalize_on_exit = cfg.versioning.finalize_on_exit
+        checkpoint_fn(
+            label="final" if finalize_on_exit and (exit_code or not cfg.paper.enabled) else "portfolio campaign",
+            phase="investigation", event="portfolio_end",
+            final=finalize_on_exit and (exit_code != 0 or not cfg.paper.enabled),
+        )
+        if exit_code or not cfg.paper.enabled:
+            return exit_code
+        return finish_campaign_paper(
+            results_dir, global_memory_dir, checkpoint_fn, finalize_on_exit,
         )
 
     return campaign_loop.run_cycles_and_finalize(

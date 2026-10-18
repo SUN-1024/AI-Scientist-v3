@@ -9,8 +9,10 @@ investigation:
     max_idea_cycles: 24
     max_program_evals_per_attempt: 1
     harness_evaluated_attempts: true
-    workers: 1
+    workers: 2
   adaptive_investigation:
+    enabled: false
+  portfolio:
     enabled: true
 ablations:
   execution:

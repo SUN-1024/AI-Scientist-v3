@@ -429,9 +429,16 @@ def run_harness_evaluation(
             manifest.update(exit_code=1, returncode=1, error="candidate changed during sealed evaluation")
         else:
             try:
+                result_files = ["metrics.json", "correct.json"]
+                evidence_path = program_dir / "evaluation_evidence.json"
+                evidence_was_bound = "evaluation_evidence.json" in manifest.get("adaptive_result_sha256", {})
+                if (previous_outcome is None or evidence_was_bound) and (evidence_path.exists() or evidence_path.is_symlink()):
+                    from .evaluation_evidence import load_evaluation_evidence
+                    load_evaluation_evidence(program_dir)
+                    result_files.append("evaluation_evidence.json")
                 manifest.update(adaptive_source_sha256=source_after,
                                 adaptive_evaluator_sha256=_hash(sealed_config.task_source_dir / "evaluate.py"),
-                                adaptive_result_sha256={name: _hash(program_dir / name) for name in ("metrics.json", "correct.json")})
+                                adaptive_result_sha256={name: _hash(program_dir / name) for name in result_files})
             except (OSError, ValueError):
                 returncode = 1
                 manifest.update(exit_code=1, returncode=1, error="sealed evaluation artifacts missing")

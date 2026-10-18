@@ -6,7 +6,7 @@ The audit checkouts in `scratch/` are reference copies, not runtime dependencies
 
 | Version | Pinned source | Reused implementation | Live integration |
 | --- | --- | --- | --- |
-| V1 | `SakanaAI/AI-Scientist`, `1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb` | `generate_ideas.py`: bounded iterative idea reflection, parse each round, preserve the original idea, archive the resulting proposal, stop when no change is needed | `src/research/upstream/v1_reflection.py`; agenda drafting calls the existing provider with full frozen source and selected-code context for every reflection round. Each call keeps its own receipt. |
+| V1 | `SakanaAI/AI-Scientist`, `1de1dbc1f4ee2c5f61e9c94348d55eb51d7fa2eb` | `generate_ideas.py`: bounded iterative idea reflection, parse each round, preserve the original idea, archive the resulting proposal, stop when no change is needed; serialize previous ideas into the next proposal prompt | `src/research/upstream/v1_reflection.py`; agenda drafting calls the existing provider with full frozen source and selected-code context for every reflection round. Each call keeps its own receipt. Whole-idea portfolio prompts use `render_idea_archive` to retain earlier cards and negative outcomes. |
 | V2 | `SakanaAI/AI-Scientist-v2`, `96bd51617cfdbb494a9fc283af00fe090edfae48` | `journal.py`: draft/debug/improve node semantics, consecutive debug depth, good/buggy node filters, best-node metric selection; `utils/metric.py`: optimize in the declared direction | `src/research/upstream/v2_journal.py`; `SearchTree.choose` ranks actual host-validated nodes, selects a bounded buggy leaf if no correct implementation exists, and supplies complete journal evidence to ideation. |
 | V3 | Existing project code and its preserved upstream history | Task contracts, isolated coding and evaluation, native evaluation receipts, campaign execution, final confirmation, ablations, retrospective analysis, and manuscript generation/audit | The current task, investigation, pipeline, and paper modules remain the execution foundation. |
 
@@ -35,8 +35,25 @@ the metric exists. The host's persisted lease pins the chosen parent on resume.
 
 The integration does not copy V2's manager state bugs, implicit dataset-count
 thresholds, first-three-seed aggregation, or free-form LLM winner selection.
-The current adaptive controller and final evaluator remain responsible for
-stage transitions, protocol identity, repeated measurements, and final claims.
+The existing adaptive controller and new whole-idea portfolio controller use
+separate execution modes. They retain responsibility for stage transitions,
+protocol identity, repeated measurements, and handoff to final evaluation.
+
+New Harness workspaces use a frozen whole-idea policy. The portfolio screens
+several complete ideas, promotes a cohort, and jointly tunes each promoted
+idea's allowed parameters from its own best result. It reuses V3's parallel
+worker processes, GPU allocation, isolated evaluator, and validated receipts.
+The selected candidate is frozen before repeatability checks. Selection scores
+and repeat means remain separate. A development handoff does not establish an
+independent result, causal component effect, or publication readiness.
+
+The archive renderer adapts V1's previous-idea serialization in
+`generate_ideas.py` lines 112–172. It preserves host root IDs and complete cards,
+including unsuccessful trials. Bounded input validation rejects an oversized
+archive instead of silently removing earlier ideas. The V2 journal adapter
+continues to run in legacy search mode; portfolio scheduling uses its own
+explicit cohort and per-idea state rather than claiming to execute V2's full
+manager unchanged.
 
 ## License and provenance
 

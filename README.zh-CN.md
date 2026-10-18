@@ -1,10 +1,10 @@
 # Unified AI Scientist：V1–V3 融合研究系统
 
-本项目实际复用 V1 的 idea 反思代码、V2 的 Journal 与 MetricValue 代码，并接入自适应阶段控制器和 V3 执行、评价、论文及审稿流程。完整入口为 `scripts/research-agent harness`，也可使用 `agsci research harness`。
+本项目实际复用 V1 的 idea 反思与历史档案代码、V2 的 Journal 与 MetricValue 代码，并接入完整 idea 的并行调度、联合调参和 V3 执行、评价、论文及审稿流程。完整入口为 `scripts/research-agent harness`，也可使用 `agsci research harness`。
 
 先看[完整 Harness 使用指南](docs/research-harness.zh-CN.md)和[V1–V3 代码复用清单](docs/upstream-code-reuse.md)。清单列出固定 commit、来源文件、实际调用位置、修改和许可证。V3 保留 Apache-2.0；V1/V2 适配代码保留 AI Scientist Source Code License v1.0。尚未通过同预算基准证明本项目优于三个原始版本。
 
-完整流程涵盖全文检索、研究议程、独立创新性审查、自适应实验、对照消融、隔离确认、论文、审稿与修改。就绪报告分别检查代码执行、科研证据和论文质量。当前自适应调查使用单 worker；macOS 完整执行使用 Linux coordinator，以保留原有文件和恢复检查。[新的病理 CPU 契约任务](examples/pathmnist_mil_harness/README.md)用于端到端验收。
+完整流程涵盖全文检索、研究议程、独立创新性审查、并行筛选与调参、对照消融、隔离确认、论文、审稿与修改。新 Harness 默认使用两个 worker 评价完整 idea，再对晋级 idea 分别联合调参。旧工作区保留原有冻结策略。macOS 完整执行使用 Linux coordinator。现有[病理 CPU 契约任务](examples/pathmnist_mil_harness/README.md)和新的[GPU portfolio 任务](examples/pathmnist_mil_portfolio/README.md)用于检验流程；各任务说明分别记录软件测试与实际研究验证。
 
 [如何增加预算并提高研究质量](docs/research-quality-guide.zh-CN.md)：分别设置文献预算、agent 推理、搜索轮次和实验重复，避免只增加 token 却重复低质量实验。
 
@@ -12,7 +12,7 @@
 
 已通过本机 Magpie 的真实 GPT 调用完成一个[快速弱监督病理案例](docs/pathmnist-mil-pilot-2026-10-18.md)：文献检索、idea、候选代码、宿主评分和搜索后留出检查。两个候选均未超过基线。案例同时发现并修复了基线初始化、树配置传递和提示词约束等集成问题。[直接运行该案例](examples/pathmnist_mil/README.md)。
 
-最新[改进与验证报告](docs/fusion-improvements-2026-10-18.md)包含临时 API 错误恢复、实际预算传递、评价输入校验与多 seed 协议，以及 418 项通过的回归测试、54 次训练预算校准和六轮真实搜索。开发分数从基线 0.58353 提高至 0.58993；该均值提升尚无独立确认，也未超过校准中的普通 LME 对照。
+前一轮[改进与验证报告](docs/fusion-improvements-2026-10-18.md)包含临时 API 错误恢复、实际预算传递、评价输入校验与多 seed 协议，以及 418 项通过的回归测试、54 次训练预算校准和六轮真实搜索。开发分数从基线 0.58353 提高至 0.58993；该均值提升尚无独立确认，也未超过校准中的普通 LME 对照。
 
 ## 三个版本各自的长处
 
@@ -51,6 +51,7 @@ flowchart TD
 | 差异记录 | 每个 idea 记录最近工作、重合、差异、替代解释和判别实验；引用须定位到保存文本 | 本次新增的证据连接层 |
 | 分支搜索 | V2 Journal 和 MetricValue 排序实际宿主验证节点，保留分析、失败分支和 debug depth；冻结重复不参与晋级 | 直接适配 V2 源码，通过固定来源与测试记录追溯 |
 | 自适应阶段 | 基线资格、调参、冻结重复、机制探索、细化、重复与确认交接；改善、停滞和预算决定转换 | 本次控制器复用 V3 执行器，消融与独立确认由外围流程执行 |
+| 完整 idea 组合调度 | 并行筛选完整方案，整批晋级，各自联合调参，固定候选复验；同时保留失败和未入选配置 | 新 Harness 默认模式，复用 V3 worker、GPU 分配与宿主收据；原单路自适应模式继续保留 |
 | 预算与恢复 | 持久化待完成工作和评价回执；网络失败与科学负结果分别计数；恢复复用已验证结果 | 中断点与扩大外层轮次后的恢复已有定向测试 |
 | 开发评价 | 原生宿主评分模式将分数绑定程序、评价器和声明的依赖；PathMNIST 支持冻结多 seed 协议和置换检查 | 开发验证能力，不等于容器隔离或独立确认 |
 | 实验与写作 | 复用 V3 的隔离、任务契约、基线/消融、最终评估、图表和论文审计 | 上游已有能力；本次将文献比较接入论文数据 |
@@ -101,7 +102,7 @@ source .venv/bin/activate
 ./scripts/research-agent report results/unified/circle-study
 ```
 
-这些小预算用于首次连通检查，不足以支持论文级结论。中断后继续用同一 `--resume` 路径。恢复行为沿用 V3，不保证重放中断的单次 agent 操作。并行参数是 `investigation.execution.workers`；各 worker 的树独立，记忆同步沿用 V3。
+这些小预算用于首次连通检查，不足以支持论文级结论。中断后继续用同一 `--resume` 路径。旧 V3 并行模式的各 worker 使用独立树；新 Harness 的 portfolio 则由一个宿主控制器分配持久化租约、共享总预算并恢复有效收据。并行参数均为 `investigation.execution.workers`。
 
 `--dry-run` 检查研究配置和 Hydra 配置组合，显示传给执行引擎的参数。新的 `run` 会在文献检索前检查本地 CLI、任务脚手架，以及所需的镜像、环境文件和 GPU。它不试用远端账户，也不启动训练；评价器和依赖的实际运行仍由正式流程检查。`prepare` 只准备研究输入，不要求已装好执行环境。
 

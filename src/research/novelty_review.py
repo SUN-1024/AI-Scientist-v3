@@ -17,6 +17,7 @@ from .model_search import SearchSession, parse_object, response_text
 from .novelty import ACTION_TYPES, REVIEW_CHECKS, content_hash, evaluate_novelty, freeze_evidence, validate_candidate_packet
 from .research_agenda import normalize_agenda
 from .methodology import render_methodology
+from .whole_idea_policy import render_whole_idea_guidance
 
 PROMPTS = Path(__file__).resolve().parents[1] / "prompts" / "research_harness"
 MAX_PACKET_CHARS = 600_000
@@ -399,6 +400,9 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     if candidate_packet is not None:
         _dump(output / "candidate_packet.json", candidate_packet)
     guidance = render_methodology(task_dir, stage="agenda")
+    whole_idea_guidance = render_whole_idea_guidance(task_dir, stage="agenda")
+    if whole_idea_guidance:
+        guidance += "\n\n" + whole_idea_guidance
     prompt = (PROMPTS / "research_agenda.md").read_text(encoding="utf-8") + ("\n\n" + guidance if guidance else "") + "\n\nINPUT DATA:\n" + json.dumps({
         "task": task, "selected_candidate_research_basis": research_basis,
         "selected_candidate_packet": candidate_packet, "frozen_evidence": frozen,
@@ -453,6 +457,9 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
     packet = source_packet(task_dir, agenda)
     template = (PROMPTS / "novelty_review.md").read_text(encoding="utf-8")
     guidance = render_methodology(task_dir, stage="novelty", agenda=agenda)
+    whole_idea_guidance = render_whole_idea_guidance(task_dir, stage="novelty")
+    if whole_idea_guidance:
+        guidance += "\n\n" + whole_idea_guidance
     if guidance:
         template += "\n\n" + guidance
     prompts = {}

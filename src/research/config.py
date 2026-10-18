@@ -92,12 +92,21 @@ class MethodologyConfig:
 
 
 @dataclass
+class WholeIdeaPolicyConfig:
+    """Versioned guidance for complete ideas and evidence-guided tuning."""
+
+    enabled: bool = True
+    policy_version: int = 1
+
+
+@dataclass
 class ResearchConfig:
     schema_version: int = 1
     literature: LiteratureConfig = field(default_factory=LiteratureConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
     harness: HarnessConfig = field(default_factory=HarnessConfig)
     methodology: MethodologyConfig = field(default_factory=MethodologyConfig)
+    whole_idea_policy: WholeIdeaPolicyConfig = field(default_factory=WholeIdeaPolicyConfig)
 
 
 def _mapping(value: object, allowed: set[str], label: str) -> dict[str, Any]:
@@ -168,7 +177,7 @@ def load_config(task_dir: Path) -> ResearchConfig:
         raise ValueError(f"Missing {path}; use 'agsci research init' or copy the documented config")
     raw = _mapping(
         yaml.safe_load(path.read_text(encoding="utf-8")),
-        {"schema_version", "literature", "search", "harness", "methodology"}, "research.yaml",
+        {"schema_version", "literature", "search", "harness", "methodology", "whole_idea_policy"}, "research.yaml",
     )
     if type(raw.get("schema_version", 1)) is not int or raw.get("schema_version", 1) != 1:
         raise ValueError("research.yaml schema_version must be 1")
@@ -183,9 +192,15 @@ def load_config(task_dir: Path) -> ResearchConfig:
     harness = dict(_mapping(raw.get("harness", {}), set(HarnessConfig.__dataclass_fields__), "harness"))
     quality = _mapping(harness.pop("quality", {}), set(HarnessQualityConfig.__dataclass_fields__), "harness.quality")
     methodology = _mapping(raw.get("methodology", {}), set(MethodologyConfig.__dataclass_fields__), "methodology")
+    whole_idea_policy = _mapping(raw.get("whole_idea_policy", {}), set(WholeIdeaPolicyConfig.__dataclass_fields__), "whole_idea_policy")
     cfg = ResearchConfig(literature=LiteratureConfig(**{**literature, "model_search": model}), search=SearchConfig(**search),
                          harness=HarnessConfig(**harness, quality=HarnessQualityConfig(**quality)),
-                         methodology=MethodologyConfig(**methodology))
+                         methodology=MethodologyConfig(**methodology),
+                         whole_idea_policy=WholeIdeaPolicyConfig(**whole_idea_policy))
+    if type(cfg.whole_idea_policy.enabled) is not bool:
+        raise ValueError("whole_idea_policy.enabled must be boolean")
+    if type(cfg.whole_idea_policy.policy_version) is not int or cfg.whole_idea_policy.policy_version != 1:
+        raise ValueError("whole_idea_policy.policy_version must be 1")
     if type(cfg.methodology.enabled) is not bool:
         raise ValueError("methodology.enabled must be boolean")
     if not isinstance(cfg.methodology.profile, str) or cfg.methodology.profile not in {"general", "medical"}:

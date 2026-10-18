@@ -78,6 +78,7 @@ def validate_candidate_packet(packet: object) -> dict[str, Any]:
 
 def freeze_evidence(task_dir: Path) -> dict[str, Any]:
     from .methodology import load_methodology
+    from .whole_idea_policy import load_whole_idea_policy
 
     catalog = load_catalog(task_dir)
     if catalog is None:
@@ -96,6 +97,9 @@ def freeze_evidence(task_dir: Path) -> dict[str, Any]:
             "policy_version": marker["policy_version"], "profile": marker["profile"],
             "rules_sha256": marker["rules_sha256"],
         }
+    whole_idea_policy = load_whole_idea_policy(task_dir)
+    if whole_idea_policy is not None:
+        frozen["whole_idea_policy_sha256"] = content_hash(whole_idea_policy)
     return frozen
 
 

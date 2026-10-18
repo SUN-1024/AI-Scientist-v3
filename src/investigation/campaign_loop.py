@@ -107,6 +107,24 @@ def run_cycles_and_finalize(
         conclusions_dir = global_memory_dir
     state_store.ensure_conclusions_files(conclusions_dir)
     native_evaluation = not containerize and not (task_dir / ".agentic_runtime.json").is_file() and not (task_dir / "task_contract.json").is_file()
+    # Portfolio children consume one exact host lease. They never choose a
+    # local tree parent or create a second policy controller.
+    external_context = None
+    external_file = getattr(cfg.execution, "portfolio_lease_file", None)
+    if external_file:
+        from .portfolio_campaign import load_external_portfolio_context
+        try:
+            external_context = load_external_portfolio_context(
+                cfg=cfg, task_dir=task_dir, results_dir=results_dir,
+                seed_program_dir=Path(cfg.paths.seed_program).expanduser().resolve(),
+            )
+        except (ValueError, OSError) as exc:
+            log_event_fn("campaign_failed", reason="invalid_portfolio_lease", detail=str(exc))
+            return 2
+        start_cycle = 1
+    elif (results_dir / "portfolio_investigation.json").exists():
+        log_event_fn("campaign_failed", reason="portfolio_state_requires_original_policy")
+        return 2
     controller = None
     if not cfg.adaptive_investigation.enabled and (results_dir / ADAPTIVE_STATE_FILE).exists():
         log_event_fn("campaign_failed", reason="adaptive_state_requires_original_policy")
@@ -121,10 +139,10 @@ def run_cycles_and_finalize(
         except (ValueError, OSError) as exc:
             log_event_fn("campaign_failed", reason="invalid_adaptive_state", detail=str(exc))
             return 2
-    elif cfg.execution.resume:
+    elif cfg.execution.resume and external_context is None:
         start_cycle = resume_cycle(results_dir, outer_state)
     search_tree = None
-    if cfg.execution.search_strategy == "tree" or controller is not None:
+    if external_context is None and (cfg.execution.search_strategy == "tree" or controller is not None):
         try:
             search_tree = SearchTree(
                 results_dir, task_dir, width=cfg.execution.search_width,
@@ -147,7 +165,7 @@ def run_cycles_and_finalize(
         confirm_prune_warning()
 
     for cycle_idx in range(start_cycle, cfg.execution.max_idea_cycles + 1):
-        adaptive_lease = controller.plan_cycle(cycle_idx) if controller else None
+        adaptive_lease = external_context or (controller.plan_cycle(cycle_idx) if controller else None)
         if controller and adaptive_lease is None:
             break
         is_replication = bool(adaptive_lease and adaptive_lease["action"] == "replicate_frozen_candidate")
@@ -168,6 +186,7 @@ def run_cycles_and_finalize(
             outer_state=outer_state,
             selected_agent=cycle_agent.agent, selected_model=cycle_agent.model,
             adaptive_context=controller.context(adaptive_lease) if controller else None,
+            **({"portfolio_context": external_context} if external_context else {}),
         )
         assignments_after = outer_state.get("agent_cycle_assignments")
         selected_after = (
@@ -221,7 +240,10 @@ def run_cycles_and_finalize(
                 conclusions_pre_state["own_conclusions_size"],
             )
 
-        cycle_seed = best_program_dir
+        cycle_seed = Path(external_context["parent_program_dir"]) if external_context else best_program_dir
+        if external_context and _fingerprint(cycle_seed) != external_context["parent_source_hash"]:
+            log_event_fn("campaign_failed", reason="portfolio_parent_changed")
+            return 2
         if is_replication:
             cycle_seed = Path(adaptive_lease["frozen_candidate"]["program_dir"])
         elif search_tree is not None:
@@ -277,8 +299,11 @@ def run_cycles_and_finalize(
                 artifacts = load_idea_artifacts(idea_workspace, cycle_idx, read_json_fn,
                     require_harness_verification=cfg.execution.harness_evaluated_attempts,
                     harness_incumbent_score=_correct_incumbent_score(best_manifest, harness_evaluated_attempts=cfg.execution.harness_evaluated_attempts),
-                    require_score_improvement=controller is None)
+                    require_score_improvement=controller is None and external_context is None)
                 idea_bundle = artifacts.bundle
+                if external_context:
+                    from .portfolio_campaign import bind_portfolio_idea
+                    idea_bundle = bind_portfolio_idea(idea_bundle, external_context)
                 validate_basis_for_task(task_dir, idea_bundle)
             except (IdeaArtifactsError, ValueError, OSError) as exc:
                 log_event_fn("campaign_failed", reason="invalid_pending_idea", detail=str(exc))
@@ -390,9 +415,12 @@ def run_cycles_and_finalize(
                         read_json_fn,
                         require_harness_verification=cfg.execution.harness_evaluated_attempts,
                         harness_incumbent_score=harness_incumbent_score,
-                        require_score_improvement=controller is None,
+                        require_score_improvement=controller is None and external_context is None,
                     )
                     try:
+                        if external_context:
+                            from .portfolio_campaign import bind_portfolio_idea
+                            artifacts.bundle.update(bind_portfolio_idea(artifacts.bundle, external_context))
                         validate_basis_for_task(task_dir, artifacts.bundle)
                     except (ValueError, OSError) as exc:
                         raise IdeaArtifactsError("invalid_research_basis", detail=str(exc)) from exc
@@ -495,6 +523,9 @@ def run_cycles_and_finalize(
             )
             return 2
 
+        if external_context:
+            from .portfolio_campaign import bind_portfolio_idea
+            idea_bundle = bind_portfolio_idea(idea_bundle, external_context)
         idea_id = str(idea_bundle["idea_id"])
         if idea_bundle.get("research_basis", {}).get("status") == "collision":
             state_store.write_private_text(
@@ -579,7 +610,17 @@ def run_cycles_and_finalize(
 
         prior_attempt_rows = state_store.tail_jsonl(state_store.attempts_history_path(results_dir), max_lines=100000)
         prior_retries = {row.get("attempt_id") for row in prior_attempt_rows if isinstance(row, dict) and row.get("retry_scheduled") is True}
-        for attempt_number in range(1, cfg.execution.agent_transient_max_attempts + 1):
+        first_attempt = 1
+        if external_context and prior_attempt_rows:
+            # Parent-level transport retries retain the lease and root idea but
+            # use a new workspace. Never overwrite a failed provider attempt.
+            finished_transport = [row for row in prior_attempt_rows
+                if row.get("idea_id") == idea_id and row.get("failure_category") == "transient_provider"
+                and not row.get("evaluation_performed")]
+            if finished_transport:
+                first_attempt = 1 + max(int(row.get("attempt_number", 0)) for row in finished_transport)
+        last_attempt = first_attempt + cfg.execution.agent_transient_max_attempts - 1
+        for attempt_number in range(first_attempt, last_attempt + 1):
             attempt_id = f"{idea_id}_attempt_{attempt_number:02d}"
             if attempt_id in prior_retries and attempt_number < cfg.execution.agent_transient_max_attempts:
                 continue
@@ -650,7 +691,7 @@ def run_cycles_and_finalize(
             )
             if controller and retryable:
                 controller.record_transport_failure(attempt_id)
-            if not retryable or attempt_number >= cfg.execution.agent_transient_max_attempts or (controller and controller.data["transport_failures"] >= controller.policy.max_transport_failures):
+            if not retryable or attempt_number >= last_attempt or (controller and controller.data["transport_failures"] >= controller.policy.max_transport_failures):
                 break
             retry_log_path = retry_workspace / "wrapper_output.log"
             retry_log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -864,10 +905,18 @@ def run_cycles_and_finalize(
 
         if adaptive_lease:
             attempt_record.update(adaptive_stage=adaptive_lease["main_stage"], adaptive_substage=adaptive_lease["substage"], adaptive_action=adaptive_lease["action"], scientific_evaluation=trusted_outcome is not None)
+        if external_context:
+            attempt_record.update(portfolio_lease_id=external_context["lease_id"],
+                                  root_idea_id=external_context["root_idea_id"],
+                                  portfolio_stage=external_context["stage"])
         state_store.append_jsonl_if_absent(state_store.attempts_history_path(results_dir), attempt_record, matching={"attempt_id": attempt_id, "retry_scheduled": False})
         outer_state["current_cycle"] = cycle_idx
-        outer_state.pop("pending_cycle", None)
-        outer_state.pop("pending_idea_dir", None)
+        if external_context and trusted_outcome is None:
+            outer_state["pending_cycle"] = cycle_idx
+            outer_state["pending_idea_dir"] = str(idea_dir)
+        else:
+            outer_state.pop("pending_cycle", None)
+            outer_state.pop("pending_idea_dir", None)
         state_store.save_outer_state(results_dir, outer_state)
         if controller:
             controller.finish_cycle(cycle_idx)

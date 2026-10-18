@@ -47,6 +47,7 @@ def _review_env_file(cfg: PipelineConfig, *, repo_root: Path) -> Path | None:
 def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     """Rebuild the selected review on the host before exposing it to a reviewer."""
     from src.research.evidence import verify_methodology_for_paper, verify_selected_novelty_for_paper
+    from src.research.portfolio_evidence import verify_portfolio_for_paper
 
     data_path = paths.paper_dir / "paper_data.json"
     if any(path.is_symlink() for path in (data_path, *data_path.parents)):
@@ -64,13 +65,17 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     methodology = verify_methodology_for_paper(
         paper_data, investigation_results_dir=paths.investigation_dir,
     )
-    if selected is None and methodology is None:
+    portfolio = verify_portfolio_for_paper(
+        paper_data, investigation_results_dir=paths.investigation_dir,
+    )
+    if selected is None and methodology is None and portfolio is None:
         return None
     packet = {
         "schema_version": 1,
-        "scope": "host_revalidated_selected_candidate_novelty",
+        "scope": "host_revalidated_research_evidence",
         "interpretation": (
-            "This is a development-stage novelty assessment. Its gaps and next actions "
+            "This packet binds the current novelty assessment, frozen methodology, and "
+            "whole-idea development ledger where available. Its gaps and next actions "
             "limit the manuscript's claims. Supported does not establish final experimental "
             "success, external validity, human approval, or publication acceptance."
         ),
@@ -78,6 +83,8 @@ def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
     }
     if methodology is not None:
         packet["research_methodology"] = methodology
+    if portfolio is not None:
+        packet["research_portfolio"] = portfolio
     body = (json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     if len(body) > 512 * 1024:
         raise ValueError("Selected novelty evidence exceeds the independent review packet limit")

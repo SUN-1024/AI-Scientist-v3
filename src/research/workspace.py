@@ -14,7 +14,7 @@ from src.investigation.files import load_task_copy_ignore_patterns, task_copy_pa
 from src.orchestrator.state import write_private_text
 from src.pipeline.safe_fs import ensure_directory, open_directory, validate_tree_symlinks_fd
 from src.pipeline.task_tree import copy_task_tree_at, task_tree_manifest_at, verify_copied_task_tree
-from .config import MethodologyConfig, ResearchConfig, load_config
+from .config import MethodologyConfig, ResearchConfig, WholeIdeaPolicyConfig, load_config
 from .evidence import load_catalog
 from .literature import prepare_literature
 
@@ -66,6 +66,11 @@ def _matches_frozen_config(cfg: ResearchConfig, saved: object) -> bool:
             return False
         cfg.methodology = MethodologyConfig(enabled=False)
         saved["methodology"] = asdict(cfg.methodology)
+    if "whole_idea_policy" not in saved:
+        if cfg.whole_idea_policy != WholeIdeaPolicyConfig():
+            return False
+        cfg.whole_idea_policy = WholeIdeaPolicyConfig(enabled=False)
+        saved["whole_idea_policy"] = asdict(cfg.whole_idea_policy)
     return asdict(cfg) == saved
 
 
@@ -78,6 +83,17 @@ def _verify_methodology(task_dir: Path, cfg: ResearchConfig) -> None:
             raise ValueError("Frozen methodology does not match the research configuration")
     elif marker is not None:
         raise ValueError("Disabled methodology cannot contain a frozen guidance marker")
+
+
+def _verify_whole_idea_policy(task_dir: Path, cfg: ResearchConfig) -> None:
+    from .whole_idea_policy import load_whole_idea_policy
+
+    marker = load_whole_idea_policy(task_dir)
+    if cfg.whole_idea_policy.enabled:
+        if marker is None:
+            raise ValueError("The frozen whole-idea policy is missing")
+    elif marker is not None:
+        raise ValueError("Disabled whole-idea policy cannot contain a frozen marker")
 
 
 def _records(path: Path, *, source: bool = False) -> dict[str, Any]:
@@ -169,6 +185,7 @@ def load_preparation(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
         raise ValueError("Research preparation configuration changed")
     if journal["state"] in {"initial_review", "finalizing", "prepared"}:
         _verify_methodology(workspace / "input_task", cfg)
+        _verify_whole_idea_policy(workspace / "input_task", cfg)
     return cfg, journal
 
 
@@ -249,6 +266,15 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
                 raise ValueError(".agentic_task_ignore must retain the frozen methodology")
             write_methodology(staged, cfg.methodology.profile)
         _verify_methodology(staged, cfg)
+        if cfg.whole_idea_policy.enabled:
+            from .whole_idea_policy import freeze_whole_idea_policy
+
+            policy_path = "research_context/whole_idea_policy.json"
+            if task_copy_path_is_ignored(policy_path, is_dir=False,
+                                         patterns=load_task_copy_ignore_patterns(staged)):
+                raise ValueError(".agentic_task_ignore must retain the frozen whole-idea policy")
+            freeze_whole_idea_policy(staged)
+        _verify_whole_idea_policy(staged, cfg)
         journal.pop("literature_error", None)
         journal["literature_records"] = {name: value for name, value in _records(staged).items()
                                          if name == "research_context" or name.startswith("research_context/")}
@@ -304,6 +330,7 @@ def resume(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
         raise ValueError("Invalid saved pipeline overrides")
     load_catalog(staged)
     _verify_methodology(staged, cfg)
+    _verify_whole_idea_policy(staged, cfg)
     return cfg, manifest
 
 

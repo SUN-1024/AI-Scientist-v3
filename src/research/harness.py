@@ -450,8 +450,8 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     if target == "high_impact":
         if REQUIRED_PHASES - phases:
             raise ValueError("High-impact harness requires all research phases; use --quality-target development for a partial pilot")
-        if not pipeline_cfg.investigation.adaptive_enabled:
-            raise ValueError("High-impact harness requires adaptive_investigation.enabled=true")
+        if not (pipeline_cfg.investigation.adaptive_enabled or pipeline_cfg.investigation.portfolio_enabled):
+            raise ValueError("High-impact harness requires portfolio.enabled=true or adaptive_investigation.enabled=true")
     requested = [phase for phase in PIPELINE_PHASES if phase in phases]
     remaining = _resume_plan(workspace, prior, phases) if prior else phases
     if prior and target != prior["quality_target"]:

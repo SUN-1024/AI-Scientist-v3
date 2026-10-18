@@ -31,7 +31,13 @@ def validated_development_outcome(program_dir: Path, *, task_dir: Path, attempt_
     try:
         if manifest.get("adaptive_source_sha256") != _program_source_records(program_dir) or manifest.get("adaptive_evaluator_sha256") != _hash(task_dir / "evaluate.py"):
             return None
-        if manifest.get("adaptive_result_sha256") != {name: _hash(program_dir / name) for name in ("metrics.json", "correct.json")}:
+        result_hashes = manifest.get("adaptive_result_sha256")
+        required_results = {"metrics.json", "correct.json"}
+        if not isinstance(result_hashes, dict) or set(result_hashes) not in (
+            required_results, required_results | {"evaluation_evidence.json"},
+        ):
+            return None
+        if result_hashes != {name: _hash(program_dir / name) for name in result_hashes}:
             return None
         metrics, correct = _read_harness_json(program_dir / "metrics.json"), _read_harness_json(program_dir / "correct.json")
         score = _finite_score(metrics.get("combined_score")) if metrics else None
