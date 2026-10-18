@@ -116,7 +116,8 @@ class ReflectionResult:
 def refine_agenda(initial_agenda: dict[str, Any], *, frozen_context: str,
                   request: Callable[[str, int], dict[str, Any]],
                   normalize: Callable[[object], dict[str, Any]],
-                  num_reflections: int = 3) -> ReflectionResult:
+                  num_reflections: int = 3,
+                  validation_errors: Callable[[dict[str, Any]], list[dict[str, Any]]] | None = None) -> ReflectionResult:
     """Run V1's bounded refine/parse/archive loop through the host provider.
 
     ``num_reflections`` includes the already completed initial drafting call,
@@ -131,6 +132,9 @@ def refine_agenda(initial_agenda: dict[str, Any], *, frozen_context: str,
     agenda.pop("_reflection", None)
     result = ReflectionResult(agenda=agenda, num_reflections=num_reflections)
     result.history.append({"round": 1, "agenda_sha256": _digest(agenda), "agenda": copy.deepcopy(agenda)})
+    errors = validation_errors(agenda) if validation_errors is not None else []
+    if validation_errors is not None:
+        result.history[-1]["plan_validation_errors"] = errors
 
     for round_index in range(2, num_reflections + 1):
         prompt = (frozen_context + "\n\nAUTHOR REFLECTION:\n"
@@ -138,6 +142,12 @@ def refine_agenda(initial_agenda: dict[str, Any], *, frozen_context: str,
                                                   num_reflections=num_reflections)
                   + "\n\nPREVIOUS AGENDA JSON:\n"
                   + json.dumps(result.agenda, ensure_ascii=False, sort_keys=True))
+        if validation_errors is not None:
+            prompt += ("\n\nHOST PLAN VALIDATION ERRORS:\n"
+                       "Correct every error in execution_plan before independent review. "
+                       "The host allocation is fixed. Do not change the budget or claim that "
+                       "an invalid plan is executable. Return the complete corrected agenda.\n"
+                       + json.dumps(errors, ensure_ascii=False, sort_keys=True))
         if len(prompt.encode("utf-8")) > 1_800_000:
             raise ValueError("Reflection prompt exceeds 1.8 MB; do not truncate frozen evidence")
         raw = request(prompt, round_index)
@@ -159,9 +169,12 @@ def refine_agenda(initial_agenda: dict[str, Any], *, frozen_context: str,
                                "changes": changes, "remaining_gaps": gaps,
                                "agenda": copy.deepcopy(agenda)})
         result.agenda = agenda
+        errors = validation_errors(agenda) if validation_errors is not None else []
+        if validation_errors is not None:
+            result.history[-1]["plan_validation_errors"] = errors
         # The V1 text marker can occur in source text or a quoted idea. A parsed
         # boolean bound to unchanged JSON makes the stop condition unambiguous.
-        if feedback.get("done") is True and not changed:
+        if feedback.get("done") is True and not changed and not errors:
             result.converged = True
             break
     return result

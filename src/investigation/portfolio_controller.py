@@ -28,6 +28,24 @@ HANDOFF_FILE = "validation_handoff.json"
 LOCK_FILE = ".portfolio_investigation.lock"
 INNOVATION_AXES = ("problem", "efficiency", "data", "objective", "optimization", "structure")
 _MAX_STATE_BYTES = 32 * 1024 * 1024
+_PLAN_HOST_FIELDS = {"root_idea_id", "idea_key", "card_sha256"}
+
+
+def _planned_root_fields(root: dict[str, Any]) -> dict[str, Any]:
+    return {"card_sha256": root["card_sha256"], "idea_key": root["idea_key"],
+            "role": root["role"],
+            "planned_card": {key: deepcopy(value) for key, value in root.items() if key not in _PLAN_HOST_FIELDS}}
+
+
+def _validate_live_plan(data: dict[str, Any], task_dir: Path) -> None:
+    # A legacy campaign keeps its original scheduling contract on recovery.
+    if "plan_sha256" not in data:
+        return
+    from src.research.campaign_plan import load_campaign_plan
+
+    plan = load_campaign_plan(task_dir, portfolio_policy=data["policy"], required=True)
+    if plan is None or plan != data.get("campaign_plan") or plan["plan_sha256"] != data["plan_sha256"]:
+        raise ValueError("Portfolio campaign plan changed; start a new campaign")
 
 
 @dataclass
@@ -133,6 +151,23 @@ def _validate_state(data: dict[str, Any]) -> None:
     _validate_policy(policy)
     if data["policy_hash"] != _digest(asdict(policy)):
         raise ValueError("Portfolio policy identity mismatch")
+    planned_roots = {}
+    if "plan_sha256" in data:
+        from src.research.campaign_plan import validate_campaign_plan
+
+        plan = validate_campaign_plan(data.get("campaign_plan"), portfolio_policy=data["policy"])
+        if plan["plan_sha256"] != data["plan_sha256"]:
+            raise ValueError("Portfolio campaign plan identity mismatch")
+        planned_roots = {root["root_idea_id"]: root for root in plan["roots"]}
+        if data["baseline"] is not None and set(data["ideas"]) != set(planned_roots):
+            raise ValueError("Portfolio roots differ from the approved campaign plan")
+        for root_id, idea in data["ideas"].items():
+            planned = planned_roots.get(root_id)
+            if (planned is None or idea["innovation_axis"] != planned["whole_idea"]["innovation_axis"]
+                    or any(idea.get(key) != value for key, value in _planned_root_fields(planned).items())):
+                raise ValueError("Portfolio root card differs from the approved campaign plan")
+    elif "campaign_plan" in data:
+        raise ValueError("Portfolio campaign plan lacks its bound identity")
     if data["status"] not in {"running", "incomplete", "ready_for_validation"}:
         raise ValueError("Invalid portfolio status")
     if data["transport_failures"] != len(data["failures"]):
@@ -153,6 +188,13 @@ def _validate_state(data: dict[str, Any]) -> None:
     for key, lease in leases.items():
         if lease.get("lease_id") != key or any(lease.get(field) != data[field] for field in ("policy_hash", "task_hash", "protocol_hash")):
             raise ValueError("Portfolio lease identity mismatch")
+        if planned_roots:
+            planned = planned_roots.get(lease.get("root_idea_id"))
+            if (lease.get("plan_sha256") != data["plan_sha256"]
+                    or lease.get("card_sha256") != (planned["card_sha256"] if planned else None)
+                    or lease.get("role") != (planned["role"] if planned else "bootstrap")
+                    or (planned is not None and lease.get("innovation_axis") != planned["whole_idea"]["innovation_axis"])):
+                raise ValueError("Portfolio lease campaign plan or card identity mismatch")
         if lease.get("root_idea_id") != "baseline" and lease.get("root_idea_id") not in data["ideas"]:
             raise ValueError("Portfolio lease points to an unknown idea")
         if lease.get("stage") not in {"screening", "tuning", "replication"}:
@@ -163,6 +205,14 @@ def _validate_state(data: dict[str, Any]) -> None:
             raise ValueError("Portfolio parent identity mismatch")
     for key, outcome in outcomes.items():
         PortfolioController._validate_score(outcome.get("score"), outcome.get("correct"))
+        if planned_roots:
+            from .portfolio_campaign import bind_portfolio_idea
+
+            lease = leases[key]
+            if any(outcome.get(field) != lease.get(field) for field in ("plan_sha256", "card_sha256", "role")):
+                raise ValueError("Portfolio outcome campaign plan identity mismatch")
+            if bind_portfolio_idea(outcome.get("idea_bundle"), _context(data, lease)) != outcome.get("idea_bundle"):
+                raise ValueError("Portfolio outcome differs from its bound complete plan card")
         if leases[key]["stage"] == "replication" and outcome.get("source_hash") != leases[key]["parent_source_hash"]:
             raise ValueError("Portfolio repeat ledger changed its frozen source")
     for root_id, idea in data["ideas"].items():
@@ -190,6 +240,8 @@ def read_portfolio_state(results_dir: Path, task_dir: Path | None = None,
             expected["policy_hash"] = _digest(asdict(policy))
         if any(data.get(key) != value for key, value in expected.items()):
             raise ValueError("Portfolio policy/task/protocol changed; start a new campaign")
+        if task_dir is not None:
+            _validate_live_plan(data, Path(task_dir))
         return deepcopy(data)
 
 
@@ -199,18 +251,23 @@ def _context(data: dict[str, Any], lease: dict[str, Any]) -> dict[str, Any]:
                 "trial_index": data["leases"][key]["trial_index"], "outcome": data["outcomes"][key]}
                for key in sorted(root.get("history", []))]
     bundle = next((row["outcome"].get("idea_bundle") for row in history if row["stage"] == "screening"), None)
-    source_card = bundle.get("whole_idea", bundle) if isinstance(bundle, dict) else None
+    source_card = (root["planned_card"]["whole_idea"] if "planned_card" in root else
+                   bundle.get("whole_idea", bundle) if isinstance(bundle, dict) else None)
     archive = []
     for root_id, idea in sorted(data["ideas"].items()):
-        if root_id == lease["root_idea_id"] or not idea["history"]:
+        if root_id == lease["root_idea_id"] or (not idea["history"] and "planned_card" not in idea):
             continue
         screen = next((data["outcomes"][key] for key in idea["history"] if data["leases"][key]["stage"] == "screening"), None)
-        card = screen.get("idea_bundle") if screen else None
+        card = idea.get("planned_card") or (screen.get("idea_bundle") if screen else None)
         archive.append({"root_idea_id": root_id, "innovation_axis": idea["innovation_axis"],
                         "source_card": card.get("whole_idea", card) if isinstance(card, dict) else None,
-                        "status": "promoted" if idea["promoted"] else "screened",
+                        "status": "promoted" if idea["promoted"] else "screened" if idea["history"] else "planned",
                         "best_score": idea["best"]["score"] if idea["best"] else None})
-    return deepcopy({**lease, "policy": "host_whole_idea_portfolio", "whole_idea": True,
+    planned_context = ({"planned_card": root["planned_card"]} if "planned_card" in root else {})
+    if "campaign_plan" in data:
+        planned_context["campaign_plan"] = {key: data["campaign_plan"][key] for key in (
+            "plan_sha256", "host_context_sha256", "agenda_sha256", "allocation")}
+    return deepcopy({**lease, **planned_context, "policy": "host_whole_idea_portfolio", "whole_idea": True,
                      "single_candidate": True, "idea_history": history, "source_card": source_card, "idea_archive": archive,
                      "own_best": root.get("best"), "policy_config": data["policy"],
                      "status": data["status"], "valid_evaluations": data["valid_evaluations"],
@@ -252,6 +309,7 @@ class PortfolioController:
         self.policy = deepcopy(policy)
         self.path = self.results_dir / STATE_FILE
         self.identity = {"policy_hash": _digest(asdict(policy)), **task_protocol_identity(self.task_dir)}
+        self._initialized = False
         self.data: dict[str, Any] = {
             "schema_version": 1, **self.identity, "policy": asdict(policy),
             "status": "running", "stage": "baseline_qualification", "main_stage": "baseline_qualification",
@@ -267,13 +325,30 @@ class PortfolioController:
     def _transaction(self) -> Iterator[None]:
         with _locked_root(self.results_dir, create=True) as root_fd:
             actual = {"policy_hash": _digest(asdict(self.policy)), **task_protocol_identity(self.task_dir)}
-            if actual != self.identity:
+            if any(self.identity.get(key) != value for key, value in actual.items()):
                 raise ValueError("Portfolio policy/task/protocol changed; start a new campaign")
             loaded = _read_state(root_fd)
+            if self._initialized and loaded is None and "plan_sha256" in self.identity:
+                raise ValueError("Bound portfolio state is missing; cannot recover planned leases")
+            if not self._initialized:
+                if loaded is None:
+                    from src.research.campaign_plan import load_campaign_plan
+
+                    plan = load_campaign_plan(self.task_dir, portfolio_policy=asdict(self.policy))
+                    if plan is not None:
+                        if any((self.results_dir / name).exists() or (self.results_dir / name).is_symlink()
+                               for name in ("portfolio_trials", HANDOFF_FILE)):
+                            raise ValueError("Bound portfolio state is missing for existing planned work")
+                        self.identity["plan_sha256"] = plan["plan_sha256"]
+                        self.data.update(campaign_plan=plan, plan_sha256=plan["plan_sha256"])
+                elif "plan_sha256" in loaded:
+                    self.identity["plan_sha256"] = loaded["plan_sha256"]
+                self._initialized = True
             if loaded is not None:
                 if any(loaded.get(key) != value for key, value in self.identity.items()):
                     raise ValueError("Portfolio policy/task/protocol changed; start a new campaign")
                 self.data = loaded
+            _validate_live_plan(self.data, self.task_dir)
             previous = deepcopy(self.data)
             try:
                 yield
@@ -323,15 +398,23 @@ class PortfolioController:
                         "source_hash": _fingerprint(Path(program_dir)), "receipt_id": manifest.get("receipt_id"),
                         "root_idea_id": "baseline", "lease_id": "baseline"}
             baseline.update({key: manifest[key] for key in ("attempt_id", "idea_id") if key in manifest})
+            if "campaign_plan" in self.data:
+                baseline.update(evidence_role="bootstrap", tuned_comparator=False)
             if self.data["baseline"] is not None:
                 if self.data["baseline"] != baseline:
                     raise ValueError("Qualified portfolio baseline cannot change")
                 return
             self.data.update(baseline=baseline, best=deepcopy(baseline))
-            self.data["ideas"] = {f"idea_{index + 1:04d}": {
-                "root_idea_id": f"idea_{index + 1:04d}", "innovation_axis": INNOVATION_AXES[index % len(INNOVATION_AXES)],
-                "history": [], "best": None, "promoted": False,
-            } for index in range(self.policy.initial_ideas)}
+            if "campaign_plan" in self.data:
+                self.data["ideas"] = {root["root_idea_id"]: {
+                    "root_idea_id": root["root_idea_id"], "innovation_axis": root["whole_idea"]["innovation_axis"],
+                    **_planned_root_fields(root), "history": [], "best": None, "promoted": False,
+                } for root in self.data["campaign_plan"]["roots"]}
+            else:
+                self.data["ideas"] = {f"idea_{index + 1:04d}": {
+                    "root_idea_id": f"idea_{index + 1:04d}", "innovation_axis": INNOVATION_AXES[index % len(INNOVATION_AXES)],
+                    "history": [], "best": None, "promoted": False,
+                } for index in range(self.policy.initial_ideas)}
             self._transition("screening", "host_baseline_qualified_whole_idea_cohort_open")
 
     @staticmethod
@@ -414,6 +497,9 @@ class PortfolioController:
                      "objective": "replication" if stage == "replication" else "comparison",
                      **self.identity, "result_dir": str(self.results_dir / "portfolio_trials" / lease_id),
                      "worker_id": worker_id, "gpu_selector": gpu_selector, "reason": self.data["transition_reason"]}
+            if "plan_sha256" in self.data:
+                root = self.data["ideas"].get(root_id, {})
+                lease.update(card_sha256=root.get("card_sha256"), role=root.get("role", "bootstrap"))
             if stage == "replication":
                 lease["frozen_candidate"] = deepcopy(parent)
             self.data["leases"][lease_id] = lease
@@ -422,15 +508,26 @@ class PortfolioController:
 
     def record_receipt(self, lease_id: str, trusted_outcome: dict[str, Any]) -> bool:
         with self._transaction():
+            outcome = deepcopy(trusted_outcome)
+            if not isinstance(outcome, dict):
+                raise ValueError("Portfolio outcome must be a host-validated receipt")
+            if "plan_sha256" in self.data:
+                from .portfolio_campaign import bind_portfolio_idea
+
+                lease = self.data["leases"].get(lease_id)
+                if lease is None:
+                    raise ValueError("Portfolio receipt has no pending lease")
+                outcome["idea_bundle"] = bind_portfolio_idea(outcome.get("idea_bundle"), _context(self.data, lease))
+                if any(field in outcome and outcome[field] != lease.get(field)
+                       for field in ("plan_sha256", "card_sha256", "role")):
+                    raise ValueError("Portfolio receipt campaign plan identity mismatch")
+                outcome.update({field: lease.get(field) for field in ("plan_sha256", "card_sha256", "role")})
             if lease_id in self.data["outcomes"]:
-                if self.data["outcomes"][lease_id] != trusted_outcome:
+                if self.data["outcomes"][lease_id] != outcome:
                     raise ValueError("Completed portfolio receipt cannot change")
                 return False
             if lease_id not in self.data["pending"]:
                 raise ValueError("Portfolio receipt has no pending lease")
-            outcome = deepcopy(trusted_outcome)
-            if not isinstance(outcome, dict):
-                raise ValueError("Portfolio outcome must be a host-validated receipt")
             self._validate_score(outcome.get("score"), outcome.get("correct"))
             receipt_id, source_hash, program_dir = (outcome.get(key) for key in ("receipt_id", "source_hash", "program_dir"))
             if (not isinstance(receipt_id, str) or not receipt_id or not isinstance(source_hash, str)
@@ -457,6 +554,8 @@ class PortfolioController:
                     candidate = {key: outcome[key] for key in ("score", "correct", "program_dir", "source_hash", "receipt_id")}
                     candidate.update({key: outcome[key] for key in ("attempt_id", "idea_id") if key in outcome})
                     candidate.update(root_idea_id=lease["root_idea_id"], lease_id=lease_id)
+                    if "plan_sha256" in self.data:
+                        candidate.update({field: lease.get(field) for field in ("plan_sha256", "card_sha256", "role")})
                     root["best"] = self._rank([candidate, *([root["best"]] if root["best"] else [])])[0]
                     self.data["best"] = self._rank([self.data["best"], candidate])[0]
             if self.data["status"] == "running":
@@ -536,7 +635,7 @@ class PortfolioController:
             and delta > self.policy.min_improvement
             and repeat_delta > self.policy.min_improvement
         )
-        return {"schema_version": 1, "status": "ready_for_validation", "mode": "whole_idea_portfolio",
+        handoff = {"schema_version": 1, "status": "ready_for_validation", "mode": "whole_idea_portfolio",
                 "candidate": deepcopy(self.data["frozen_candidate"]), **self.identity,
                 "development_aggregates": deepcopy(self.data["aggregates"]),
                 "selection_reason": self.data["selection_reason"], "baseline_score": self.data["baseline"]["score"],
@@ -545,6 +644,20 @@ class PortfolioController:
                 "claim_scope": "development_repeat_mean_improvement_over_qualified_baseline",
                 "required_phases": ["ablations", "final_evaluation", "posthoc", "paper"],
                 "independent_confirmation_complete": False, "submission_ready": False}
+        if "plan_sha256" in self.data:
+            handoff.update(
+                campaign_plan=deepcopy(self.data["campaign_plan"]),
+                baseline_evidence_role="bootstrap", baseline_tuned_comparator=False,
+                planned_root_execution=[{
+                    "root_idea_id": root_id, "card_sha256": root["card_sha256"], "role": root["role"],
+                    "promoted": root["promoted"], "own_best": deepcopy(root["best"]),
+                    "actual_evaluations": {stage: sum(
+                        self.data["leases"][key]["root_idea_id"] == root_id
+                        and self.data["leases"][key]["stage"] == stage for key in self.data["outcomes"])
+                        for stage in ("screening", "tuning", "replication")},
+                } for root_id, root in sorted(self.data["ideas"].items())],
+            )
+        return handoff
 
     def _write_handoff(self) -> None:
         handoff = self._handoff()

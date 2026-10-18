@@ -61,31 +61,55 @@ def _reviewer_settings(pipeline_cfg) -> dict[str, Any] | None:
             "timeout_seconds": review.timeout_seconds}
 
 
+def _resolved_campaign_context(task: Path, pipeline_cfg) -> dict[str, Any]:
+    """Use the final resolved execution policy, after all command overrides."""
+    from dataclasses import fields
+    from src.investigation.portfolio_controller import PortfolioConfig
+    from .campaign_plan import build_host_context
+
+    policy = {field.name: pipeline_cfg.investigation.get("portfolio." + field.name)
+              for field in fields(PortfolioConfig)}
+    return build_host_context(
+        task, portfolio_policy=policy, workers=pipeline_cfg.investigation.workers,
+        downstream_limits={"ablations": {"num_replications": pipeline_cfg.ablations.num_replications,
+                       "max_evals_per_variant": pipeline_cfg.ablations.max_evals_per_variant},
+         "confirmation": {"timeout_seconds": pipeline_cfg.final.timeout_seconds},
+         "posthoc": {"max_selected_analyses": pipeline_cfg.posthoc.max_selected_analyses}},
+    )
+
+
 def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bool,
                    reviewer_settings: dict[str, Any] | None, author_settings: dict[str, Any] | None = None,
                    research_basis: dict[str, Any] | None = None,
-                   candidate_packet: dict[str, Any] | None = None, resume_calls: bool = False) -> dict[str, Any]:
+                   candidate_packet: dict[str, Any] | None = None, resume_calls: bool = False,
+                   host_context: dict[str, Any] | None = None,
+                   seed_agenda: dict[str, Any] | None = None) -> dict[str, Any]:
     from .research_agenda import load_agenda, normalize_agenda, agenda_from_basis
     from .novelty import evaluate_novelty
     from .novelty_review import InvalidReviewResume, draft_research_agenda, review_novelty
+    from .campaign_plan import PlanValidationError, compile_campaign_plan
     output.mkdir(parents=True, exist_ok=True)
     agenda = agenda_from_basis(research_basis) if research_basis is not None else load_agenda(task)
     permitted = cfg.harness.novelty_review and not offline
     errors = []
-    resume_kwargs = {"resume": True} if resume_calls else {}
+    resume_kwargs: dict[str, Any] = {"resume": True} if resume_calls else {}
+    campaign_kwargs: dict[str, Any] = {"host_context": host_context} if host_context is not None else {}
+    author_kwargs: dict[str, Any] = {**campaign_kwargs, **({"seed_agenda": seed_agenda} if seed_agenda is not None else {})}
     try:
-        if permitted and (agenda is None or research_basis is not None):
+        if permitted and (agenda is None or research_basis is not None or host_context is not None or seed_agenda is not None):
             agenda = draft_research_agenda(task, cfg.literature, output,
                                            research_basis=research_basis, reviewer_settings=author_settings,
-                                           candidate_packet=candidate_packet, **resume_kwargs)
+                                           candidate_packet=candidate_packet, **resume_kwargs, **author_kwargs)
         agenda = agenda or normalize_agenda({"intent": "exploratory"})
+        if host_context is not None:
+            campaign_kwargs["compiled_plan"] = compile_campaign_plan(agenda, host_context)
         if permitted:
             report = review_novelty(task, agenda, cfg.literature, output,
                                     reviewer_count=cfg.harness.novelty_reviewers,
-                                    reviewer_settings=reviewer_settings, candidate_packet=candidate_packet, **resume_kwargs)
+                                    reviewer_settings=reviewer_settings, candidate_packet=candidate_packet, **resume_kwargs, **campaign_kwargs)
         else:
             report = evaluate_novelty(task, agenda, candidate_packet=candidate_packet)
-    except InvalidReviewResume:
+    except (InvalidReviewResume, PlanValidationError):
         raise
     except (ValueError, OSError, TypeError, KeyError) as exc:
         errors.append(str(exc))
@@ -140,8 +164,10 @@ def _resume_plan(workspace: Path, prior: dict[str, Any], phases: set[str]) -> se
             if not verify_stage_records(workspace, stage):
                 raise ValueError(f"Saved {phase} evidence changed or is incomplete; inspect artifacts before resuming")
             remaining.discard(phase)
-    if "investigation" in remaining and (workspace / "run/final_evaluation/invocation.json").exists():
-        raise ValueError("Final confirmation has already been invoked. Do not tune this study on confirmation results; create a new study with a new frozen confirmation protocol")
+    final = workspace / "run/final_evaluation"
+    if "investigation" in remaining and any((final / name).exists() or (final / name).is_symlink()
+                                            for name in ("invocation.json", "comparison_set.json")):
+        raise ValueError("Final confirmation has already been invoked or its method set has been frozen. Do not tune this study on confirmation results; create a new study with a new frozen confirmation protocol")
     return remaining
 
 
@@ -481,6 +507,17 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     state = HarnessState(workspace, phases=requested, quality_target=target,
                          input_sha256=manifest["input_task_sha256"] if manifest else None, prior=prior)
     state.payload["offline"] = offline
+    if not args.resume and not offline and cfg.harness.novelty_review and pipeline_cfg.investigation.portfolio_enabled:
+        # This opt-in travels through the normal preparation transaction. Old
+        # interrupted workspaces have no marker and keep their original calls.
+        if ("task_drafting" not in remaining and not missing_task_scaffold_files(task)
+                and (task / "task_contract.json").is_file()):
+            state.payload["campaign_plan_version"] = 1
+        else:
+            state.payload["campaign_plan"] = {
+                "status": "not_frozen", "reason": "The task scaffold and fixed contract must exist before plan compilation.",
+                "execution_mode": "legacy_task_drafting",
+            }
     state.payload["preflight"] = {"status": "passed", "checked_at": now(), "remaining_phases": sorted(remaining)}
     exit_code = 1
     workspace_lock_fd = None
@@ -488,21 +525,42 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
         if manifest is None:
             def after_literature(staged: Path, frozen_cfg: ResearchConfig) -> dict[str, str]:
                 from .upstream.disclosure import integration_marker, MARKER_PATH
+                from .campaign_plan import HOST_CONTEXT_PATH, CAMPAIGN_PLAN_PATH, PlanValidationError
+                from .research_agenda import load_seed_agenda
                 state.payload["literature"] = {"status": "prepared", "checked_at": now()}
                 state.payload["preparation"] = {"status": "initial_review", "journal": "research_preparation.json"}
                 state.save()
-                report = _novelty_cycle(staged, frozen_cfg, workspace / "novelty/initial", offline=offline,
-                                        reviewer_settings=_reviewer_settings(pipeline_cfg),
-                                        author_settings=_author_settings(pipeline_cfg), resume_calls=preparation is not None)
+                host_context = (_resolved_campaign_context(staged, pipeline_cfg)
+                                if state.payload.get("campaign_plan_version") == 1 else None)
+                campaign_kwargs = ({"host_context": host_context, "seed_agenda": load_seed_agenda(staged)}
+                                   if host_context is not None else {})
+                try:
+                    report = _novelty_cycle(staged, frozen_cfg, workspace / "novelty/initial", offline=offline,
+                                            reviewer_settings=_reviewer_settings(pipeline_cfg),
+                                            author_settings=_author_settings(pipeline_cfg), resume_calls=preparation is not None,
+                                            **campaign_kwargs)
+                except PlanValidationError:
+                    state.payload["preparation"] = {
+                        "status": "plan_validation_failed", "journal": "research_preparation.json",
+                        "checkpoint": "novelty/initial/plan_validation.json",
+                    }
+                    state.save()
+                    raise
                 state.payload["novelty_initial"] = {"status": report["status"], "report": "novelty/initial/novelty_report.json"}
                 state.save()
                 if frozen_cfg.harness.novelty_review and not offline and len(report.get("model_judgments", [])) < frozen_cfg.harness.novelty_reviewers:
                     raise ValueError("Initial novelty review is incomplete; resume this workspace to continue its saved calls")
                 agenda = read_json(workspace / "novelty/initial/research_agenda.json")
-                return {name: json.dumps(value, ensure_ascii=False, indent=2) + "\n" for name, value in {
+                outputs = {
                     "research_context/harness_novelty.json": report,
                     "research_agenda.json": agenda, str(MARKER_PATH): integration_marker(),
-                }.items()}
+                }
+                if host_context is not None:
+                    from .campaign_plan import compile_campaign_plan
+                    outputs[str(HOST_CONTEXT_PATH)] = host_context
+                    outputs[str(CAMPAIGN_PLAN_PATH)] = compile_campaign_plan(agenda, host_context)
+                return {name: json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+                        for name, value in outputs.items()}
             manifest = prepare(task, workspace, offline=offline, overrides=overrides, after_literature=after_literature,
                                resume_preparation=preparation is not None, initial_state=state.payload)
             state.payload["preparation"] = {"status": "prepared", "journal": "research_preparation.json"}

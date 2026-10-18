@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import tempfile
+from dataclasses import asdict
 from functools import wraps
 import time
 from datetime import datetime, timezone
@@ -231,24 +232,57 @@ def _log_checkpoint(result: CheckpointResult, log_event_fn: LogEventFn) -> None:
         )
 
 
+def _validate_portfolio_before_bootstrap(cfg: InvestigationConfig, task_dir: Path, results_dir: Path) -> None:
+    """Reject stale plans before setup, runtime checks, agents, or baseline work."""
+    if cfg.execution.portfolio_lease_file or not task_dir.is_dir():
+        return
+    from .portfolio_controller import HANDOFF_FILE, STATE_FILE, read_portfolio_state
+    from src.research.campaign_plan import load_campaign_plan
+
+    state_path = results_dir / STATE_FILE
+    if not cfg.portfolio.enabled:
+        if state_path.exists() or state_path.is_symlink():
+            data = read_portfolio_state(results_dir)
+            if "plan_sha256" in data:
+                raise ValueError("A planned campaign requires portfolio.enabled=true")
+        # Also reject incomplete or stale plan artifacts. An old whole-idea
+        # marker without a campaign plan remains a normal legacy task.
+        load_campaign_plan(task_dir, portfolio_policy=asdict(cfg.portfolio))
+        return
+    if state_path.exists() or state_path.is_symlink():
+        # Existing legacy state deliberately does not acquire a new plan.
+        read_portfolio_state(results_dir, task_dir, cfg.portfolio)
+    else:
+        plan = load_campaign_plan(task_dir, portfolio_policy=asdict(cfg.portfolio))
+        if plan is not None and any((results_dir / name).exists() or (results_dir / name).is_symlink()
+                                    for name in ("portfolio_trials", HANDOFF_FILE)):
+            raise ValueError("Bound portfolio state is missing for existing planned work")
+
+
 def _portfolio_worker_lock(function: Callable[..., int]) -> Callable[..., int]:
     """Claim the root or child writer lock before task/bootstrap state changes."""
     @wraps(function)
     def wrapped(*args: Any, **kwargs: Any) -> int:
         cfg = kwargs["cfg"]
-        if not cfg.execution.portfolio_lease_file and not cfg.portfolio.enabled:
-            return function(*args, **kwargs)
-        from .portfolio_campaign import external_portfolio_worker_lock, portfolio_coordinator_lock
-
         task_dir = resolve_path(cfg.paths.task_dir)
         results_dir = (
             resolve_path(cfg.paths.results_dir) if cfg.paths.results_dir
             else kwargs["default_results_path_fn"](task_dir, cfg.agent.name)
         )
+        if not cfg.execution.portfolio_lease_file and not cfg.portfolio.enabled:
+            try:
+                _validate_portfolio_before_bootstrap(cfg, task_dir, results_dir)
+            except (OSError, ValueError) as exc:
+                kwargs["log_event_fn"]("config_error", reason="invalid_campaign_plan", error=str(exc))
+                return 2
+            return function(*args, **kwargs)
+        from .portfolio_campaign import external_portfolio_worker_lock, portfolio_coordinator_lock
+
         try:
             lock = (external_portfolio_worker_lock(cfg=cfg, task_dir=task_dir, results_dir=results_dir)
                     if cfg.execution.portfolio_lease_file else portfolio_coordinator_lock(results_dir))
             with lock:
+                _validate_portfolio_before_bootstrap(cfg, task_dir, results_dir)
                 return function(*args, **kwargs)
         except (OSError, ValueError) as exc:
             reason = "invalid_portfolio_lease" if cfg.execution.portfolio_lease_file else "portfolio_coordinator_error"
@@ -682,6 +716,14 @@ def run_main_flow(
         _configure_contracted_agent_isolation(task_dir, results_dir)
     except ValueError as exc:
         log_event_fn("config_error", reason="invalid_task_contract_isolation", error=str(exc))
+        return 2
+
+    # Setup/drafting can alter public task inputs. Check the frozen plan again
+    # before runtime preparation can train or evaluate a bootstrap candidate.
+    try:
+        _validate_portfolio_before_bootstrap(cfg, task_dir, results_dir)
+    except (OSError, ValueError) as exc:
+        log_event_fn("config_error", reason="invalid_campaign_plan", error=str(exc))
         return 2
 
     # A task-only run on a pre-authored scaffold prepares no runtime: the pipeline discards

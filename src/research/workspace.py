@@ -51,7 +51,21 @@ PREPARATION_FILE = "research_preparation.json"
 PREPARATION_OUTPUTS = {
     "research_agenda.json", "research_context/harness_novelty.json",
     "research_context/upstream_integration.json",
+    "research_context/host_context.json", "research_context/campaign_plan.json",
 }
+
+
+def _verify_campaign_outputs(outputs: dict[str, str]) -> None:
+    from .campaign_plan import HOST_CONTEXT_PATH, CAMPAIGN_PLAN_PATH, validate_campaign_plan, validate_host_context
+
+    context_text, plan_text = outputs.get(str(HOST_CONTEXT_PATH)), outputs.get(str(CAMPAIGN_PLAN_PATH))
+    if context_text is None and plan_text is None:
+        return
+    if context_text is None or plan_text is None or "research_agenda.json" not in outputs:
+        raise ValueError("Campaign preparation must freeze context, plan and agenda together")
+    context = validate_host_context(json.loads(context_text))
+    validate_campaign_plan(json.loads(plan_text), host_context=context,
+                           agenda=json.loads(outputs["research_agenda.json"]))
 
 
 def _matches_frozen_config(cfg: ResearchConfig, saved: object) -> bool:
@@ -130,6 +144,7 @@ def _verify_preparation_inputs(workspace: Path, journal: dict[str, Any]) -> list
     outputs = journal.get("generated_outputs", {})
     if not isinstance(outputs, dict) or set(outputs) - PREPARATION_OUTPUTS or not all(isinstance(v, str) for v in outputs.values()):
         raise ValueError("Invalid preparation output transaction")
+    _verify_campaign_outputs(outputs)
     temporary_outputs = []
     # A hard kill can leave the atomic writer's temporary file. It is safe to
     # archive only a known output's regular, private, matching byte prefix.
@@ -284,6 +299,11 @@ def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[s
     if journal["state"] == "initial_review":
         outputs = after_literature(staged, cfg) if after_literature is not None else None
         _verify_preparation_inputs(workspace, journal)
+        if not isinstance(outputs or {}, dict) or set(outputs or {}) - PREPARATION_OUTPUTS or not all(
+            isinstance(value, str) for value in (outputs or {}).values()
+        ):
+            raise ValueError("Invalid preparation output transaction")
+        _verify_campaign_outputs(outputs or {})
         for relative in outputs or {}:
             if task_copy_path_is_ignored(relative, is_dir=False, patterns=load_task_copy_ignore_patterns(staged)):
                 raise ValueError(f".agentic_task_ignore must retain generated research input: {relative}")
@@ -331,6 +351,8 @@ def resume(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
     load_catalog(staged)
     _verify_methodology(staged, cfg)
     _verify_whole_idea_policy(staged, cfg)
+    from .campaign_plan import load_campaign_plan
+    load_campaign_plan(staged)
     return cfg, manifest
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,8 @@ def write_campaign_budget(
 
         portfolio = validate_portfolio_context(portfolio_context)
         budget["portfolio"] = portfolio
+        if "campaign_plan" in portfolio:
+            budget["campaign_plan"] = portfolio["campaign_plan"]
         budget["stage"] = {
             "name": portfolio["stage"], "action": portfolio.get("action"),
             "policy": "host_whole_idea_portfolio",
@@ -108,6 +111,16 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
     budget = json.loads(path.read_text(encoding="utf-8"))
     if cycle_index is not None and budget["cycle"]["local_index"] != cycle_index:
         raise ValueError("effective campaign budget does not match this idea cycle")
+    if budget.get("portfolio", {}).get("planned_card") is not None:
+        # Saved evidence retains every complete bundle. The prompt displays the
+        # complete root plan once, then references it beside historical settings.
+        budget = deepcopy(budget)
+        for row in budget["portfolio"].get("idea_history", []):
+            bundle = row.get("outcome", {}).get("idea_bundle")
+            if isinstance(bundle, dict):
+                for key in ("planned_card", "complete_implementation", "implementation_plan"):
+                    bundle.pop(key, None)
+                bundle["complete_plan_ref"] = "portfolio.planned_card"
     guidance = {
         "exploration": "Compare a distinct plausible mechanism with the selected parent. State a falsifiable prediction and preserve controls.",
         "refinement": "Use recorded development evidence to refine a promising mechanism or resolve a concrete failure. Do not infer scientific failure from provider errors.",
@@ -128,6 +141,14 @@ def render_campaign_budget(results_dir: Path, cycle_index: int | None = None) ->
     )
     if portfolio is not None:
         stage_guidance = "Follow the verified whole-idea host lease and its stage guidance below."
+        if portfolio.get("planned_card") is not None:
+            stage_guidance += (
+                " The portfolio.planned_card above is the complete approved root plan. "
+                "Implement its complete_implementation, hypothesis, falsifier and decision_rule. "
+                "Do not invent a replacement idea. Screening uses its approved whole_idea parameters. "
+                "Tuning starts from this root's own best source and changes only permitted candidate defaults. "
+                "The prequalified baseline is bootstrap evidence, not an independently tuned control. "
+                "A planned control root follows the same screening and promotion rules as every other root.")
     return (
         "The host resolved this scheduling budget from the current configuration and state. "
         "It overrides stale campaign round counts or scheduler examples in the task brief. "

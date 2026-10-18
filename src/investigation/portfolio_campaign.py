@@ -116,7 +116,7 @@ def external_portfolio_worker_lock(*, cfg: Any, task_dir: Path, results_dir: Pat
 
 
 
-def bind_portfolio_idea(bundle: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+def bind_portfolio_idea(bundle: object, context: dict[str, Any]) -> dict[str, Any]:
     """Bind an agent proposal to its host root without changing its claim.
 
     Several candidate parameter defaults may change together. The parameter
@@ -124,7 +124,20 @@ def bind_portfolio_idea(bundle: dict[str, Any], context: dict[str, Any]) -> dict
     """
     from copy import deepcopy
     from src.research.whole_idea_policy import normalize_whole_idea
+    if not isinstance(bundle, dict):
+        raise ValueError("Portfolio outcome requires an idea bundle")
     result = deepcopy(bundle)
+    planned = context.get("planned_card")
+    if "plan_sha256" in context:
+        for field in ("plan_sha256", "card_sha256"):
+            if field in result and result[field] != context.get(field):
+                raise ValueError("Idea bundle differs from its approved campaign plan identity")
+            result[field] = context.get(field)
+        if planned is not None:
+            if "planned_card" in result and result["planned_card"] != planned:
+                raise ValueError("Idea bundle changed the approved complete plan card")
+            result["planned_card"] = deepcopy(planned)
+            result["role"] = planned["role"]
     result["idea_id"] = context["root_idea_id"]
     result["root_idea_id"] = context["root_idea_id"]
     result["portfolio_lease_id"] = context["lease_id"]
@@ -144,6 +157,13 @@ def bind_portfolio_idea(bundle: dict[str, Any], context: dict[str, Any]) -> dict
     proposed = normalize_whole_idea(result.get("whole_idea"))
     if proposed["innovation_axis"] != context["innovation_axis"]:
         raise ValueError("Whole idea does not use its host-assigned innovation axis")
+    if planned is not None:
+        approved = normalize_whole_idea(planned["whole_idea"])
+        for key in ("problem_statement", "contribution", "innovation_axis", "minimal_validation", "comparison_kind"):
+            if proposed.get(key) != approved.get(key):
+                raise ValueError(f"Planned root cannot change whole_idea.{key}")
+        if context["stage"] == "screening" and proposed["parameter_space"] != approved["parameter_space"]:
+            raise ValueError("Planned screening cannot change the approved parameter space or configuration")
     if context["stage"] == "tuning":
         source = normalize_whole_idea(context.get("source_card"))
         for key in ("problem_statement", "contribution", "innovation_axis", "minimal_validation"):
@@ -167,6 +187,18 @@ def bind_portfolio_idea(bundle: dict[str, Any], context: dict[str, Any]) -> dict
                     if key in original_bundle:
                         result[key] = deepcopy(original_bundle[key])
                 break
+    if planned is not None:
+        # The coding worker sees the complete approved implementation even when
+        # idea-bundle normalization retained only the minimal whole_idea fields.
+        for key in ("title", "hypothesis", "complete_implementation", "falsifier", "decision_rule"):
+            result[key] = deepcopy(planned[key])
+        result["implementation_plan"] = [planned["complete_implementation"]]
+        instruction = (
+            "Implement this approved complete campaign plan. Keep its problem, contribution, protocol, "
+            "and parameter space fixed. Use the selected candidate parameter defaults in whole_idea for this trial. "
+            "Do not replace the root with a newly invented idea.")
+        if not str(result.get("notes_for_agent", "")).startswith(instruction):
+            result["notes_for_agent"] = instruction + "\n" + str(result.get("notes_for_agent", ""))
     result["whole_idea"] = proposed
     return result
 
@@ -194,6 +226,13 @@ def build_portfolio_worker_plan(*, cfg: Any, task_dir: Path, results_dir: Path,
     worker_dir = Path(lease["result_dir"]).resolve()
     if not worker_dir.is_relative_to(results_dir.resolve()) or worker_dir == results_dir.resolve():
         raise ValueError("Portfolio child result directory escapes the campaign")
+    if "plan_sha256" in lease:
+        from .portfolio_controller import validate_external_lease
+
+        verified = validate_external_lease({"root_results_dir": str(results_dir.resolve()), "lease": lease},
+            task_dir=task_dir, results_dir=worker_dir, seed_program_dir=Path(lease["parent_program_dir"]))
+        if verified != context:
+            raise ValueError("Portfolio worker context changed from its approved plan lease")
     worker_dir.mkdir(parents=True, exist_ok=True)
     lease_path = worker_dir / LEASE_FILE
     envelope = {"root_results_dir": str(results_dir.resolve()), "lease": lease}
@@ -379,6 +418,8 @@ def _publish_outcome(*, results_dir: Path, outer_state: dict[str, Any], best_man
                      lease: dict[str, Any], outcome: dict[str, Any]) -> None:
     """Publish serial, append-only root histories after host validation."""
     root_id, cycle = lease["root_idea_id"], lease["cycle"]
+    plan_identity = ({field: lease.get(field) for field in ("plan_sha256", "card_sha256", "role")}
+                     if "plan_sha256" in lease else {})
     bundle = outcome["idea_bundle"]
     root_idea_dir = state_store.idea_dir(results_dir, root_id)
     root_idea_dir.mkdir(parents=True, exist_ok=True)
@@ -389,6 +430,7 @@ def _publish_outcome(*, results_dir: Path, outer_state: dict[str, Any], best_man
         "idea_id": root_id, "idea_dir_name": root_id, "title": bundle.get("title"),
         "cycle_index": cycle, "target_rubrics": bundle.get("target_rubrics", []),
         "portfolio_root_idea": True, "innovation_axis": lease.get("innovation_axis"),
+        **plan_identity,
     }, matching={"idea_id": root_id})
     best_score = best_manifest.get("combined_score")
     improved = (outcome["correct"] is True and lease["stage"] != "replication" and
@@ -410,6 +452,7 @@ def _publish_outcome(*, results_dir: Path, outer_state: dict[str, Any], best_man
         "retry_scheduled": False, "attempt_status": "pass" if outcome["correct"] else "fail",
         "metrics": {"combined_score": outcome["score"], "correct": outcome["correct"]},
         "receipt_id": outcome["receipt_id"], "source_hash": outcome["source_hash"], "best_updated": improved,
+        **plan_identity,
     }, matching={"portfolio_lease_id": lease["lease_id"]})
     outer_state.update(current_cycle=max(int(outer_state.get("current_cycle", 0)), cycle),
                        best_program_dir=best_manifest["program_dir"], best_combined_score=best_manifest.get("combined_score"),

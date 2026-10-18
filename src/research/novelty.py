@@ -123,7 +123,9 @@ def evaluate_novelty(task_dir: Path, agenda: dict[str, Any], *,
                      reviews: list[dict[str, Any]] | None = None,
                      review_dir: Path | None = None,
                      expected_catalog_sha256: str | None = None,
-                     candidate_packet: dict[str, Any] | None = None) -> dict[str, Any]:
+                     candidate_packet: dict[str, Any] | None = None,
+                     host_context: dict[str, Any] | None = None,
+                     compiled_plan: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return an actionable report; never score novelty by words or citations counted.
 
     Submitted ``reviews`` remain unverified. Only bound provider response artifacts
@@ -140,6 +142,13 @@ def evaluate_novelty(task_dir: Path, agenda: dict[str, Any], *,
         actions.append({"kind": action, "reason": detail})
 
     frozen: dict[str, Any] = {"agenda_sha256": content_hash(agenda)}
+    try:
+        from .novelty_review import campaign_binding, saved_campaign_inputs
+        if review_dir is not None and host_context is None and compiled_plan is None:
+            host_context, compiled_plan = saved_campaign_inputs(review_dir)
+        frozen.update(campaign_binding(host_context, compiled_plan, agenda))
+    except (ValueError, OSError, TypeError, KeyError) as exc:
+        gap("campaign_plan_integrity", str(exc), "revise_contribution")
     if candidate_packet is not None:
         frozen["candidate_packet_sha256"] = content_hash(candidate_packet)
         try:
@@ -227,7 +236,10 @@ def evaluate_novelty(task_dir: Path, agenda: dict[str, Any], *,
     verified_reviews: list[dict[str, Any]] = []
     if review_dir is not None:
         from .novelty_review import load_review_records
-        verified_reviews, errors = load_review_records(task_dir, agenda, review_dir, candidate_packet=candidate_packet)
+        verified_reviews, errors = load_review_records(
+            task_dir, agenda, review_dir, candidate_packet=candidate_packet,
+            **({"host_context": host_context, "compiled_plan": compiled_plan} if host_context is not None else {}),
+        )
         for error in errors:
             gap("review_receipt_invalid", error, "independent_review")
     if reviews:

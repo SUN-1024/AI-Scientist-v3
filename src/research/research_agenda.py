@@ -10,6 +10,30 @@ from typing import Any
 CLAIM_TYPES = {"method", "empirical_finding", "theory", "benchmark", "system"}
 INTENTS = {"novel_contribution", "replication", "negative_result", "exploratory"}
 EVIDENCE_ASPECTS = {"problem_setting", "method", "evaluation", "contribution_boundary"}
+SEED_AGENDA_PATH = Path("research_seed_agenda.json")
+
+
+def load_seed_agenda(task_dir: Path) -> dict[str, Any] | None:
+    """Read a previous proposal as an attributed input, never as a final agenda."""
+    path = task_dir / SEED_AGENDA_PATH
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
+        raise ValueError("Invalid research_seed_agenda.json artifact")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return normalize_seed_agenda(raw)
+
+
+def normalize_seed_agenda(raw: object) -> dict[str, Any]:
+    if (not isinstance(raw, dict) or raw.get("schema_version") != 1
+            or set(raw) - {"schema_version", "agenda", "derived_from", "provenance"}
+            or not isinstance(raw.get("derived_from"), dict) or not raw["derived_from"]):
+        raise ValueError("Seed agenda needs schema_version=1, agenda, and nonempty derived_from provenance")
+    if len(json.dumps(raw, ensure_ascii=False, allow_nan=False)) > 500_000:
+        raise ValueError("Seed agenda exceeds 500,000 characters")
+    result = copy.deepcopy(raw)
+    result["agenda"] = normalize_agenda(raw.get("agenda"))
+    return result
 
 
 def _optional_methodology_fields(result: dict[str, Any]) -> None:
