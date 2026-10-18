@@ -696,6 +696,12 @@ def test_prepare_runtime_creates_image_venv_and_installs_pinned_requirements(bas
             tmp = Path(writable.removesuffix(":/runtime:rw")) / ".tmp"
             assert tmp.is_dir()
             assert tmp.stat().st_mode & 0o777 == 0o700
+            if "venv" in command:
+                # Parent and child packages are both declared. Their overlap
+                # must preserve the actual V1/V2 tooling in the runtime build.
+                copied = tmp.parent / "tooling-source/src/research/upstream"
+                for name in ("__init__.py", "v1_reflection.py", "v2_journal.py", "provenance.json"):
+                    assert (copied / name).read_bytes() == (REPO_ROOT / "src/research/upstream" / name).read_bytes()
         return None
 
     fake_run = _docker_fake_run(score=0.1, commands=commands, hook=resolve_and_check_tmp)

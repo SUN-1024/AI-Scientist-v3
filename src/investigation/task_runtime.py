@@ -2214,6 +2214,9 @@ def _prepare_task_runtime(
                     shutil.copytree(
                         _REPO_ROOT / relative_dir,
                         tooling_source / relative_dir,
+                        # Declared packages can include both a parent and its
+                        # children; the parent's recursive copy creates them.
+                        dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
                     )
                 create_cid = task_dir.parent / (
