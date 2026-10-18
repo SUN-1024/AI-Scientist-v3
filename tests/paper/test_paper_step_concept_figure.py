@@ -874,7 +874,7 @@ def test_record_concept_figure_success_rejects_unsafe_stale_pdf_paths(tmp_path: 
     manifest_path = root / "figure_manifest.json"
     original_manifest = manifest_path.read_text(encoding="utf-8")
     with (
-        patch.object(paper_step, "_write_json_atomically", side_effect=OSError("disk full")),
+        patch("src.orchestrator.paper_artifact_provenance._publish", side_effect=OSError("disk full")),
         pytest.raises(OSError, match="disk full"),
     ):
         _record_success(root)

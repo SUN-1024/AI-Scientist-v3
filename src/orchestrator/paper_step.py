@@ -2578,8 +2578,12 @@ def _update_concept_figure_manifest(
     generator: str | None,
     fallback_reason: str | None,
 ) -> None:
+    from copy import deepcopy
+    from src.orchestrator.paper_artifact_provenance import write_recorded_figure_manifest
+
     manifest_path = paper_dir / "figure_manifest.json"
-    manifest = _read_json_object_nofollow(manifest_path)
+    original_manifest = _read_json_object_nofollow(manifest_path)
+    manifest = deepcopy(original_manifest)
     figures = manifest.get("figures")
     if not isinstance(figures, list):
         raise RuntimeError("figure_manifest.json field must be a list: figures")
@@ -2603,7 +2607,7 @@ def _update_concept_figure_manifest(
             generator=generator,
             fallback_reason=fallback_reason,
         )
-        _write_json_atomically(manifest_path, manifest)
+        write_recorded_figure_manifest(paper_dir, original_manifest, manifest, figure_id=figure_id)
         return
 
     with _quarantine_figure_artifact_nofollow(paper_dir, stale_pdf, ".pdf"):
@@ -2614,7 +2618,7 @@ def _update_concept_figure_manifest(
             generator=generator,
             fallback_reason=fallback_reason,
         )
-        _write_json_atomically(manifest_path, manifest)
+        write_recorded_figure_manifest(paper_dir, original_manifest, manifest, figure_id=figure_id)
 
 
 def record_concept_figure_failure(
@@ -4288,6 +4292,17 @@ def compile_latex(
     tex_name: str = "paper.tex",
     container_image: str | None = None,
     container_network: str = "bridge",
+) -> list[dict[str, Any]]:
+    """Compile LaTeX while retaining any previously recorded PDF and its provenance."""
+    from src.orchestrator.paper_artifact_provenance import recorded_pdf_compilation
+
+    with recorded_pdf_compilation(paper_dir, tex_name):
+        return _compile_latex(paper_dir=paper_dir, tex_name=tex_name,
+                              container_image=container_image, container_network=container_network)
+
+
+def _compile_latex(
+    *, paper_dir: Path, tex_name: str, container_image: str | None, container_network: str,
 ) -> list[dict[str, Any]]:
     """Handle compile latex logic for this module."""
     tex_commands = [

@@ -697,7 +697,7 @@ def _run_compile_latex(root: Path, fakes: dict[str, str], env_overrides: dict[st
     (root / "paper.tex").write_text("placeholder", encoding="utf-8")
     for name, body in fakes.items():
         _write_executable(bin_dir / name, body)
-    env = os.environ | {"PATH": f"{bin_dir}:/usr/bin", **(env_overrides or {})}
+    env = os.environ | {"PATH": f"{bin_dir}:{os.defpath}", **(env_overrides or {})}
     return subprocess.run(
         ["bash", str(COMPILE_LATEX), "paper.tex"], cwd=root, env=env, check=False, capture_output=True, text=True
     )
