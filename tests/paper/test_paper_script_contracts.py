@@ -743,6 +743,8 @@ def _run_concept_renderer(
     headless.write_text(
         "#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\n"
         "if '--version' in sys.argv: print('headless 0.6.0');sys.exit()\n"
+        "if len(sys.argv) < 2 or sys.argv[1] not in ('codex','claude','gemini'):\n"
+        "    sys.stderr.write('headless: agent name must be the first argument\\n');sys.exit(2)\n"
         "Path('headless_args.json').write_text(json.dumps(sys.argv[1:]))\n"
     )
     headless.chmod(0o755)
@@ -754,7 +756,7 @@ def _run_concept_renderer(
         "Path('args.json').write_text(json.dumps(sys.argv[1:]))\n"
         "hook=os.environ['AUTOILLUSTRATE_HEADLESS_BIN']\n"
         "Path('headless_hook.json').write_text(json.dumps(hook))\n"
-        "forwarded=['--agent',sys.argv[sys.argv.index('--agent')+1]]\n"
+        "forwarded=[sys.argv[sys.argv.index('--agent')+1]]\n"
         "for flag in ['--model','--profile']:\n"
         "    if flag in sys.argv: forwarded.extend([flag,sys.argv[sys.argv.index(flag)+1]])\n"
         "subprocess.run([hook,'--version'],check=True,capture_output=True)\n"
@@ -849,7 +851,7 @@ def test_renderer_preserves_profile_and_model_across_cli_versions(tmp_path: Path
     forwarded = json.loads((tmp_path / "headless_args.json").read_text())
     assert forwarded[forwarded.index("--profile") + 1] == profile
     assert forwarded[forwarded.index("--model") + 1] == model
-    assert forwarded[forwarded.index("--agent") + 1] == "codex"
+    assert forwarded[0] == "codex"
     assert not (tmp_path / "OWNED").exists()
     hook = Path(json.loads((tmp_path / "headless_hook.json").read_text()))
     if supports_profile:

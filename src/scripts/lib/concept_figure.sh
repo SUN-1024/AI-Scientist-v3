@@ -748,7 +748,7 @@ build_concept_figure_command() {
     '    {' \
     '      printf "%s\n" "#!/bin/bash"' \
     '      printf "case \"\$1\" in --help|-h|--version|-V) exec %q \"\$@\" ;; esac\n" "$renderer_headless"' \
-    '      printf "exec %q --profile %q \"\$@\"\n" "$renderer_headless" "$renderer_profile"' \
+    '      printf "renderer_agent=\"\$1\"\nshift\nexec %q \"\$renderer_agent\" --profile %q \"\$@\"\n" "$renderer_headless" "$renderer_profile"' \
     '    } > "$renderer_profile_dir/headless" || exit 125' \
     '    chmod 700 "$renderer_profile_dir/headless" || exit 125' \
     '    export AUTOILLUSTRATE_HEADLESS_BIN="$renderer_profile_dir/headless"' \
