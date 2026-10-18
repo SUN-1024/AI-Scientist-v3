@@ -99,11 +99,29 @@ def export_workspace(root: Path, relative: str, destination: Path) -> None:
         raise ValueError("export destination must be empty")
     omitted = [".venv", ".agent_home", ".codex", ".claude", ".gemini", ".opencode",
                ".env", ".env.*", "auth.json", "__pycache__", ".pytest_cache"]
+    omitted_special: list[dict[str, str]] = []
+    ignore_patterns = shutil.ignore_patterns(*omitted)
+
+    def ignore_runtime(directory: str, names: list[str]) -> set[str]:
+        ignored = set(ignore_patterns(directory, names))
+        for name in names:
+            if name in ignored:
+                continue
+            path = Path(directory) / name
+            mode = path.lstat().st_mode
+            if stat.S_ISREG(mode) or stat.S_ISDIR(mode) or stat.S_ISLNK(mode):
+                continue
+            kind = "fifo" if stat.S_ISFIFO(mode) else "socket" if stat.S_ISSOCK(mode) else "device"
+            omitted_special.append({"path": str(path.relative_to(source)), "type": kind})
+            ignored.add(name)
+        return ignored
+
     shutil.copytree(source, destination, dirs_exist_ok=True, symlinks=True,
-                    ignore=shutil.ignore_patterns(*omitted))
+                    ignore=ignore_runtime)
     (destination / "runner-export.json").write_text(json.dumps({
         "source": str(source), "exported_at_unix": time.time(),
         "omitted_runtime_directories": omitted, "symlinks": "preserved without following",
+        "omitted_runtime_special_files": sorted(omitted_special, key=lambda row: row["path"]),
         "purpose": "read-only inspection snapshot; resume only from the native workspace",
         "sealed_receipts_and_native_path_references": "copied without rewriting",
     }, indent=2) + "\n", encoding="utf-8")

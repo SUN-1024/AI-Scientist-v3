@@ -136,7 +136,7 @@ def test_native_workspace_rejects_another_volume_or_symlink_escape(tmp_path: Pat
         native.validate_workspace(root, ["research", "harness", f"--workspace={root / 'workspaces/escape/study'}"])
 
 
-def test_export_is_readonly_snapshot_without_credentials_or_receipt_rewrites(tmp_path: Path) -> None:
+def test_export_is_readonly_snapshot_without_credentials_or_receipt_rewrites(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     native = native_helpers()
     root = tmp_path / "native"
     source = root / "workspaces/study"
@@ -147,6 +147,11 @@ def test_export_is_readonly_snapshot_without_credentials_or_receipt_rewrites(tmp
     (source / ".agent_home").mkdir()
     (source / ".agent_home/auth.json").write_text("private")
     (source / "external-link").symlink_to(tmp_path / "not-copied")
+    os.mkfifo(source / ".agent_stream.fifo")
+    (source / "fifo-link").symlink_to(".agent_stream.fifo")
+    monkeypatch.chdir(source)
+    with socket.socket(socket.AF_UNIX) as runtime_socket:
+        runtime_socket.bind(".runtime.sock")
     destination = tmp_path / "snapshot"
     destination.mkdir()
     native.export_workspace(root, "study", destination)
@@ -155,6 +160,13 @@ def test_export_is_readonly_snapshot_without_credentials_or_receipt_rewrites(tmp
         assert not (destination / ".env").exists()
         assert not (destination / ".agent_home").exists()
         assert (destination / "external-link").is_symlink()
+        assert (destination / "fifo-link").is_symlink()
+        assert not (destination / ".agent_stream.fifo").exists()
+        assert not (destination / ".runtime.sock").exists()
+        assert json.loads((destination / "runner-export.json").read_text())["omitted_runtime_special_files"] == [
+            {"path": ".agent_stream.fifo", "type": "fifo"},
+            {"path": ".runtime.sock", "type": "socket"},
+        ]
         assert (destination / "receipt.json").stat().st_mode & 0o222 == 0
         assert destination.stat().st_mode & 0o222 == 0
         with pytest.raises(ValueError, match="must be empty"):

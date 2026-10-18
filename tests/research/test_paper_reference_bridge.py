@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import sys
 from unittest.mock import Mock
@@ -93,6 +94,7 @@ def test_offline_writer_uses_explicit_local_authors_without_any_network(tmp_path
     cfg.literature.sources[0]["authors"] = ["Doe, Jane"]
     write_config(task / "research.yaml", cfg)
     prepare_literature(task, cfg.literature, offline=True)
+    monkeypatch.setenv("AGSCI_PAPER_REFERENCE_PROVIDER_CONFIG", str(tmp_path / "missing-provider.yaml"))
     monkeypatch.setattr(refs, "search_literature", Mock(side_effect=AssertionError("offline")))
     monkeypatch.setattr(refs, "download", Mock(side_effect=AssertionError("offline")))
     output = tmp_path / "paper"
@@ -137,6 +139,52 @@ def test_paper_reference_count_failure_does_not_fall_back(tmp_path, monkeypatch)
     assert search.call_count == 1  # Do not replay unavailable or ambiguous API requests.
     result = json.loads(next((tmp_path / "paper").glob("reference_search/*/attempt_*/result.json")).read_text())
     assert result["stop_reason"] == "search_unavailable"
+
+
+def test_reference_provider_recovery_preserves_frozen_task_and_binds_cache(tmp_path, monkeypatch):
+    task = online_task(tmp_path / "task", monkeypatch)
+    frozen = (task / "research.yaml").read_bytes()
+    provider = tmp_path / "provider.yaml"
+    provider.write_text("literature:\n  model_search:\n    provider: magpie\n    model: coding-model\n    base_url: http://127.0.0.1:3425/v1\n    mode: native\n    api_format: responses\n")
+    monkeypatch.setenv("AGSCI_PAPER_REFERENCE_PROVIDER_CONFIG", str(provider))
+    search = Mock(return_value=([{"url": "https://publisher.example/paper/1"}], []))
+    monkeypatch.setattr(refs, "search_literature", search)
+    output = tmp_path / "paper"
+    assert write(task, output) == 1
+    assert search.call_args.args[0].model_search.provider == "magpie"
+    assert search.call_args.args[0].model_search.mode == "native"
+    assert (task / "research.yaml").read_bytes() == frozen
+    provenance = json.loads((output / "references_provenance.json").read_text())
+    assert provenance["runtime_reference_provider"] == {
+        "path": str(provider), "sha256": hashlib.sha256(provider.read_bytes()).hexdigest(),
+    }
+    search.reset_mock()
+    assert write(task, output) == 1
+    search.assert_not_called()
+    provider.write_text(provider.read_text().replace("coding-model", "another-model"))
+    assert write(task, output) == 1
+    assert search.call_count == 1
+    assert search.call_args.args[0].model_search.model == "another-model"
+    assert (task / "research.yaml").read_bytes() == frozen
+
+
+@pytest.mark.parametrize("contents", [
+    "harness: {quality_target: development}\n",
+    "literature: {model_search: {}, sources: []}\n",
+    "literature: {model_search: {api_key: forbidden-inline-value}}\n",
+])
+def test_reference_provider_recovery_rejects_study_or_secret_fields(tmp_path, monkeypatch, contents):
+    task = online_task(tmp_path / "task", monkeypatch)
+    frozen = (task / "research.yaml").read_bytes()
+    provider = tmp_path / "provider.yaml"
+    provider.write_text(contents)
+    monkeypatch.setenv("AGSCI_PAPER_REFERENCE_PROVIDER_CONFIG", str(provider))
+    search = Mock(side_effect=AssertionError("invalid configuration must not spend tokens"))
+    monkeypatch.setattr(refs, "search_literature", search)
+    with pytest.raises(ValueError, match="Reference provider config"):
+        write(task, tmp_path / "paper")
+    search.assert_not_called()
+    assert (task / "research.yaml").read_bytes() == frozen
 
 
 def _mock_search_batches(monkeypatch, batches):

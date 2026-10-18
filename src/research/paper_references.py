@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import hashlib
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path
 import re
 import tempfile
@@ -18,14 +19,49 @@ from typing import Any
 import unicodedata
 from urllib.parse import unquote, urlsplit
 
+import yaml
+
 from src.orchestrator.state import write_private_text
-from .config import LiteratureConfig, load_config
+from .config import ExternalSearchConfig, LiteratureConfig, ModelSearchConfig, load_config, validate_model_config
 from .evidence import load_catalog
 from .literature import download
 from .model_search import _identity, search_literature
 
 _MAX_REFERENCE_SEARCH_ROUNDS = 3
 _MAX_SEARCH_CANDIDATES = 20
+
+
+def _runtime_reference_provider(cfg: LiteratureConfig) -> tuple[LiteratureConfig, dict[str, str] | None]:
+    """Allow citation transport recovery without changing the frozen study."""
+    configured = os.environ.get("AGSCI_PAPER_REFERENCE_PROVIDER_CONFIG", "").strip()
+    if not configured:
+        return cfg, None
+    path = Path(configured).expanduser().resolve(strict=True)
+    raw = path.read_bytes()
+    if len(raw) > 65536:
+        raise ValueError("Reference provider config exceeds 64 KiB")
+    try:
+        payload = yaml.safe_load(raw)
+    except yaml.YAMLError:
+        raise ValueError("Invalid reference provider YAML") from None
+    if not isinstance(payload, dict) or set(payload) != {"literature"}:
+        raise ValueError("Reference provider config must contain only literature.model_search")
+    literature = payload["literature"]
+    if not isinstance(literature, dict) or set(literature) != {"model_search"}:
+        raise ValueError("Reference provider config cannot change sources or study settings")
+    values = literature["model_search"]
+    if not isinstance(values, dict) or not values:
+        raise ValueError("Reference provider config needs a non-empty model_search mapping")
+    values = dict(values)
+    external = values.pop("external_search", {})
+    if not isinstance(external, dict):
+        raise ValueError("Reference provider external_search must be a mapping")
+    try:
+        model = ModelSearchConfig(**values, external_search=ExternalSearchConfig(**external))
+    except TypeError:
+        raise ValueError("Reference provider config has unsupported model_search fields") from None
+    validate_model_config(model)
+    return replace(cfg, model_search=model), {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
 
 
 class CitationTags(HTMLParser):
@@ -272,6 +308,9 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
                               paper_data: dict[str, Any] | None = None) -> int:
     cfg = load_config(task_dir).literature
     catalog = load_catalog(task_dir) or {"sources": [], "offline": False}
+    runtime_provider = None
+    if not catalog.get("offline"):
+        cfg, runtime_provider = _runtime_reference_provider(cfg)
     if not 1 <= min_refs <= max_refs:
         raise ValueError("Invalid paper reference count limits")
     adopted, selected_binding = _selected_reference_sources(paper_data, catalog)
@@ -282,6 +321,8 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
     }
     if selected_binding is not None:
         fingerprint_inputs["selected_literature_evidence"] = selected_binding
+    if runtime_provider is not None:
+        fingerprint_inputs["runtime_reference_provider"] = runtime_provider
     fingerprint = hashlib.sha256(json.dumps(fingerprint_inputs, sort_keys=True).encode()).hexdigest()[:24]
     root = output_dir / "reference_search" / fingerprint
     if root.is_symlink() or (root.parent.exists() and root.parent.is_symlink()):
@@ -416,6 +457,8 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
     }
     if selected_binding is not None:
         summary["selected_literature_evidence"] = selected_binding
+    if runtime_provider is not None:
+        summary["runtime_reference_provider"] = runtime_provider
     write_private_text(attempt / "result.json", json.dumps(summary, ensure_ascii=False, indent=2))
     if len(references) < min_refs:
         raise ValueError(f"Only {len(references)}/{min_refs} references have source metadata; stopped after {len(rounds)} search rounds ({stop_reason}); inspect {attempt}. No legacy API fallback was used.")

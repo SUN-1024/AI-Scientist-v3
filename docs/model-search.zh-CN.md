@@ -57,6 +57,8 @@ export OPENROUTER_API_KEY
 
 `--dry-run` 不联网，也不检验 key。检索结果在 `input_task/research_context/`。需要更换配置或重新检索时，请使用新工作区；`--resume` 会复用冻结的前置来源，不重新消费这部分检索额度。论文阶段可以为自己的新查询调用同一模型配置；同一查询和配置的成功引用结果会缓存。
 
+已有工作区因引用检索服务配置缺失或失效而停止时，可用 `AGSCI_PAPER_REFERENCE_PROVIDER_CONFIG=/绝对路径/provider.yaml` 指定独立的论文引用检索配置。该文件只接受 `literature.model_search`，可直接使用上面的服务模板。它只替换论文引用检索的服务设置，不修改冻结的任务、来源、实验或最终评估。来源元数据仍须验证，最低引用数要求保持不变。配置路径和 SHA-256 会写入引用来源记录，并参与缓存校验。离线任务不读取此配置。容器运行时，将变量放入 `RESEARCH_RUNNER_ENV_FILE` 指定的文件，并确保配置路径可在协调容器内读取。
+
 ## 有内置联网工具的服务
 
 默认原生模板包括 OpenAI、OpenRouter、Anthropic、Gemini、阿里云百炼、火山方舟、智谱、xAI 和 Perplexity。Gemini 另有 `generateContent` 模板。它们通过六类 HTTP 协议适配；是否能使用所选模型，还取决于服务商账户和工具支持。
