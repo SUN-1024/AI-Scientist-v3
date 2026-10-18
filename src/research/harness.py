@@ -17,7 +17,7 @@ from .config import ResearchConfig, load_config
 from .harness_state import HarnessState, read_json, verify_stage_records, now
 from .paper_readiness import write_readiness
 from .preflight import ensure_execution_ready
-from .workspace import prepare, resume, execution_overrides, record_execution, write_report
+from .workspace import prepare, resume, load_preparation, execution_overrides, record_execution, write_report
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_PHASES = set(PIPELINE_PHASES) - {"task_drafting"}
@@ -61,26 +61,29 @@ def _reviewer_settings(pipeline_cfg) -> dict[str, Any] | None:
 def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bool,
                    reviewer_settings: dict[str, Any] | None, author_settings: dict[str, Any] | None = None,
                    research_basis: dict[str, Any] | None = None,
-                   candidate_packet: dict[str, Any] | None = None) -> dict[str, Any]:
+                   candidate_packet: dict[str, Any] | None = None, resume_calls: bool = False) -> dict[str, Any]:
     from .research_agenda import load_agenda, normalize_agenda, agenda_from_basis
     from .novelty import evaluate_novelty
-    from .novelty_review import draft_research_agenda, review_novelty
+    from .novelty_review import InvalidReviewResume, draft_research_agenda, review_novelty
     output.mkdir(parents=True, exist_ok=True)
     agenda = agenda_from_basis(research_basis) if research_basis is not None else load_agenda(task)
     permitted = cfg.harness.novelty_review and not offline
     errors = []
+    resume_kwargs = {"resume": True} if resume_calls else {}
     try:
         if permitted and (agenda is None or research_basis is not None):
             agenda = draft_research_agenda(task, cfg.literature, output,
                                            research_basis=research_basis, reviewer_settings=author_settings,
-                                           candidate_packet=candidate_packet)
+                                           candidate_packet=candidate_packet, **resume_kwargs)
         agenda = agenda or normalize_agenda({"intent": "exploratory"})
         if permitted:
             report = review_novelty(task, agenda, cfg.literature, output,
                                     reviewer_count=cfg.harness.novelty_reviewers,
-                                    reviewer_settings=reviewer_settings, candidate_packet=candidate_packet)
+                                    reviewer_settings=reviewer_settings, candidate_packet=candidate_packet, **resume_kwargs)
         else:
             report = evaluate_novelty(task, agenda, candidate_packet=candidate_packet)
+    except InvalidReviewResume:
+        raise
     except (ValueError, OSError, TypeError, KeyError) as exc:
         errors.append(str(exc))
         agenda = agenda or normalize_agenda({"intent": "exploratory"})
@@ -148,24 +151,37 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
             raise ValueError("Harness stage paths are managed inside its workspace; do not override " + item.split("=", 1)[0])
     prior = None
     manifest = None
+    preparation = None
     if args.resume:
         if args.task or args.workspace or args.offline:
             raise ValueError("--resume uses frozen task/workspace/literature; omit task/--workspace/--offline")
         workspace = args.resume.expanduser().resolve()
-        cfg, manifest = resume(workspace)
-        prior = read_json(workspace / "harness_state.json")
-        if prior.get("schema_version") != 1:
-            raise ValueError("Unsupported harness state")
-        saved = execution_overrides(workspace, manifest)
+        if (workspace / "research_manifest.json").exists() or (workspace / "research_manifest.json").is_symlink():
+            cfg, manifest = resume(workspace)
+            saved = execution_overrides(workspace, manifest)
+        else:
+            cfg, preparation = load_preparation(workspace)
+            saved = list(preparation["pipeline_overrides"])
+        state_path = workspace / "harness_state.json"
+        prior = read_json(state_path) if state_path.exists() or state_path.is_symlink() else (preparation or {}).get("initial_harness_state")
+        if not isinstance(prior, dict) or prior.get("schema_version") != 1:
+            raise ValueError("Unsupported or missing harness state")
+        if manifest is not None and prior.get("input_task_sha256") is None:
+            # A crash may follow manifest publication but precede the next
+            # lifecycle write. Accept only the matching sealed transaction.
+            _, completed_preparation = load_preparation(workspace)
+            if completed_preparation["state"] not in {"finalizing", "prepared"} or completed_preparation["pipeline_overrides"] != manifest["pipeline_overrides"]:
+                raise ValueError("Harness preparation does not match its published manifest")
+            prior["input_task_sha256"] = manifest["input_task_sha256"]
         old = {item.split("=", 1)[0]: item for item in saved}
         for item in overrides:
             key = item.split("=", 1)[0]
-            if key not in RESUME_MUTABLE and old.get(key) != item:
+            if (preparation is not None or key not in RESUME_MUTABLE) and old.get(key) != item:
                 raise ValueError(f"Cannot change frozen harness setting {key} on resume; create a new workspace")
         overrides = _merge(saved, overrides)
         target = args.quality_target or prior["quality_target"]
-        task = workspace / "input_task"
-        offline = bool(prior.get("offline", False))
+        task = Path(preparation["source_task"]) if preparation and preparation["state"] == "copying" else workspace / "input_task"
+        offline = bool(preparation["offline"] if preparation else prior.get("offline", False))
     else:
         if args.task is None:
             raise ValueError("Provide a task directory or --resume WORKSPACE")
@@ -222,20 +238,26 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
     exit_code = 1
     try:
         if manifest is None:
-            def after_literature(staged: Path, frozen_cfg: ResearchConfig) -> None:
-                from .upstream.disclosure import write_integration_marker
-                write_integration_marker(staged)
+            def after_literature(staged: Path, frozen_cfg: ResearchConfig) -> dict[str, str]:
+                from .upstream.disclosure import integration_marker, MARKER_PATH
                 state.payload["literature"] = {"status": "prepared", "checked_at": now()}
+                state.payload["preparation"] = {"status": "initial_review", "journal": "research_preparation.json"}
                 state.save()
                 report = _novelty_cycle(staged, frozen_cfg, workspace / "novelty/initial", offline=offline,
                                         reviewer_settings=_reviewer_settings(pipeline_cfg),
-                                        author_settings=_author_settings(pipeline_cfg))
+                                        author_settings=_author_settings(pipeline_cfg), resume_calls=preparation is not None)
                 state.payload["novelty_initial"] = {"status": report["status"], "report": "novelty/initial/novelty_report.json"}
                 state.save()
-                _dump(staged / "research_context/harness_novelty.json", report)
+                if frozen_cfg.harness.novelty_review and not offline and len(report.get("model_judgments", [])) < frozen_cfg.harness.novelty_reviewers:
+                    raise ValueError("Initial novelty review is incomplete; resume this workspace to continue its saved calls")
                 agenda = read_json(workspace / "novelty/initial/research_agenda.json")
-                _dump(staged / "research_agenda.json", agenda)
-            manifest = prepare(task, workspace, offline=offline, overrides=overrides, after_literature=after_literature)
+                return {name: json.dumps(value, ensure_ascii=False, indent=2) + "\n" for name, value in {
+                    "research_context/harness_novelty.json": report,
+                    "research_agenda.json": agenda, str(MARKER_PATH): integration_marker(),
+                }.items()}
+            manifest = prepare(task, workspace, offline=offline, overrides=overrides, after_literature=after_literature,
+                               resume_preparation=preparation is not None, initial_state=state.payload)
+            state.payload["preparation"] = {"status": "prepared", "journal": "research_preparation.json"}
             state.payload["input_task_sha256"] = manifest["input_task_sha256"]
         state.save()
         record_execution(workspace, manifest, overrides)

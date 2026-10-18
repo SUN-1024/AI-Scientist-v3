@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,10 @@ from .research_agenda import normalize_agenda
 
 PROMPTS = Path(__file__).resolve().parents[1] / "prompts" / "research_harness"
 MAX_PACKET_CHARS = 600_000
+
+
+class InvalidReviewResume(ValueError):
+    """Saved completed work cannot be trusted or does not match this invocation."""
 
 
 def _dump(path: Path, value: Any) -> None:
@@ -87,14 +92,176 @@ def normalize_review(raw: object) -> dict[str, Any]:
     return {**raw, "next_actions": actions, "overlap_assessment": overlap}
 
 
+def _configuration_hash(cfg: LiteratureConfig, settings: dict[str, Any] | None) -> str:
+    # Save only a digest: explicit agent environments can contain credentials.
+    configuration = ({"backend": "model_search_stateless", "model_search": asdict(cfg.model_search),
+                      "proxy_fallback": cfg.proxy_fallback} if settings is None else
+                     {"backend": "agent_stateless", "settings": settings})
+    return content_hash(configuration)
+
+
+def _freeze_for_call(task_dir: Path, *, resume: bool) -> dict[str, Any]:
+    try:
+        return freeze_evidence(task_dir)
+    except (ValueError, OSError, TypeError, KeyError) as exc:
+        if resume:
+            raise InvalidReviewResume(f"Frozen evidence is invalid: {exc}") from exc
+        raise
+
+
+def _check_binding(receipt: dict[str, Any], cfg: LiteratureConfig,
+                   settings: dict[str, Any] | None) -> None:
+    backend = "model_search_stateless" if settings is None else "agent_stateless"
+    if receipt.get("schema_version") != 2 or receipt.get("configuration_sha256") != _configuration_hash(cfg, settings):
+        raise ValueError("Saved call configuration is missing or changed; use a new output directory")
+    if receipt.get("backend") != backend or receipt.get("model") != (
+        cfg.model_search.model if settings is None else settings.get("model")
+    ) or (settings is None and receipt.get("provider") != cfg.model_search.provider):
+        raise ValueError("Saved call provider, model, or backend changed")
+
+
+def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
+                 frozen: dict[str, Any], *, prompt: str | None = None) -> dict[str, Any]:
+    """Verify saved bytes, then derive the result again from the raw response."""
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("Invalid review directory")
+    if not isinstance(receipt, dict):
+        raise ValueError("Invalid call receipt")
+    if receipt.get("status") != "complete" or receipt.get("backend") not in {
+        "model_search_stateless", "agent_stateless",
+    } or receipt.get("phase") != phase:
+        raise ValueError("Review did not complete through the configured stateless provider")
+    if not isinstance(receipt.get("session_id"), str) or not receipt["session_id"]:
+        raise ValueError("Missing independent review session")
+    if receipt.get("frozen_evidence") != frozen:
+        raise ValueError("Review is stale: source catalog or agenda changed")
+    if prompt is not None and hashlib.sha256(prompt.encode("utf-8")).hexdigest() != receipt.get("prompt_sha256"):
+        raise ValueError("Saved call prompt changed")
+    response_path = directory / str(receipt.get("response", ""))
+    if response_path.is_symlink() or not response_path.resolve().is_relative_to(directory.resolve()) or not response_path.is_file():
+        raise ValueError("Invalid provider response path")
+    if any(part.is_symlink() for part in response_path.parents if part != directory.parent):
+        raise ValueError("Provider response path crosses a symlink")
+    for path, expected_hash in ((directory / "prompt.txt", receipt.get("prompt_sha256")),
+                                (directory / "assessment.json", receipt.get("assessment_sha256")),
+                                (response_path, receipt.get("response_sha256"))):
+        if path.is_symlink() or not path.is_file() or _sha(path) != expected_hash:
+            raise ValueError(f"Review artifact changed: {path.name}")
+    provider_response = _read(response_path)
+    if not isinstance(provider_response, dict):
+        raise ValueError("Invalid provider response")
+    normalize = normalize_review if phase == "novelty_review" else normalize_agenda
+    if receipt["backend"] == "agent_stateless":
+        from src.review_backend import strict_json_object
+        transport = _read(directory / "transport/receipt.json")
+        if not isinstance(transport, dict):
+            raise ValueError("Invalid agent transport receipt")
+        native_session = transport.get("native_session_id")
+        if (_sha(directory / "transport/receipt.json") != receipt.get("transport_receipt_sha256")
+                or transport.get("status") != "completed" or transport.get("independent_context") is not True
+                or transport.get("prompt_sha256") != receipt["prompt_sha256"]
+                or transport.get("stdout_sha256") != receipt["response_sha256"]
+                or (receipt.get("schema_version") == 2 and (not isinstance(native_session, str) or not native_session))
+                or native_session != receipt.get("native_session_id")
+                or transport.get("observed_provider") != receipt.get("provider")
+                or ("model" in transport and transport["model"] != receipt.get("model"))):
+            raise ValueError("Agent transport receipt is stale or incomplete")
+        if provider_response.get("protocolVersion") != 1 or provider_response.get("type") != "result" or provider_response.get("exitCode") != 0:
+            raise ValueError("Agent response did not complete")
+        data = provider_response["data"]
+        if not isinstance(data, dict):
+            raise ValueError("Agent response has no result data")
+        if "nativeSessionId" in data and data["nativeSessionId"] != native_session:
+            raise ValueError("Agent response native session differs from its transport receipt")
+        for name, observed in (("model", "observed_model"), ("provider", "observed_provider")):
+            if name in data and data[name] != transport.get(observed):
+                raise ValueError("Agent response provider/model differs from its transport receipt")
+        replay = normalize(strict_json_object(data["finalMessage"]))
+    else:
+        replay = normalize(parse_object(response_text(provider_response), "verdict" if phase == "novelty_review" else "schema_version"))
+    assessment = normalize(_read(directory / "assessment.json"))
+    if replay != assessment:
+        raise ValueError("Assessment differs from the actual saved provider response")
+    return replay
+
+
+def _existing_call(directory: Path, cfg: LiteratureConfig, phase: str, frozen: dict[str, Any],
+                   settings: dict[str, Any] | None, *, prompt: str | None = None) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    try:
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError("Invalid review directory")
+        receipt_path = directory / "receipt.json"
+        # A crash can occur between mkdir and the first atomic receipt write.
+        if not receipt_path.exists() and not receipt_path.is_symlink():
+            if any(path.name != "prompt.txt" for path in directory.iterdir()):
+                raise ValueError("Saved call artifacts have no receipt")
+            return {}, None
+        receipt = _read(receipt_path)
+        if not isinstance(receipt, dict):
+            raise ValueError("Invalid call receipt")
+        _check_binding(receipt, cfg, settings)
+        if receipt.get("status") == "complete":
+            return receipt, _replay_call(directory, receipt, phase, frozen, prompt=prompt)
+        if receipt.get("status") not in {"started", "failed"} or any(
+            name in receipt for name in ("response_sha256", "assessment_sha256", "transport_receipt_sha256")
+        ):
+            raise ValueError("Invalid incomplete call receipt")
+        if receipt.get("phase") != phase or receipt.get("frozen_evidence") != frozen:
+            raise ValueError("Incomplete call inputs changed")
+        prompt_path = directory / "prompt.txt"
+        if prompt_path.is_symlink() or not prompt_path.is_file() or _sha(prompt_path) != receipt.get("prompt_sha256"):
+            raise ValueError("Incomplete call prompt artifact changed")
+        if prompt is not None and hashlib.sha256(prompt.encode("utf-8")).hexdigest() != receipt.get("prompt_sha256"):
+            raise ValueError("Incomplete call prompt changed")
+        return receipt, None
+    except (ValueError, OSError, TypeError, KeyError, AttributeError) as exc:
+        raise InvalidReviewResume(f"{directory.name}: {exc}") from exc
+
+
+def _preflight_resume(directories: list[Path], cfg: LiteratureConfig, phase: str,
+                      frozen: dict[str, Any], settings: dict[str, Any] | None, *,
+                      prompts: dict[str, str] | None = None) -> None:
+    sessions: set[str] = set()
+    native_sessions: set[str] = set()
+    incomplete_agenda = False
+    for directory in directories:
+        receipt, result = _existing_call(directory, cfg, phase, frozen, settings,
+                                          prompt=(prompts or {}).get(directory.name))
+        if result is None:
+            incomplete_agenda = phase == "research_agenda"
+            continue
+        if incomplete_agenda:
+            raise InvalidReviewResume("A completed agenda round follows a missing prior result")
+        session, native = receipt["session_id"], receipt.get("native_session_id")
+        if session in sessions or (native and native in native_sessions):
+            raise InvalidReviewResume("Duplicate independent review session in saved calls")
+        sessions.add(session)
+        if native:
+            native_sessions.add(native)
+
+
 def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
-                frozen: dict[str, Any], reviewer_settings: dict[str, Any] | None = None) -> dict[str, Any]:
+                frozen: dict[str, Any], reviewer_settings: dict[str, Any] | None = None, *,
+                resume: bool = False) -> dict[str, Any]:
+    if resume and (directory.exists() or directory.is_symlink()):
+        _receipt, replay = _existing_call(directory, cfg, phase, frozen, reviewer_settings, prompt=prompt)
+        if replay is not None:
+            return replay
+        # Preserve every byte of an interrupted attempt before creating a fresh session.
+        archive = directory.parent / "retry_attempts" / directory.name
+        if any(path.is_symlink() or (path.exists() and not path.is_dir())
+               for path in (archive.parent, archive)):
+            raise InvalidReviewResume("Invalid retry archive directory")
+        archive.mkdir(parents=True, exist_ok=True)
+        directory.rename(archive / str(uuid.uuid4()))
     if reviewer_settings is not None:
-        return _agent_call(prompt, directory, phase, frozen, reviewer_settings)
+        return _agent_call(prompt, directory, phase, frozen, reviewer_settings,
+                           configuration_sha256=_configuration_hash(cfg, reviewer_settings))
     session = SearchSession(cfg, directory)
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
-        "schema_version": 1, "session_id": str(uuid.uuid4()), "backend": "model_search_stateless",
+        "schema_version": 2, "session_id": str(uuid.uuid4()), "backend": "model_search_stateless",
+        "configuration_sha256": _configuration_hash(cfg, None),
         "provider": cfg.model_search.provider, "model": cfg.model_search.model,
         "frozen_evidence": frozen, "prompt_sha256": _sha(directory / "prompt.txt"),
         "status": "started", "phase": phase,
@@ -120,7 +287,7 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
 
 
 def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any],
-                settings: dict[str, Any]) -> dict[str, Any]:
+                settings: dict[str, Any], *, configuration_sha256: str) -> dict[str, Any]:
     from src.review_backend import run_fresh_agent_json
 
     allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment"}
@@ -129,7 +296,8 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
     directory.mkdir()
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
-        "schema_version": 1, "session_id": str(uuid.uuid4()), "backend": "agent_stateless",
+        "schema_version": 2, "session_id": str(uuid.uuid4()), "backend": "agent_stateless",
+        "configuration_sha256": configuration_sha256,
         "model": settings.get("model"), "frozen_evidence": frozen,
         "prompt_sha256": _sha(directory / "prompt.txt"), "status": "started", "phase": phase,
     }
@@ -158,7 +326,7 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
                           research_basis: dict[str, Any] | None = None,
                           reviewer_settings: dict[str, Any] | None = None,
                           candidate_packet: dict[str, Any] | None = None,
-                          num_reflections: int = 3) -> dict[str, Any]:
+                          num_reflections: int = 3, resume: bool = False) -> dict[str, Any]:
     """V1's bounded author-reflection loop; never independent novelty evidence."""
     from .upstream.v1_reflection import refine_agenda
 
@@ -167,10 +335,17 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     output.mkdir(parents=True, exist_ok=True)
     task_path = task_dir / "task.md"
     task = task_path.read_text(encoding="utf-8") if task_path.is_file() else ""
-    frozen = freeze_evidence(task_dir)
+    frozen = _freeze_for_call(task_dir, resume=resume)
     if candidate_packet is not None:
         validate_candidate_packet(candidate_packet)
         frozen["candidate_packet_sha256"] = content_hash(candidate_packet)
+    if resume:
+        directories = sorted(path for path in output.glob("agenda_*") if path.name != "agenda_reflection_trace.json")
+        ordered = ["agenda_draft", *(f"agenda_reflection_{index}" for index in range(2, num_reflections + 1))]
+        if [path.name for path in directories] != ordered[:len(directories)]:
+            raise InvalidReviewResume("Saved agenda rounds differ from this invocation")
+        _preflight_resume(directories, cfg, "research_agenda", frozen, reviewer_settings)
+    if candidate_packet is not None:
         _dump(output / "candidate_packet.json", candidate_packet)
     prompt = (PROMPTS / "research_agenda.md").read_text(encoding="utf-8") + "\n\nINPUT DATA:\n" + json.dumps({
         "task": task, "selected_candidate_research_basis": research_basis,
@@ -179,16 +354,18 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     }, ensure_ascii=False)
     if len(prompt.encode("utf-8")) > 1800_000:
         raise ValueError("Agenda prompt exceeds 1.8 MB; split the study rather than truncating source or implementation evidence")
-    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings)
+    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings, resume=resume)
     try:
         reflection = refine_agenda(
             agenda, frozen_context=prompt, normalize=normalize_agenda,
             num_reflections=num_reflections,
             request=lambda reflection_prompt, round_index: _model_call(
                 reflection_prompt, cfg, output / f"agenda_reflection_{round_index}",
-                "research_agenda", frozen, reviewer_settings,
+                "research_agenda", frozen, reviewer_settings, resume=resume,
             ),
         )
+    except InvalidReviewResume:
+        raise
     except (ValueError, OSError, TypeError, KeyError) as exc:
         _dump(output / "agenda_reflection_trace.json", {
             "schema_version": 1, "upstream": "AI-Scientist-v1", "status": "failed",
@@ -208,22 +385,22 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
 def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig,
                    output: Path, *, reviewer_count: int = 2,
                    reviewer_settings: dict[str, Any] | None = None,
-                   candidate_packet: dict[str, Any] | None = None) -> dict[str, Any]:
+                   candidate_packet: dict[str, Any] | None = None,
+                   resume: bool = False) -> dict[str, Any]:
     """Review in separate contexts; errors remain evidence gaps, never positive reviews."""
     if type(reviewer_count) is not int or not 2 <= reviewer_count <= 4:
         raise ValueError("Use two to four independent novelty review contexts")
     output.mkdir(parents=True, exist_ok=True)
-    if any(output.glob("reviewer_*")):
+    if not resume and any(output.glob("reviewer_*")):
         raise ValueError("Novelty review output already contains review receipts; use a new cycle directory")
     agenda = normalize_agenda(agenda)
-    frozen = {**freeze_evidence(task_dir), "agenda_sha256": content_hash(agenda)}
+    frozen = {**_freeze_for_call(task_dir, resume=resume), "agenda_sha256": content_hash(agenda)}
     if candidate_packet is not None:
         validate_candidate_packet(candidate_packet)
         frozen["candidate_packet_sha256"] = content_hash(candidate_packet)
-        _dump(output / "candidate_packet.json", candidate_packet)
-    _dump(output / "research_agenda.json", agenda)
     packet = source_packet(task_dir, agenda)
     template = (PROMPTS / "novelty_review.md").read_text(encoding="utf-8")
+    prompts = {}
     for index in range(reviewer_count):
         focus = ("Examine the strongest constructive case for a meaningful incremental contribution, then try to falsify it."
                  if index % 2 == 0 else
@@ -234,10 +411,25 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
         }, ensure_ascii=False)
         if len(prompt.encode("utf-8")) > 1800_000:
             raise ValueError("Novelty prompt exceeds 1.8 MB; split the study rather than truncating source or implementation evidence")
+        prompts[f"reviewer_{index + 1}"] = prompt
+    if resume:
+        directories = sorted(output.glob("reviewer_*"))
+        allowed = {f"reviewer_{index}" for index in range(1, reviewer_count + 1)}
+        if any(path.name not in allowed for path in directories):
+            raise InvalidReviewResume("Saved reviewer count differs from this invocation")
+        _preflight_resume(directories, cfg, "novelty_review", frozen, reviewer_settings, prompts=prompts)
+    if candidate_packet is not None:
+        _dump(output / "candidate_packet.json", candidate_packet)
+    _dump(output / "research_agenda.json", agenda)
+    for name, prompt in prompts.items():
         try:
-            _model_call(prompt, cfg, output / f"reviewer_{index + 1}", "novelty_review", frozen, reviewer_settings)
+            _model_call(prompt, cfg, output / name, "novelty_review", frozen, reviewer_settings, resume=resume)
+        except InvalidReviewResume:
+            raise
         except (ValueError, OSError, TypeError, KeyError):
             continue
+    if resume:
+        _preflight_resume(sorted(output.glob("reviewer_*")), cfg, "novelty_review", frozen, reviewer_settings)
     report = evaluate_novelty(task_dir, agenda, review_dir=output,
                               expected_catalog_sha256=frozen["catalog_sha256"], candidate_packet=candidate_packet)
     _dump(output / "novelty_report.json", report)
@@ -263,50 +455,17 @@ def load_review_records(task_dir: Path, agenda: dict[str, Any], output: Path, *,
     native_sessions = set()
     for directory in sorted(output.glob("reviewer_*")):
         try:
-            if directory.is_symlink() or not directory.is_dir():
-                raise ValueError("Invalid review directory")
             receipt = _read(directory / "receipt.json")
-            if receipt.get("status") != "complete" or receipt.get("backend") not in {"model_search_stateless", "agent_stateless"} or receipt.get("phase") != "novelty_review":
-                raise ValueError("Review did not complete through the configured stateless provider")
-            session_id = receipt.get("session_id")
-            if not session_id or session_id in seen:
-                raise ValueError("Duplicate or missing independent review session")
+            assessment = _replay_call(directory, receipt, "novelty_review", expected)
+            session_id = receipt["session_id"]
+            if session_id in seen:
+                raise ValueError("Duplicate independent review session")
             seen.add(session_id)
             native_session = receipt.get("native_session_id")
             if native_session and native_session in native_sessions:
                 raise ValueError("Duplicate native reviewer session")
             if native_session:
                 native_sessions.add(native_session)
-            if receipt.get("frozen_evidence") != expected:
-                raise ValueError("Review is stale: source catalog or agenda changed")
-            response_path = directory / str(receipt.get("response", ""))
-            if response_path.is_symlink() or not response_path.resolve().is_relative_to(directory.resolve()) or not response_path.is_file():
-                raise ValueError("Invalid provider response path")
-            if any(part.is_symlink() for part in response_path.parents if part != directory.parent):
-                raise ValueError("Provider response path crosses a symlink")
-            for name, expected_hash in (("prompt.txt", receipt.get("prompt_sha256")),
-                                        ("assessment.json", receipt.get("assessment_sha256")),
-                                        (str(response_path.relative_to(directory)), receipt.get("response_sha256"))):
-                path = directory / name
-                if path.is_symlink() or not path.is_file() or _sha(path) != expected_hash:
-                    raise ValueError(f"Review artifact changed: {name}")
-            provider_response = _read(response_path)
-            if receipt["backend"] == "agent_stateless":
-                from src.review_backend import strict_json_object
-                transport = _read(directory / "transport/receipt.json")
-                if (_sha(directory / "transport/receipt.json") != receipt.get("transport_receipt_sha256")
-                        or transport.get("status") != "completed" or transport.get("independent_context") is not True
-                        or transport.get("prompt_sha256") != receipt["prompt_sha256"]
-                        or transport.get("stdout_sha256") != receipt["response_sha256"]):
-                    raise ValueError("Agent transport receipt is stale or incomplete")
-                if provider_response.get("protocolVersion") != 1 or provider_response.get("type") != "result" or provider_response.get("exitCode") != 0:
-                    raise ValueError("Agent response did not complete")
-                replay = normalize_review(strict_json_object(provider_response["data"]["finalMessage"]))
-            else:
-                replay = normalize_review(parse_object(response_text(provider_response), "verdict"))
-            assessment = normalize_review(_read(directory / "assessment.json"))
-            if replay != assessment:
-                raise ValueError("Assessment differs from the actual saved provider response")
             verified.append({"assessment": assessment, "receipt": {
                 "path": str(directory / "receipt.json"), "sha256": _sha(directory / "receipt.json"),
                 "session_id": session_id, "provider": receipt.get("provider"), "model": receipt.get("model"),

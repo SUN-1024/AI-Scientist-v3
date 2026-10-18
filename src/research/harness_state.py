@@ -139,6 +139,8 @@ class HarnessState:
                             pipeline_exit_code=exit_code)
         if error:
             self.payload["error"] = error
+        elif exit_code == 0:
+            self.payload.pop("error", None)
         for stage in self.payload["stages"].values():
             if stage.get("status") == "running":
                 stage.update(status="interrupted" if exit_code == 130 else "failed", reason=error or "pipeline stopped")

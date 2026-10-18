@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,33 +47,204 @@ def task_digest(task_dir: Path) -> str:
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
-def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[str],
-            after_literature: Callable[[Path, ResearchConfig], None] | None = None) -> dict[str, Any]:
-    cfg = load_config(task_dir)
-    if workspace.exists() or workspace.is_symlink():
-        raise ValueError("Workspace already exists; use --resume or select a new workspace")
-    if workspace.resolve().is_relative_to(task_dir.resolve()):
-        raise ValueError("The research workspace must be outside its source task directory")
-    workspace.mkdir(parents=True)
+PREPARATION_FILE = "research_preparation.json"
+PREPARATION_OUTPUTS = {
+    "research_agenda.json", "research_context/harness_novelty.json",
+    "research_context/upstream_integration.json",
+}
+
+
+def _records(path: Path, *, source: bool = False) -> dict[str, Any]:
+    patterns = (*load_task_copy_ignore_patterns(path), *OMIT) if source else ()
+    with open_directory(path, role="research preparation input") as fd:
+        records = task_tree_manifest_at(fd, relative_dir=Path(), ignore_patterns=patterns)
+    return json.loads(json.dumps(records))
+
+
+def _save_preparation(workspace: Path, journal: dict[str, Any]) -> None:
+    journal["updated_at"] = datetime.now(timezone.utc).isoformat()
+    write_private_text(workspace / PREPARATION_FILE, json.dumps(journal, ensure_ascii=False, indent=2) + "\n")
+
+
+def _read_preparation(workspace: Path) -> dict[str, Any]:
+    path = workspace / PREPARATION_FILE
+    if workspace.is_symlink() or path.is_symlink() or not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Workspace has no valid preparation journal")
+    journal = json.loads(path.read_text(encoding="utf-8"))
+    if (not isinstance(journal, dict) or journal.get("schema_version") != 1
+            or journal.get("state") not in {"copying", "literature", "initial_review", "finalizing", "prepared"}
+            or not isinstance(journal.get("source_records"), dict)
+            or not isinstance(journal.get("pipeline_overrides"), list)
+            or not all(isinstance(value, str) for value in journal["pipeline_overrides"])
+            or type(journal.get("offline")) is not bool):
+        raise ValueError("Invalid research preparation journal")
+    return journal
+
+
+def _verify_preparation_inputs(workspace: Path, journal: dict[str, Any]) -> list[Path]:
     staged = workspace / "input_task"
-    copy_task(task_dir, staged)
+    current = _records(staged)
+    expected = journal["source_records"]
+    outputs = journal.get("generated_outputs", {})
+    if not isinstance(outputs, dict) or set(outputs) - PREPARATION_OUTPUTS or not all(isinstance(v, str) for v in outputs.values()):
+        raise ValueError("Invalid preparation output transaction")
+    temporary_outputs = []
+    # A hard kill can leave the atomic writer's temporary file. It is safe to
+    # archive only a known output's regular, private, matching byte prefix.
+    if journal["state"] == "finalizing":
+        for name, text in outputs.items():
+            output_path = Path(name)
+            pattern = re.compile(r"\." + re.escape(output_path.name) + r"\.[0-9a-f]{16}\.tmp")
+            for temporary, record in list(current.items()):
+                path = Path(temporary)
+                if temporary in expected or path.parent != output_path.parent or not pattern.fullmatch(path.name):
+                    continue
+                saved = staged / path
+                content = text.encode()
+                if record[0] != "file" or record[2] != "0o600" or saved.stat().st_size > len(content) or not content.startswith(saved.read_bytes()):
+                    raise ValueError(f"Interrupted preparation output changed: {temporary}")
+                temporary_outputs.append(saved)
+                current.pop(temporary)
+    # Output bytes are sealed before the first generated input is written. After
+    # a crash each destination must still be the original or the sealed output.
+    for name, text in outputs.items():
+        record = current.get(name)
+        generated = ["file", hashlib.sha256(text.encode()).hexdigest(), "0o600"]
+        if record not in (expected.get(name), generated):
+            raise ValueError(f"Prepared research output changed: {name}")
+        current.pop(name, None)
+    base = {name: value for name, value in current.items()
+            if name != "research_context" and not name.startswith("research_context/")}
+    original = {name: value for name, value in expected.items() if name not in outputs}
+    if base != original:
+        raise ValueError("Prepared research source inputs changed; create a new workspace")
+    frozen = journal.get("literature_records")
+    if frozen is not None:
+        context = {name: value for name, value in current.items()
+                   if name == "research_context" or name.startswith("research_context/")}
+        if context != frozen:
+            raise ValueError("Prepared literature changed; inspect the frozen evidence before resuming")
+        load_catalog(staged)
+    return temporary_outputs
+
+
+def load_preparation(workspace: Path) -> tuple[ResearchConfig, dict[str, Any]]:
+    """Read and validate an interrupted preparation without network or writes."""
+    journal = _read_preparation(workspace)
+    if journal["state"] == "copying":
+        source = Path(journal["source_task"])
+        if _records(source, source=True) != journal["source_records"]:
+            raise ValueError("Source task changed during interrupted copy; create a new workspace")
+        cfg = load_config(source)
+    else:
+        _verify_preparation_inputs(workspace, journal)
+        cfg = load_config(workspace / "input_task")
+    if asdict(cfg) != journal.get("research_config"):
+        raise ValueError("Research preparation configuration changed")
+    return cfg, journal
+
+
+def _archive_incomplete(workspace: Path, path: Path, label: str) -> str | None:
+    if path.is_symlink():
+        raise ValueError(f"Interrupted preparation path cannot be a symlink: {path.name}")
+    if path.exists():
+        archive = workspace / "preparation_attempts"
+        archive.mkdir(exist_ok=True)
+        if archive.is_symlink():
+            raise ValueError("Preparation attempts cannot follow a symlink")
+        destination = archive / f"{label}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
+        path.rename(destination)
+        return str(destination.relative_to(workspace))
+    return None
+
+
+def prepare(task_dir: Path, workspace: Path, *, offline: bool, overrides: list[str],
+            after_literature: Callable[[Path, ResearchConfig], dict[str, str] | None] | None = None,
+            resume_preparation: bool = False, initial_state: dict[str, Any] | None = None) -> dict[str, Any]:
+    if resume_preparation:
+        cfg, journal = load_preparation(workspace)
+        if offline != journal["offline"] or overrides != journal["pipeline_overrides"]:
+            raise ValueError("Preparation settings are frozen; create a new workspace to change them")
+        task_dir = Path(journal["source_task"])
+    else:
+        cfg = load_config(task_dir)
+        if workspace.exists() or workspace.is_symlink():
+            raise ValueError("Workspace already exists; use --resume or select a new workspace")
+        if workspace.resolve().is_relative_to(task_dir.resolve()):
+            raise ValueError("The research workspace must be outside its source task directory")
+        journal = {
+            "schema_version": 1, "created_at": datetime.now(timezone.utc).isoformat(), "state": "copying",
+            "source_task": str(task_dir.resolve()), "source_records": _records(task_dir, source=True),
+            "research_config": asdict(cfg), "pipeline_overrides": overrides, "offline": offline,
+            "initial_harness_state": initial_state,
+        }
+        workspace.mkdir(parents=True)
+        _save_preparation(workspace, journal)
+    staged = workspace / "input_task"
+    if journal["state"] == "copying":
+        _archive_incomplete(workspace, staged, "input_task")
+        copy_task(task_dir, staged)
+        if _records(staged) != journal["source_records"]:
+            raise ValueError("Source task changed during preparation; create a new workspace")
+        journal["state"] = "literature"
+        _save_preparation(workspace, journal)
+    if asdict(load_config(staged)) != journal["research_config"]:
+        raise ValueError("Research configuration changed during preparation")
     for relative in ("research_context", "research_context/catalog.json"):
         if task_copy_path_is_ignored(
             relative, is_dir="." not in Path(relative).name,
             patterns=load_task_copy_ignore_patterns(staged),
         ):
             raise ValueError(".agentic_task_ignore must include the generated research_context in the pipeline snapshot")
-    catalog = prepare_literature(staged, cfg.literature, offline=offline)
-    load_catalog(staged)
-    if after_literature is not None:
-        after_literature(staged, cfg)
+    if journal["state"] == "literature":
+        # Preserve failed/unfinished attempts. A completed, sealed catalog is
+        # always reused, so resuming initial review never repeats retrieval.
+        archived = _archive_incomplete(workspace, staged / "research_context", "literature")
+        if archived is not None:
+            journal["literature_retry"] = {
+                "archived_attempt": archived, "explicit_resume": resume_preparation,
+                "reason": "Previous literature stage was not sealed", "stage_requests_may_repeat": True,
+            }
+            _save_preparation(workspace, journal)
+        catalog = prepare_literature(staged, cfg.literature, offline=offline)
+        load_catalog(staged)
+        if not offline and not catalog["sources"] and catalog.get("retrieval_errors"):
+            journal["literature_error"] = "Literature retrieval failed with no usable sources; resume to retry preparation"
+            _save_preparation(workspace, journal)
+            raise ValueError(journal["literature_error"])
+        journal.pop("literature_error", None)
+        journal["literature_records"] = {name: value for name, value in _records(staged).items()
+                                         if name == "research_context" or name.startswith("research_context/")}
+        journal["literature_status"] = catalog["status"]
+        journal["state"] = "initial_review"
+        _save_preparation(workspace, journal)
+    if journal["state"] == "initial_review":
+        outputs = after_literature(staged, cfg) if after_literature is not None else None
+        _verify_preparation_inputs(workspace, journal)
+        for relative in outputs or {}:
+            if task_copy_path_is_ignored(relative, is_dir=False, patterns=load_task_copy_ignore_patterns(staged)):
+                raise ValueError(f".agentic_task_ignore must retain generated research input: {relative}")
+        journal["generated_outputs"] = outputs or {}
+        journal["state"] = "finalizing"
+        _save_preparation(workspace, journal)
+    temporary_outputs = _verify_preparation_inputs(workspace, journal)
+    for temporary in temporary_outputs:
+        archived = _archive_incomplete(workspace, temporary, "generated_output")
+        journal.setdefault("interrupted_output_files", []).append(archived)
+    if temporary_outputs:
+        _save_preparation(workspace, journal)
+    for name, text in journal.get("generated_outputs", {}).items():
+        write_private_text(staged / name, text)
     manifest = {
-        "schema_version": 1, "created_at": datetime.now(timezone.utc).isoformat(),
-        "source_task": str(task_dir.resolve()), "input_task_sha256": task_digest(staged),
+        "schema_version": 1, "created_at": journal["created_at"],
+        "source_task": journal["source_task"], "input_task_sha256": task_digest(staged),
         "research_config": asdict(cfg), "pipeline_overrides": overrides,
-        "literature_status": catalog["status"], "state": "prepared",
+        "literature_status": journal["literature_status"], "state": "prepared",
     }
     write_private_text(workspace / "research_manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+    journal["state"] = "prepared"
+    journal["input_task_sha256"] = manifest["input_task_sha256"]
+    _save_preparation(workspace, journal)
     return manifest
 
 
