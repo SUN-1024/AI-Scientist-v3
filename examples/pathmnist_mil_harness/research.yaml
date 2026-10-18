@@ -1,4 +1,7 @@
 schema_version: 1
+methodology:
+  enabled: true
+  profile: medical
 literature:
   queries:
     - pathology multiple instance learning background dilution variable bag size attention log mean exp pooling label noise

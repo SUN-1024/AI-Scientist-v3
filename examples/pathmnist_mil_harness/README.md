@@ -16,6 +16,10 @@ to retain the separate search backend, or use `native` only when that model retu
 structured search receipts. See the [model guide](../../docs/model-search.zh-CN.md).
 Author and code models use `agent.*`; independent review overrides use `review.agent_*`.
 These choices affect this run, not the user's global Codex configuration.
+New tasks enable the `medical` methodology profile. The Harness freezes its rules
+before agenda generation. Patient-level isolation and clinical validity remain
+unknown unless supported by evidence; patch-disjoint bags do not establish either.
+See the [methodology guide](../../docs/research-methodology.zh-CN.md).
 
 ```bash
 .venv/bin/python examples/pathmnist_mil_harness/prepare_data.py \
