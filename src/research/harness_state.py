@@ -77,6 +77,24 @@ def stage_records(workspace: Path, phase: str) -> dict[str, str]:
     return records
 
 
+def _append_only_memory_matches(path: Path, saved_digest: str) -> bool:
+    """Later phases append workflow memory; its saved prefix stays immutable."""
+    if path.stat().st_size > 32 * 1024 * 1024:
+        return False
+    raw = path.read_bytes()
+    if raw and not raw.endswith(b"\n"):
+        return False
+    digest = hashlib.sha256()
+    matched = digest.hexdigest() == saved_digest
+    for line in raw.splitlines(keepends=True):
+        digest.update(line)
+        if digest.hexdigest() == saved_digest:
+            matched = True
+        if line.strip() and not isinstance(json.loads(line.decode("utf-8")), dict):
+            return False
+    return matched
+
+
 def verify_stage_records(workspace: Path, stage: dict[str, Any]) -> bool:
     records = stage.get("artifacts", {})
     if stage.get("status") != "completed" or not isinstance(records, dict) or not records:
@@ -87,7 +105,8 @@ def verify_stage_records(workspace: Path, stage: dict[str, Any]) -> bool:
             if Path(name).is_absolute() or ".." in Path(name).parts or not path.resolve().is_relative_to(workspace.resolve()):
                 return False
             if sha256(path) != digest:
-                return False
+                if name != "run/investigation/memory.jsonl" or not _append_only_memory_matches(path, digest):
+                    return False
     except (OSError, ValueError):
         return False
     return True

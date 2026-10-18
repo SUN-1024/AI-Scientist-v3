@@ -156,6 +156,42 @@ def test_receipts_bind_bytes_and_paper_filename_alone_is_not_readiness(tmp_path)
     assert not verify_stage_records(workspace, state.payload["stages"]["paper"])
 
 
+@pytest.mark.parametrize("initial", ["", '{"event":"investigation"}\n'])
+def test_completed_investigation_accepts_only_append_only_workflow_memory(tmp_path, initial):
+    from src.research.harness_state import stage_records
+
+    root = tmp_path / "run/investigation"
+    root.mkdir(parents=True)
+    memory = root / "memory.jsonl"
+    memory.write_text(initial)
+    code = root / "program.py"
+    code.write_text("frozen program\n")
+    stage = {"status": "completed", "artifacts": stage_records(tmp_path, "investigation")}
+    memory.write_text(initial + '{"event":"paper"}\n')
+    assert verify_stage_records(tmp_path, stage)
+    code.write_text("changed program\n")
+    assert not verify_stage_records(tmp_path, stage)
+    code.write_text("frozen program\n")
+    memory.write_text('{"event":"replacement"}\n')
+    assert verify_stage_records(tmp_path, stage) is (initial == "")
+    memory.write_text(initial + 'invalid appended record\n')
+    assert not verify_stage_records(tmp_path, stage)
+    memory.write_text(initial + '[]\n')
+    assert not verify_stage_records(tmp_path, stage)
+
+
+def test_other_jsonl_artifacts_remain_byte_frozen(tmp_path):
+    from src.research.harness_state import stage_records
+
+    root = tmp_path / "run/investigation"
+    root.mkdir(parents=True)
+    log = root / "evaluation_events.jsonl"
+    log.write_text('{"score":1}\n')
+    stage = {"status": "completed", "artifacts": stage_records(tmp_path, "investigation")}
+    log.write_text(log.read_text() + '{"score":2}\n')
+    assert not verify_stage_records(tmp_path, stage)
+
+
 @pytest.mark.parametrize("estimate,lower,expected", [(0.1, -0.02, "not_positive"),
                                                        (0.1, 0.0, "not_positive"),
                                                        (0.1, 0.02, "positive")])
