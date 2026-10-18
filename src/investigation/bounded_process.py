@@ -12,9 +12,10 @@ import signal
 import subprocess
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Mapping, Sequence
+from typing import BinaryIO, Callable, ContextManager, Mapping, Protocol, Sequence
 
 DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024
 MAX_OUTPUT_EVIDENCE_BYTES = 4 * 1024
@@ -22,6 +23,12 @@ _READ_SIZE = 8192
 _POLL_INTERVAL_SECONDS = 0.01
 _TERMINATE_GRACE_SECONDS = 0.1
 _CLEANUP_TIMEOUT_SECONDS = 0.5
+
+
+class CancellationSignal(Protocol):
+    """An Event or another lock-free cancellation predicate."""
+
+    def is_set(self) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,10 +42,13 @@ class BoundedProcessResult:
 
 @dataclass(slots=True)
 class ProcessCleanupWitness:
-    """Host-only observation that the direct child has been reaped."""
+    """Host-only observations made by the process and lifecycle owners."""
 
     reaped: bool = False
     started: bool = False
+    # Set only by a trusted lifecycle owner after it stops all owned descendants
+    # and reaps the child. Avoid re-signaling a group whose leader PID can recur.
+    tree_stopped: bool = False
 
 
 class BoundedProcessError(RuntimeError):
@@ -227,32 +237,35 @@ def _stop_and_reap(
     process: subprocess.Popen[bytes],
     state: _CaptureState,
     readers: Sequence[threading.Thread],
+    *,
+    tree_stopped: bool = False,
 ) -> None:
     cleanup_deadline = time.monotonic() + _CLEANUP_TIMEOUT_SECONDS
     state.stop.set()
-    try:
-        _signal_process_group(process, signal.SIGTERM)
-    except Exception:
-        pass
-    try:
-        process.wait(
-            timeout=min(
-                _TERMINATE_GRACE_SECONDS,
-                max(0.0, cleanup_deadline - time.monotonic()),
-            )
-        )
-    except (OSError, RuntimeError, subprocess.TimeoutExpired):
-        pass
-    try:
-        _signal_process_group(process, getattr(signal, "SIGKILL", signal.SIGTERM))
-    except Exception:
-        pass
-    remaining = max(0.0, cleanup_deadline - time.monotonic())
-    if remaining > 0:
+    if not tree_stopped:
         try:
-            process.wait(timeout=remaining)
+            _signal_process_group(process, signal.SIGTERM)
+        except Exception:
+            pass
+        try:
+            process.wait(
+                timeout=min(
+                    _TERMINATE_GRACE_SECONDS,
+                    max(0.0, cleanup_deadline - time.monotonic()),
+                )
+            )
         except (OSError, RuntimeError, subprocess.TimeoutExpired):
             pass
+        try:
+            _signal_process_group(process, getattr(signal, "SIGKILL", signal.SIGTERM))
+        except Exception:
+            pass
+        remaining = max(0.0, cleanup_deadline - time.monotonic())
+        if remaining > 0:
+            try:
+                process.wait(timeout=remaining)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired):
+                pass
     for reader in readers:
         remaining = max(0.0, cleanup_deadline - time.monotonic())
         if remaining <= 0:
@@ -282,16 +295,20 @@ def run_bounded_process(
     max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
     child_umask: int | None = None,
     cleanup_witness: ProcessCleanupWitness | None = None,
-    cancel_event: threading.Event | None = None,
+    cancel_event: CancellationSignal | None = None,
+    process_lifecycle: Callable[[subprocess.Popen[bytes]], ContextManager[None]] | None = None,
 ) -> BoundedProcessResult:
     """Control a trusted evaluator process's output and execution deadline.
 
     The new process group supports best-effort cleanup of ordinary descendants,
     not security containment. Candidate code requires a separate sandbox.
+    An optional lifecycle context owns additional descendant tracking. It exits
+    before the fallback group cleanup, even if its entry or the process fails.
     """
     if cleanup_witness is not None:
         cleanup_witness.reaped = False
         cleanup_witness.started = False
+        cleanup_witness.tree_stopped = False
     _validate_limits(timeout_seconds, max_output_bytes)
     if child_umask is not None and (
         isinstance(child_umask, bool)
@@ -301,6 +318,8 @@ def run_bounded_process(
     ):
         raise ValueError("child_umask must be an integer from 0 to 0o777")
     command = _validate_argv(argv)
+    if cancel_event is not None and cancel_event.is_set():
+        raise ProcessCancelledError("controller cancelled")
     started = time.monotonic()
     process = subprocess.Popen(
         command,
@@ -336,39 +355,45 @@ def run_bounded_process(
     deadline = started + float(timeout_seconds)
     completed = False
     try:
-        os.set_blocking(process.stdout.fileno(), False)
-        os.set_blocking(process.stderr.fileno(), False)
-        for reader in readers:
-            reader.start()
-        while True:
-            if cancel_event is not None and cancel_event.is_set():
-                raise ProcessCancelledError("controller cancelled")
-            if state.output_limit.is_set():
-                raise state.capture_error(ProcessOutputLimitError)
-            if time.monotonic() >= deadline:
-                raise state.capture_error(ProcessTimeoutError)
-            returncode = process.poll()
-            if returncode is not None and stdout_done.is_set() and stderr_done.is_set():
-                for reader in readers:
-                    reader.join()
+        with process_lifecycle(process) if process_lifecycle is not None else nullcontext():
+            os.set_blocking(process.stdout.fileno(), False)
+            os.set_blocking(process.stderr.fileno(), False)
+            for reader in readers:
+                reader.start()
+            while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise ProcessCancelledError("controller cancelled")
                 if state.output_limit.is_set():
                     raise state.capture_error(ProcessOutputLimitError)
-                if state.reader_error:
-                    raise BoundedProcessError("process output capture failed")
-                completed = True
-                return BoundedProcessResult(
-                    returncode,
-                    bytes(state.stdout),
-                    bytes(state.stderr),
+                if time.monotonic() >= deadline:
+                    raise state.capture_error(ProcessTimeoutError)
+                returncode = process.poll()
+                if returncode is not None and stdout_done.is_set() and stderr_done.is_set():
+                    for reader in readers:
+                        reader.join()
+                    if state.output_limit.is_set():
+                        raise state.capture_error(ProcessOutputLimitError)
+                    if state.reader_error:
+                        raise BoundedProcessError("process output capture failed")
+                    result = BoundedProcessResult(
+                        returncode,
+                        bytes(state.stdout),
+                        bytes(state.stderr),
+                    )
+                    break
+                state.output_limit.wait(
+                    timeout=min(_POLL_INTERVAL_SECONDS, max(0.0, deadline - time.monotonic()))
                 )
-            state.output_limit.wait(
-                timeout=min(_POLL_INTERVAL_SECONDS, max(0.0, deadline - time.monotonic()))
-            )
+        completed = True
+        return result
     finally:
         if not completed:
             state.stop.set()
             try:
-                _stop_and_reap(process, state, readers)
+                _stop_and_reap(
+                    process, state, readers,
+                    tree_stopped=bool(cleanup_witness and cleanup_witness.tree_stopped),
+                )
             except Exception:
                 pass
         if cleanup_witness is not None:

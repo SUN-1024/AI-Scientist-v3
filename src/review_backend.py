@@ -16,8 +16,21 @@ import subprocess
 import tempfile
 import threading
 import time
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Iterator, Mapping
+
+from src.investigation.bounded_process import (
+    BoundedProcessError,
+    ProcessCancelledError,
+    ProcessCleanupWitness,
+    ProcessOutputLimitError,
+    ProcessTimeoutError,
+    run_bounded_process,
+)
+from src.investigation.review_process import OWNER_TOKEN_ENV, ReviewProcessTree, process_baseline
+from src.investigation.runtime import register_active_subprocess, unregister_active_subprocess
 
 _MAX_INPUT_BYTES = 2 * 1024 * 1024
 _MAX_RESPONSE_BYTES = 4 * 1024 * 1024
@@ -109,12 +122,17 @@ def run_fresh_agent_json(
     prompt: str, *, work_dir: Path, agent: str = "codex", model: str | None = None,
     profile: str | None = None, reasoning_effort: str | None = None,
     timeout_seconds: int = 1800, environment: Mapping[str, str] | None = None,
+    cancel_event: threading.Event | None = None,
+    on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
+    on_process_exit: Callable[[subprocess.Popen[bytes]], None] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return strict JSON and a transport receipt, with no resumed author context.
 
     ``work_dir`` receives sanitized diagnostics and the exact prompt. The actual
     CLI cwd is a new temporary directory so author repository instructions and
     old session state are not implicitly selected. Provider config stays local.
+    A caller running reviewers in threads must set ``cancel_event`` and join
+    them on interruption. Exit callbacks run after owned process-tree cleanup.
     """
     if agent not in {"codex", "claude", "gemini", "cursor", "opencode", "pi"}:
         raise AgentReviewError(f"unsupported review agent: {agent}")
@@ -133,13 +151,67 @@ def run_fresh_agent_json(
     work_dir = work_dir.expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     (work_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
-    started = time.time()
+    started = time.monotonic()
     receipt: dict[str, Any] = {
         "backend": "agent", "agent": agent, "model": model, "profile": profile,
         "reasoning_effort": reasoning_effort, "independent_context": True,
         "prompt_sha256": sha256(prompt), "status": "failed", "permission_mode": "read-only",
     }
+    cleanup_witness = ProcessCleanupWitness()
+    interrupted: list[int] = []
+    can_handle_signals = threading.current_thread() is threading.main_thread()
+    previous_handlers: dict[int, Any] = {}
+
+    def request_stop(signum: int, _frame: object) -> None:
+        # Do not raise inside Popen or lifecycle registration. The polling owner
+        # cleans its tree, then restores the caller's interruption semantics.
+        if not interrupted:
+            interrupted.append(signum)
+
+    class InvocationCancellation:
+        def is_set(self) -> bool:
+            return bool(interrupted) or (cancel_event is not None and cancel_event.is_set())
+
+    def raise_interruption() -> None:
+        if interrupted:
+            if interrupted[0] == signal.SIGTERM:
+                raise SystemExit(143)
+            raise KeyboardInterrupt
+
+    @contextmanager
+    def process_lifecycle(process: subprocess.Popen[Any]) -> Iterator[None]:
+        tree = ReviewProcessTree(process, owner_token=owner_token, baseline=baseline)
+        try:
+            register_active_subprocess(process)
+            tree.start()
+            if on_process_start is not None:
+                on_process_start(process)
+            yield
+        finally:
+            try:
+                tree.close()
+                cleanup_witness.tree_stopped = True
+                if on_process_exit is not None:
+                    on_process_exit(process)
+            finally:
+                unregister_active_subprocess(process)
+
+    def diagnostics(stdout: bytes, stderr: bytes) -> tuple[str, str]:
+        output = redact_secrets(stdout.decode("utf-8", errors="replace"), env)
+        error = redact_secrets(stderr.decode("utf-8", errors="replace"), env)
+        (work_dir / "stdout.json").write_text(output, encoding="utf-8")
+        (work_dir / "stderr.log").write_text(error, encoding="utf-8")
+        receipt.update(stdout_sha256=sha256(output), stderr_sha256=sha256(error))
+        return output, error
+
     try:
+        if can_handle_signals:
+            for signum in (signal.SIGTERM, signal.SIGINT):
+                previous_handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, request_stop)
+        owner_token = uuid.uuid4().hex
+        env[OWNER_TOKEN_ENV] = owner_token
+        baseline = process_baseline()
         with tempfile.TemporaryDirectory(prefix="agsci-independent-review-") as temporary:
             cwd = Path(temporary).resolve()
             prompt_file = cwd / "prompt.txt"
@@ -154,46 +226,25 @@ def run_fresh_agent_json(
                 command.extend(["--prompt-file", str(prompt_file)])
             else:
                 command.extend(["--prompt", f"Read all instructions from {prompt_file} and follow them."])
-            with (cwd / "stdout").open("wb") as stdout, (cwd / "stderr").open("wb") as stderr:
-                process = subprocess.Popen(command, cwd=cwd, env=env, stdout=stdout, stderr=stderr,
-                                           start_new_session=True)
-                can_handle_signals = threading.current_thread() is threading.main_thread()
-                previous_handler = signal.getsignal(signal.SIGTERM)
-
-                def terminate(_signum: int, _frame: object) -> None:
-                    if process.poll() is None:
-                        os.killpg(process.pid, signal.SIGKILL)
-                    raise SystemExit(143)
-
-                if can_handle_signals:
-                    signal.signal(signal.SIGTERM, terminate)
-                try:
-                    try:
-                        exit_code = process.wait(timeout=timeout_seconds)
-                    except subprocess.TimeoutExpired as exc:
-                        os.killpg(process.pid, signal.SIGKILL)
-                        process.wait()
-                        raise AgentReviewError("independent reviewer timed out") from exc
-                    except BaseException:
-                        # Cancellation must not leave a detached paid model call
-                        # running after its owner has stopped waiting for it.
-                        if process.poll() is None:
-                            try:
-                                os.killpg(process.pid, signal.SIGKILL)
-                            except ProcessLookupError:
-                                pass
-                        process.wait()
-                        raise
-                finally:
-                    if can_handle_signals:
-                        signal.signal(signal.SIGTERM, previous_handler)
-            raw_output = _read_regular(cwd / "stdout", maximum=_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
-            raw_error = _read_regular(cwd / "stderr", maximum=_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
-            output = redact_secrets(raw_output, env)
-            error = redact_secrets(raw_error, env)
-            (work_dir / "stdout.json").write_text(output, encoding="utf-8")
-            (work_dir / "stderr.log").write_text(error, encoding="utf-8")
-            receipt.update(exit_code=exit_code, stdout_sha256=sha256(output), stderr_sha256=sha256(error))
+            try:
+                result = run_bounded_process(
+                    command, cwd=cwd, env=env, timeout_seconds=timeout_seconds,
+                    max_output_bytes=_MAX_RESPONSE_BYTES, cancel_event=InvocationCancellation(),
+                    process_lifecycle=process_lifecycle, cleanup_witness=cleanup_witness,
+                )
+            except (ProcessTimeoutError, ProcessOutputLimitError) as exc:
+                diagnostics(exc.stdout, exc.stderr)
+                message = "timed out" if isinstance(exc, ProcessTimeoutError) else "exceeded the combined output limit"
+                raise AgentReviewError(f"independent reviewer {message}") from exc
+            except ProcessCancelledError as exc:
+                raise_interruption()
+                raise AgentReviewError("independent reviewer cancelled") from exc
+            except BoundedProcessError as exc:
+                raise AgentReviewError("independent reviewer process failed") from exc
+            raise_interruption()
+            output, _error = diagnostics(result.stdout, result.stderr)
+            exit_code = result.returncode
+            receipt.update(exit_code=exit_code)
             if exit_code:
                 raise AgentReviewError(f"independent reviewer exited with code {exit_code}; see sanitized diagnostics")
             envelope = strict_json_object(output)
@@ -207,12 +258,20 @@ def run_fresh_agent_json(
                            observed_provider=data.get("provider"), native_session_id=data.get("nativeSessionId"),
                            usage=data.get("usage"), response_sha256=sha256(data["finalMessage"]))
             return payload, receipt
-    except (OSError, ValueError) as exc:
+    except Exception as exc:
+        raise_interruption()
         receipt["error"] = redact_secrets(str(exc), env)
         raise AgentReviewError(receipt["error"], provenance=receipt) from exc
     finally:
-        receipt["duration_seconds"] = round(time.time() - started, 3)
-        (work_dir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        try:
+            if interrupted:
+                receipt.update(status="failed", error="independent reviewer interrupted")
+            receipt["duration_seconds"] = round(time.monotonic() - started, 3)
+            (work_dir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        finally:
+            for restored_signum, previous_handler in previous_handlers.items():
+                signal.signal(restored_signum, previous_handler)
+        raise_interruption()
 
 
 def validate_agent_review(payload: dict[str, Any], *, source_ids: set[str]) -> dict[str, Any]:
