@@ -214,6 +214,8 @@ If the selected prompt family is not supportable from the grounded artifacts, wr
 }
 ```
 
+For every `figure_specs` entry, set `figure_type` to one of: `grouped_bar`, `bar`, `line`, `box`, `violin`, `scatter`, `heatmap`, `table_matrix`, `table`, `composite`, or `diagram`. This field must match the figure-manifest contract. Put details about the plot form and layout in `purpose`, `layout_rationale`, or `notes_for_writer`.
+
 Write `{{PAPER_STRATEGY_PATH}}` as a readable markdown memo that mirrors the same decisions in prose.
 
 # Framing Rules

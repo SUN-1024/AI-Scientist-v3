@@ -2702,15 +2702,18 @@ run_postdraft_reference_enrichment() {
 }
 
 validate_strategy_with_feedback() {
-  "$PYTHON_BIN" - "$OUTPUT_DIR" "$STRATEGY_VALIDATION_FEEDBACK_JSON_PATH" "$STRATEGY_VALIDATION_FEEDBACK_MD_PATH" <<'PY'
+  "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "$STRATEGY_VALIDATION_FEEDBACK_JSON_PATH" "$STRATEGY_VALIDATION_FEEDBACK_MD_PATH" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-output_dir = Path(sys.argv[1])
-feedback_json_path = Path(sys.argv[2])
-feedback_md_path = Path(sys.argv[3])
+sys.path.insert(0, sys.argv[1])
+from src.orchestrator.figure_manifest_schema import SUPPORTED_FIGURE_TYPES, STRATEGY_FIGURE_TYPE_ALIASES
+
+output_dir = Path(sys.argv[2])
+feedback_json_path = Path(sys.argv[3])
+feedback_md_path = Path(sys.argv[4])
 strategy_md = output_dir / "paper_strategy.md"
 strategy_json = output_dir / "paper_strategy.json"
 
@@ -2832,6 +2835,14 @@ try:
         for key in ("figure_id", "figure_type"):
             if not str(row.get(key, "")).strip():
                 raise SystemExit(f"paper_strategy.json figure_specs[{idx}] missing non-empty field: {key}")
+        figure_type = str(row["figure_type"]).strip()
+        figure_type = STRATEGY_FIGURE_TYPE_ALIASES.get(figure_type, figure_type)
+        if figure_type not in SUPPORTED_FIGURE_TYPES:
+            raise SystemExit(
+                f"paper_strategy.json figure_specs[{idx}].figure_type has unsupported value: {row['figure_type']!r}; "
+                f"use one of: {', '.join(sorted(SUPPORTED_FIGURE_TYPES))}. "
+                "Describe specific plot layouts in notes_for_writer."
+            )
         if preferred_generator and preferred_generator not in {
             "generate-concept-figure",
             "matplotlib",
@@ -2844,7 +2855,7 @@ try:
             )
         if (
             bool(row.get("required", False))
-            and str(row.get("figure_type", "")).strip() == "diagram"
+            and figure_type == "diagram"
             and not preferred_generator
         ):
             raise SystemExit(

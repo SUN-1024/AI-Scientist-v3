@@ -23,6 +23,10 @@ FigureType = Literal[
     "diagram",
 ]
 SUPPORTED_FIGURE_TYPES = frozenset(get_args(FigureType))
+STRATEGY_FIGURE_TYPE_ALIASES = {
+    "flow_diagram": "diagram",
+    "horizontal_bar": "bar",
+}
 
 FigurePlacement = Literal["column", "full_width"]
 FigureGenerator = Literal["generate-concept-figure", "matplotlib", "tikz", "native_latex", "manual"]

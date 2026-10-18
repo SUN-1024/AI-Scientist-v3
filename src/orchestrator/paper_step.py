@@ -27,6 +27,7 @@ from pypdf import PdfReader
 
 from src.orchestrator.figure_manifest_schema import (
     NormalizedFigureManifestFigure,
+    STRATEGY_FIGURE_TYPE_ALIASES,
     SUPPORTED_FIGURE_GENERATORS,
     SUPPORTED_FIGURE_TYPES,
     format_figure_manifest_validation_error,
@@ -214,10 +215,6 @@ DEFAULT_SERIES_BUDGET = {
     "table": 8,
     "composite": 4,
     "diagram": 1,
-}
-STRATEGY_FIGURE_TYPE_ALIASES = {
-    "flow_diagram": "diagram",
-    "horizontal_bar": "bar",
 }
 
 
