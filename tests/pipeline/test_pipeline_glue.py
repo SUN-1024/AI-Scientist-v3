@@ -22,6 +22,7 @@ from src.pipeline.glue import (
     UnsafeGluePathError,
     copy_investigation_memory,
     link_aggregated_csvs,
+    link_aggregated_csvs_in_root,
     populate_task_dir,
     prepare_run_task,
     preview_run_task,
@@ -1485,6 +1486,31 @@ def test_link_aggregated_csvs_links_relative_warns_when_missing_and_dry_runs(tmp
     (paths.ablations_aggregated_task_dir / "run_summary.csv").write_text("x")
     link_aggregated_csvs(paths, dry_run=True)
     assert not (paths.ablations_output_dir / "aggregated" / "run_summary.csv").is_symlink()
+
+
+@pytest.mark.parametrize("entrypoint", ["paths", "root"])
+def test_link_aggregated_csvs_preserves_completed_harness_evidence(tmp_path: Path, entrypoint: str) -> None:
+    from src.research.harness_state import stage_records, verify_stage_records
+
+    paths = _paths(tmp_path / "run")
+    paths.ablations_aggregated_task_dir.mkdir(parents=True)
+    root = paths.ablations_output_dir / "aggregated"
+    for name in CSV_NAMES:
+        (paths.ablations_aggregated_task_dir / name).write_text("value\n1\n", **UTF8)
+        (root / name).write_text("value\n1\n", **UTF8)
+    inodes = {name: (root / name).stat().st_ino for name in CSV_NAMES}
+    completed = {"status": "completed", "artifacts": stage_records(tmp_path, "ablations")}
+    assert verify_stage_records(tmp_path, completed)
+
+    if entrypoint == "paths":
+        link_aggregated_csvs(paths, dry_run=False)
+    else:
+        link_aggregated_csvs_in_root(root, paths.task_name, dry_run=False)
+
+    assert verify_stage_records(tmp_path, completed)
+    for name in CSV_NAMES:
+        assert not (root / name).is_symlink()
+        assert (root / name).stat().st_ino == inodes[name]
 
 
 def test_link_aggregated_csvs_rejects_symlinked_root_and_source_csv(tmp_path: Path) -> None:

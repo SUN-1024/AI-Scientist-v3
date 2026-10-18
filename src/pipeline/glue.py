@@ -291,6 +291,19 @@ def _reuse_paper_task_dir(paths: PipelinePaths) -> None:
     logger.info("glue: reuse paper task snapshot: %s", snapshot)
 
 
+def _matching_regular_aggregate(root_fd: int, task_fd: int, name: str) -> bool:
+    """Keep byte-identical published CSVs as regular evidence files."""
+    try:
+        mode = os.stat(name, dir_fd=root_fd, follow_symlinks=False).st_mode
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISREG(mode):
+        return False
+    return _regular_file_digest_at(root_fd, name, role="flat aggregated csv") == _regular_file_digest_at(
+        task_fd, name, role="aggregated csv"
+    )
+
+
 def link_aggregated_csvs(paths: PipelinePaths, *, dry_run: bool) -> None:
     """Create flat top-level ``aggregated/<name>`` symlinks -> ``<task>/<name>``."""
     agg_task = paths.ablations_aggregated_task_dir
@@ -328,6 +341,9 @@ def link_aggregated_csvs(paths: PipelinePaths, *, dry_run: bool) -> None:
                         continue
                     rel_target = Path(paths.task_name) / name
                     link = agg_root / name
+                    if _matching_regular_aggregate(root_fd, task_fd, name):
+                        logger.info("glue: preserve matching regular aggregated csv: %s", link)
+                        continue
                     logger.info("glue: symlink %s -> %s", link, rel_target)
                     if dry_run:
                         continue
@@ -430,6 +446,9 @@ def link_aggregated_csvs_in_root(
         try:
             for name in AGGREGATED_CSVS:
                 if not _regular_file_exists_at(task_fd, name, role="aggregated csv"):
+                    continue
+                if _matching_regular_aggregate(root_fd, task_fd, name):
+                    logger.info("glue: preserve matching regular aggregated csv: %s", aggregated_root / name)
                     continue
                 logger.info(
                     "glue: symlink %s -> %s",
