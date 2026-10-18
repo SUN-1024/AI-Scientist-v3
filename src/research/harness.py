@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+import fcntl
+import os
 import secrets
+import stat
 import sys
 from argparse import Namespace
 from datetime import datetime, timezone
@@ -14,7 +17,7 @@ from src.final_evaluation.runner import FinalEvaluationError
 from src.orchestrator.state import write_private_text
 from src.pipeline.config import PIPELINE_PHASES, parse_pipeline_phases
 from .config import ResearchConfig, load_config
-from .harness_state import HarnessState, read_json, verify_stage_records, now
+from .harness_state import HarnessState, read_json, sha256, verify_stage_records, now
 from .paper_readiness import write_readiness
 from .preflight import ensure_execution_ready
 from .workspace import prepare, resume, load_preparation, execution_overrides, record_execution, write_report
@@ -142,7 +145,204 @@ def _resume_plan(workspace: Path, prior: dict[str, Any], phases: set[str]) -> se
     return remaining
 
 
+def _startup_events(path: Path) -> list[dict[str, Any]]:
+    metadata = path.lstat()
+    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+            or metadata.st_nlink != 1 or metadata.st_size > 8 * 1024 * 1024):
+        raise ValueError(f"Unsafe startup event journal: {path}")
+    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not events or not all(isinstance(event, dict) and isinstance(event.get("fields", {}), dict) for event in events):
+        raise ValueError(f"Invalid startup event journal: {path}")
+    return events
+
+
+def _startup_retry_plan(workspace: Path, prior: dict[str, Any], *, cycle_budget: int,
+                        _runtime_lock_held: bool = False) -> dict[str, Any] | None:
+    """Recognize only a sealed, host-observed bootstrap failure before research."""
+    from src.investigation.task_alignment import task_tree_fingerprint
+    from src.pipeline.resume_config import read_run_idea_cycle_budget
+    from src.pipeline.safe_fs import open_directory
+    from src.pipeline.task_snapshot import task_snapshot_is_complete
+
+    run, investigation = workspace / "run", workspace / "run/investigation"
+    if not investigation.exists() and not investigation.is_symlink():
+        return None
+    # Any checkpoint, even an incomplete one, belongs to ordinary resume. Never
+    # turn an ambiguous coding or evaluation state into a fresh investigation.
+    if any((investigation / name).exists() or (investigation / name).is_symlink()
+           for name in ("outer_state.json", "best_program_manifest.json")):
+        return None
+    reason = "Initial runtime retry is unsafe; inspect the retained startup evidence"
+    stage = prior.get("stages", {}).get("investigation", {})
+    lifecycle = prior.get("events", [])
+    if not isinstance(stage, dict) or not isinstance(lifecycle, list) or not all(isinstance(event, dict) for event in lifecycle):
+        raise ValueError(reason + ": invalid host failure record")
+    phase_events = [event for event in lifecycle if event.get("phase_name") == "investigation"]
+    if (prior.get("status") != "failed" or prior.get("pipeline_exit_code") != 2
+            or stage.get("status") != "failed" or stage.get("return_code") != 2
+            or len(phase_events) < 2 or phase_events[-2].get("event") != "phase_start"
+            or phase_events[-1].get("event") != "phase_end" or phase_events[-1].get("status") != "failed"
+            or phase_events[-1].get("return_code") != 2
+            or not lifecycle or lifecycle[-1].get("event") != "pipeline_end"
+            or lifecycle[-1].get("status") != "failed" or lifecycle[-1].get("return_code") != 2):
+        raise ValueError(reason + ": no completed host failure record")
+    for phase in PIPELINE_PHASES:
+        if phase in {"task_drafting", "investigation"}:
+            continue
+        path = run / phase
+        if (prior.get("stages", {}).get(phase, {}).get("status", "pending") != "pending"
+                or path.exists() or path.is_symlink()):
+            raise ValueError(reason + ": later research or final-confirmation activity exists")
+    if (workspace / "novelty/latest.json").exists() or (workspace / "novelty/latest.json").is_symlink():
+        raise ValueError(reason + ": selected-candidate evidence exists")
+    with open_directory(run, role="startup run envelope") as run_fd, open_directory(investigation, role="startup investigation") as inv_fd:
+        identities = {}
+        for name, descriptor in (("run", run_fd), ("investigation", inv_fd)):
+            metadata = os.fstat(descriptor)
+            if metadata.st_uid != os.getuid():
+                raise ValueError(reason + ": startup directories are not owned by this user")
+            identities[name] = [metadata.st_dev, metadata.st_ino]
+        allowed = {"task", "investigation", "pipeline_events.jsonl", ".task.runtime-build.lock",
+                   ".agentic_resume_policy.json", ".investigation_completion.json"}
+        if prior.get("stages", {}).get("task_drafting", {}).get("status") == "completed":
+            allowed.add("task_drafting")
+        for name in os.listdir(run_fd):
+            ready_marker = name.startswith(".task.agentic_task_ready.") and len(name.rsplit(".", 1)[-1]) == 64
+            if name not in allowed and not ready_marker:
+                raise ValueError(reason + f": unexpected run artifact {name}")
+            metadata = os.stat(name, dir_fd=run_fd, follow_symlinks=False)
+            expected_directory = name in {"task", "investigation", "task_drafting"}
+            valid_type = stat.S_ISDIR(metadata.st_mode) if expected_directory else stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1
+            if metadata.st_uid != os.getuid() or not valid_type:
+                raise ValueError(reason + f": unsafe run artifact {name}")
+        if set(os.listdir(inv_fd)) - {"events.jsonl", ".task-seal-empty"}:
+            raise ValueError(reason + ": investigation contains more than startup outputs")
+        seal = investigation / ".task-seal-empty"
+        if seal.exists() or seal.is_symlink():
+            with open_directory(seal, role="empty task seal") as seal_fd:
+                if os.fstat(seal_fd).st_uid != os.getuid() or os.listdir(seal_fd):
+                    raise ValueError(reason + ": task seal is not empty and owned")
+    events = _startup_events(investigation / "events.jsonl")
+    failures = [event for event in events if event.get("event") == "task_runtime_failed"]
+    if len(failures) != 1:
+        raise ValueError(reason + ": missing or ambiguous runtime failure")
+    failure = failures[0]
+    session = failure.get("session_id")
+    for event in events:
+        if (event.get("source") != "wrapper" or not session or event.get("session_id") != session
+                or event.get("worker_index") != 0
+                or event.get("event") not in {"container_session_stopped", "preparation_step", "task_runtime_failed"}
+                or (event.get("event") == "preparation_step" and event.get("fields", {}).get("step") != "runtime_capacity")):
+            raise ValueError(reason + ": journal is not limited to runtime startup")
+    if any(event.get("event") != "container_session_stopped" for event in events[events.index(failure) + 1:]):
+        raise ValueError(reason + ": activity continued after the runtime failure")
+    fields = failure.get("fields", {})
+    if (failure.get("phase") != "task" or fields.get("task_dir") != str(run / "task")
+            or fields.get("result_kind") != "infrastructure_failure"
+            or fields.get("failure_stage") != "runtime_preparation" or fields.get("failure_category") != "runtime_bootstrap"):
+        raise ValueError(reason + ": failure is not a verified runtime bootstrap error")
+    try:
+        start = datetime.fromisoformat(phase_events[-2]["time"])
+        end = datetime.fromisoformat(phase_events[-1]["time"])
+        failed = datetime.fromisoformat(failure["timestamp"].replace("Z", "+00:00"))
+        if not start <= failed <= end:
+            raise ValueError("runtime failure falls outside the failed host phase")
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(reason + ": runtime and host failure times do not match") from exc
+    pipeline_events = _startup_events(run / "pipeline_events.jsonl")
+    terminals = [index for index, event in enumerate(pipeline_events) if event.get("event") == "pipeline_end"]
+    if not terminals:
+        raise ValueError(reason + ": pipeline has no terminal failure")
+    terminal_index = terminals[-1]
+    terminal = pipeline_events[terminal_index]
+    if (terminal.get("source") != "pipeline" or terminal.get("event") != "pipeline_end"
+            or terminal.get("fields", {}).get("status") != "failed" or terminal.get("fields", {}).get("return_code") != 2):
+        raise ValueError(reason + ": pipeline has not recorded a stopped failure")
+    if any(event.get("source") != "pipeline" or event.get("event") != "run_checkpoint"
+           or event.get("session_id") != terminal.get("session_id")
+           for event in pipeline_events[terminal_index + 1:]):
+        raise ValueError(reason + ": pipeline activity continued after failure")
+    if read_json(run / ".investigation_completion.json") != {"schema_version": 1, "status": "running"}:
+        raise ValueError(reason + ": investigation completion is not an unused startup marker")
+    if read_run_idea_cycle_budget(run) != cycle_budget:
+        raise ValueError(reason + ": retain the recorded idea-cycle budget for this startup retry")
+    if not task_snapshot_is_complete(run / "task") or fields.get("task_fingerprint") != task_tree_fingerprint(run / "task"):
+        raise ValueError(reason + ": run task changed after the failure")
+    # This is the existing runtime builder's lock. Do not create a replacement
+    # inode: a live builder must retain its authority over the run task.
+    if not _runtime_lock_held:
+        os.close(_startup_runtime_lock(workspace))
+    return {"schema_version": 1, "kind": "initial_runtime_failure", "identities": identities,
+            "failure": failure, "host_phase": phase_events[-2:], "cycle_budget": cycle_budget,
+            "artifacts": {str(path.relative_to(workspace)): sha256(path) for path in (
+                investigation / "events.jsonl", run / "pipeline_events.jsonl",
+                run / ".investigation_completion.json", run / ".agentic_resume_policy.json")}}
+
+
+def _startup_runtime_lock(workspace: Path) -> int:
+    lock_fd = os.open(workspace / "run/.task.runtime-build.lock", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        metadata = os.fstat(lock_fd)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or metadata.st_nlink != 1:
+            raise ValueError("Initial runtime retry has an unsafe runtime lock")
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError("Initial runtime initialization is still active") from exc
+        return lock_fd
+    except BaseException:
+        os.close(lock_fd)
+        raise
+
+
+def _archive_startup_failure(workspace: Path, prior: dict[str, Any], plan: dict[str, Any]) -> None:
+    descriptor = _startup_runtime_lock(workspace)
+    try:
+        _archive_startup_failure_locked(workspace, prior, plan)
+    finally:
+        os.close(descriptor)
+
+
+def _archive_startup_failure_locked(workspace: Path, prior: dict[str, Any], plan: dict[str, Any]) -> None:
+    from src.pipeline.safe_fs import ensure_directory, open_directory, rename_directory_between_no_replace
+    if _startup_retry_plan(workspace, prior, cycle_budget=plan["cycle_budget"], _runtime_lock_held=True) != plan:
+        raise ValueError("Startup evidence changed after preflight; no retry was started")
+    archive = workspace / "startup_recovery" / ("initial_runtime_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + secrets.token_hex(4))
+    with open_directory(workspace / "run", role="startup run envelope") as run_fd, ensure_directory(archive, role="startup recovery archive") as archive_fd:
+        _dump(archive / "recovery.json", {**plan, "archived_at": now(), "source": "run/investigation"})
+        # Record intent first. A crash after the atomic rename remains resumable
+        # as fresh initialization, and its old logs remain discoverable.
+        entry = {"kind": plan["kind"], "archive": str(archive.relative_to(workspace)), "status": "authorized", "time": now()}
+        prior.setdefault("startup_recoveries", []).append(entry)
+        _dump(workspace / "harness_state.json", prior)
+        current = os.stat("investigation", dir_fd=run_fd, follow_symlinks=False)
+        if [current.st_dev, current.st_ino] != plan["identities"]["investigation"]:
+            raise ValueError("Startup directory identity changed before archival")
+        rename_directory_between_no_replace(run_fd, "investigation", archive_fd, "investigation", role="failed startup archive")
+        os.fsync(run_fd)
+        os.fsync(archive_fd)
+        entry["status"] = "archived"
+        _dump(workspace / "harness_state.json", prior)
+
+
 def run_harness(args: Namespace, overrides: list[str]) -> int:
+    """Serialize resume operations without adding mutable lock-file artifacts."""
+    from src.pipeline.resume_config import ResumeConfigError
+    from src.pipeline.safe_fs import UnsafeGluePathError, open_directory
+    try:
+        if args.resume:
+            with open_directory(args.resume.expanduser(), role="harness resume workspace") as descriptor:
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as exc:
+                    raise ValueError("Another harness resume is active for this workspace") from exc
+                return _run_harness(args, overrides)
+        return _run_harness(args, overrides)
+    except (UnsafeGluePathError, ResumeConfigError) as exc:
+        raise ValueError(f"Harness workspace safety check failed: {exc}") from exc
+
+
+def _run_harness(args: Namespace, overrides: list[str]) -> int:
     from .cli import pipeline_args
     from src.pipeline.cli import load_pipeline_config, config_error_message, main as pipeline_main
     managed_paths = {"paths.paper_dir", "paths.ablations_dir", "paths.posthoc_dir", "paths.final_evaluation_dir"}
@@ -216,8 +416,10 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
     if prior and target != prior["quality_target"]:
         raise ValueError("Quality target is frozen; create a new workspace to change it")
     effective = _merge(overrides, ["execution.phases=" + ",".join(phase for phase in PIPELINE_PHASES if phase in remaining)])
+    startup_retry = None
     if prior and "investigation" in remaining and (workspace / "run/investigation").is_dir():
-        effective = _merge(effective, ["investigation.execution.resume=true"])
+        startup_retry = _startup_retry_plan(workspace, prior, cycle_budget=pipeline_cfg.investigation.max_idea_cycles)
+        effective = _merge(effective, ["investigation.execution.resume=" + ("false" if startup_retry else "true")])
     command = pipeline_args(workspace, cfg, effective) if remaining else []
     pipeline_cfg = load_pipeline_config(command) if command else pipeline_cfg
     if args.dry_run:
@@ -225,17 +427,22 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
                           "quality_target": target, "requested_phases": requested,
                           "remaining_phases": [p for p in PIPELINE_PHASES if p in remaining],
                           "pipeline_argv": command, "novelty_review": cfg.harness.novelty_review and not offline,
+                          "initial_runtime_retry": startup_retry is not None,
                           "human_submission_approval_required": True,
                           "note": "No files, API requests, agents, or training were created."}, ensure_ascii=False, indent=2))
         return 0
     # Even resume checks every remaining requested phase before any provider call.
     if remaining:
         ensure_execution_ready(pipeline_cfg, workspace / "run/task" if prior and (workspace / "run/task").is_dir() else task)
+    if startup_retry is not None:
+        assert prior is not None
+        _archive_startup_failure(workspace, prior, startup_retry)
     state = HarnessState(workspace, phases=requested, quality_target=target,
                          input_sha256=manifest["input_task_sha256"] if manifest else None, prior=prior)
     state.payload["offline"] = offline
     state.payload["preflight"] = {"status": "passed", "checked_at": now(), "remaining_phases": sorted(remaining)}
     exit_code = 1
+    workspace_lock_fd = None
     try:
         if manifest is None:
             def after_literature(staged: Path, frozen_cfg: ResearchConfig) -> dict[str, str]:
@@ -259,6 +466,11 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
                                resume_preparation=preparation is not None, initial_state=state.payload)
             state.payload["preparation"] = {"status": "prepared", "journal": "research_preparation.json"}
             state.payload["input_task_sha256"] = manifest["input_task_sha256"]
+        if not args.resume:
+            # The fresh workspace was created exclusively by prepare(). Keep
+            # resume out through pipeline execution and the final audit writes.
+            workspace_lock_fd = os.open(workspace, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            fcntl.flock(workspace_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         state.save()
         record_execution(workspace, manifest, overrides)
         print(f"Research harness workspace: {workspace}", flush=True)
@@ -310,4 +522,6 @@ def run_harness(args: Namespace, overrides: list[str]) -> int:
                 if exit_code == 0:
                     exit_code = 1
                     state.finish(exit_code, error=f"Readiness audit failed: {exc}")
+        if workspace_lock_fd is not None:
+            os.close(workspace_lock_fd)
     return exit_code

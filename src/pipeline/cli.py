@@ -2086,6 +2086,16 @@ def _log_resume_hint(phase: str, cfg: PipelineConfig, paths: PipelinePaths) -> N
             return
         state_errors = validate_investigation_resume_state(paths.investigation_workspace_dir)
         if state_errors:
+            harness_workspace = paths.run_dir.parent
+            if (harness_workspace / "research_manifest.json").is_file() and (harness_workspace / "harness_state.json").is_file():
+                logger.error(
+                    "  No usable investigation checkpoint was written. Fix the original error, "
+                    "then use agsci research harness --resume %s. The harness can archive "
+                    "verified initial runtime failures and retry initialization; ambiguous "
+                    "research state remains blocked.",
+                    harness_workspace,
+                )
+                return
             logger.error(
                 "  No usable investigation checkpoint was written; fix the "
                 "original error and restart with %s.",
