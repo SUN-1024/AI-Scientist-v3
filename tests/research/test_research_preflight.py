@@ -199,6 +199,49 @@ def test_harness_downstream_resume_preflight_accepts_exact_saved_worker_pool(
     host.run.assert_not_called()
 
 
+@pytest.mark.parametrize("phases,needs_gpu", [
+    ("posthoc", False), ("paper", False), ("review", False), ("revision", False),
+    ("posthoc,paper,review,revision", False),
+    ("task_drafting", True), ("investigation", True), ("ablations", True), ("final_evaluation", True),
+])
+def test_saved_gpu_study_can_resume_writing_without_a_gpu(tmp_path, phases, needs_gpu):
+    from tests.final_evaluation.test_final_evaluation import _write_contract_task, _write_investigation
+
+    task = _write_contract_task(tmp_path)
+    _write_investigation(tmp_path / "run")
+    contract_path = task / "task_contract.json"
+    contract = json.loads(contract_path.read_text())
+    for compute in contract["compute"].values():
+        compute.update(accelerator="gpu", accelerator_model="fixture", gpu_count=1,
+                       evaluator_gpu_count=1, candidate_gpu_count=0, precision="float32")
+    contract_path.write_text(json.dumps(contract))
+    host = runtime_host(tmp_path, environ={"AGENTIC_TEMP_ROOT": str(tmp_path)},
+                        which=lambda name: None if name == "nvidia-smi" else f"/fixture/bin/{name}")
+    cfg = load_pipeline_config([
+        "preset=research_harness", f"task.dir={task}", f"execution.phases={phases}",
+        "container.gpu_count=1", f"container.auth_root={tmp_path}", "container.env_file=''",
+        f"paths.run_dir={tmp_path / 'run'}",
+    ])
+    if phases in {"review", "revision"}:
+        paper = tmp_path / "run/paper"
+        paper.mkdir(parents=True)
+        (paper / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+        review = paper / "ai_review.before_revision.json"
+        review.write_text('{"Summary":"fixture review"}\n')
+        (paper / "latest_manifest.json").write_text(json.dumps({
+            "paper_pdf": str(paper / "paper.pdf"),
+            "before_revision": {"status": "completed", "review_json": str(review)},
+        }))
+        cfg.paths.paper_dir = str(paper)
+    assert doctor.check_required_gpus(host, cfg).status == doctor.FAIL
+    results = preflight.execution_checks(cfg, task, host=host)
+    gpu_check = next(check for check in results if check.name == "required gpus")
+    assert gpu_check.status == (doctor.FAIL if needs_gpu else doctor.OK)
+    if not needs_gpu:
+        assert not [check for check in results if check.status == doctor.FAIL]
+    host.run.assert_not_called()
+
+
 def test_missing_task_brief_is_a_preflight_failure(tmp_path):
     task = complete_task(tmp_path)
     (task / "task.md").unlink()

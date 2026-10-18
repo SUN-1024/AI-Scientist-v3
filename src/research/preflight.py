@@ -246,7 +246,12 @@ def execution_checks(
         results.append(env_file)
     results.append(doctor.check_selected_agent_cli(host, cfg))
     results.append(doctor.check_selected_credentials(host, cfg))
-    results.append(doctor.check_required_gpus(host, cfg))
+    if phases.intersection({"task_drafting", "investigation", "ablations", "final_evaluation"}):
+        results.append(doctor.check_required_gpus(host, cfg))
+    else:
+        # Pipeline posthoc consumes saved artifacts and forbids retraining.
+        results.append(doctor.CheckResult("required gpus", doctor.OK,
+                                         "remaining analysis/writing phases do not execute task evaluators"))
     # Do not use doctor's container GPU probe: that check starts a container.
     return results
 
