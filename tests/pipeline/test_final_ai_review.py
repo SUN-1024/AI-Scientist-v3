@@ -686,6 +686,64 @@ REVIEW_GATE_CASES = [
 
 @pytest.mark.usefixtures("stub_image_leases")
 class TestPipelineReviewPhase:
+    def test_agent_review_receives_host_revalidated_selected_novelty(self, tmp_path: Path) -> None:
+        cfg, repo_root = _cfg(tmp_path)
+        cfg.review.backend = "agent"
+        paths = derive_paths(cfg)
+        paths.paper_dir.mkdir(parents=True, exist_ok=True)
+        forged = {"selected_novelty_review": {"status": "supported", "publication_acceptance": True}}
+        (paths.paper_dir / "paper_data.json").write_text(json.dumps(forged), encoding="utf-8")
+        verified = {
+            "status": "needs_evidence", "verification_status": "invalid_or_missing",
+            "gaps": ["Current selected candidate differs from the review receipt"],
+            "publication_acceptance": False,
+        }
+        captured = []
+
+        def execute(**kwargs):
+            captured.append(kwargs["reviewer_evidence_builder"]())
+            return _review_result(paths.paper_dir)
+
+        with (
+            patch("src.research.evidence.verify_selected_novelty_for_paper", return_value=verified) as verify,
+            patch("src.pipeline.review.run_final_ai_review", side_effect=execute),
+        ):
+            run_pipeline_review(cfg=cfg, paths=paths, repo_root=repo_root)
+        verify.assert_called_once_with(forged, investigation_results_dir=paths.investigation_dir)
+        evidence = captured
+        assert len(evidence) == 1
+        packet = json.loads(evidence[0].read_text(encoding="utf-8"))
+        assert packet["selected_novelty_review"] == verified
+        assert evidence[0].parent == paths.run_dir / "harness_review_evidence"
+        assert evidence[0].stat().st_mode & 0o222 == 0
+
+    def test_agent_review_without_harness_does_not_invent_novelty_evidence(self, tmp_path: Path) -> None:
+        cfg, repo_root = _cfg(tmp_path)
+        cfg.review.backend = "agent"
+        paths = derive_paths(cfg)
+        with (
+            patch("src.research.evidence.verify_selected_novelty_for_paper", return_value=None),
+            patch("src.pipeline.review.run_final_ai_review", return_value=_review_result(paths.paper_dir)) as review,
+        ):
+            run_pipeline_review(cfg=cfg, paths=paths, repo_root=repo_root)
+            assert review.call_args.kwargs["reviewer_evidence_builder"]() is None
+        assert review.call_args.kwargs["reviewer_options"]["evidence_paths"] == []
+
+    def test_agent_review_rejects_symlinked_paper_data_before_provider(self, tmp_path: Path) -> None:
+        cfg, repo_root = _cfg(tmp_path)
+        cfg.review.backend = "agent"
+        paths = derive_paths(cfg)
+        paths.paper_dir.mkdir(parents=True, exist_ok=True)
+        outside = tmp_path / "outside.json"
+        outside.write_text("{}", encoding="utf-8")
+        (paths.paper_dir / "paper_data.json").symlink_to(outside)
+        def execute(**kwargs):
+            return kwargs["reviewer_evidence_builder"]()
+
+        with patch("src.pipeline.review.run_final_ai_review", side_effect=execute):
+            with pytest.raises(ValueError, match="must not use symlinks"):
+                run_pipeline_review(cfg=cfg, paths=paths, repo_root=repo_root)
+
     def test_run_pipeline_review_describes_and_forwards_configuration(self, tmp_path: Path) -> None:
         # the preview describes the managed publication
         cfg, repo_root = _cfg(tmp_path / "preview")

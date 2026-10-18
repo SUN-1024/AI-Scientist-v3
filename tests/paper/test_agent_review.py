@@ -191,13 +191,25 @@ def test_managed_review_plumbs_agent_and_checks_pdf_hash(tmp_path: Path, monkeyp
     monkeypatch.setenv("CODEX_HOME", "/trusted/codex")
     monkeypatch.setenv("SECRET_UNRELATED", "excluded-secret")
     monkeypatch.setattr("src.investigation.final_ai_review.shutil.which", lambda _name: None)
+    evidence = tmp_path / "metrics.json"
+    evidence.write_text('{"seeds": 1}\n')
     captured = []
     def execute(command, _log, environment):
         captured.append((command, environment))
         payload = review_payload()
         pdf = Path(command[2])
+        supplied_evidence = Path(command[command.index("--evidence") + 1])
+        assert supplied_evidence != evidence
+        assert supplied_evidence.name == evidence.name
+        assert supplied_evidence.read_bytes() == evidence.read_bytes()
         payload["Provenance"] = {"backend": "agent", "independent_context": True,
-                                 "paper_sha256": backend.sha256(pdf.read_bytes()), "inputs": [{"id": "paper"}]}
+                                 "paper_sha256": backend.sha256(pdf.read_bytes()), "inputs": [
+                                     {"id": "paper", "name": "paper.pdf",
+                                      "sha256": backend.sha256(pdf.read_bytes()), "bytes": pdf.stat().st_size},
+                                     {"id": "evidence_1", "name": supplied_evidence.name,
+                                      "sha256": backend.sha256(supplied_evidence.read_bytes()),
+                                      "bytes": supplied_evidence.stat().st_size},
+                                 ]}
         Path(command[command.index("--output") + 1]).write_text(json.dumps(payload))
         return "completed independent judgment", 0
     result = run_final_ai_review(
@@ -211,7 +223,7 @@ def test_managed_review_plumbs_agent_and_checks_pdf_hash(tmp_path: Path, monkeyp
     assert command[:2] == [sys.executable, str(env.repo_root / "src" / "aireview.py")]
     assert "--script" not in command
     assert command[command.index("--agent-profile") + 1] == "agsci-magpie"
-    assert command[command.index("--evidence") + 1] == str(tmp_path / "metrics.json")
+    assert Path(command[command.index("--evidence") + 1]).name == "metrics.json"
     assert environment["HEADLESS_BIN"] == "/trusted/headless"
     assert "SECRET_UNRELATED" not in environment
 

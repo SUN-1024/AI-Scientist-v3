@@ -95,6 +95,19 @@ def test_build_review_packet_includes_expected_sections_and_survives_invalid_opt
     assert "Invalid JSON in claims_grounding.json" in text
 
 
+def test_review_packet_retains_selected_novelty_limits(tmp_path: Path) -> None:
+    selected = {
+        "status": "needs_evidence",
+        "gaps": ["The method comparison has only abstract-level support."],
+        "publication_acceptance": False,
+    }
+    _write_json(tmp_path / "paper_data.json", {**PAPER_DATA, "selected_novelty_review": selected})
+    packet = _packet(tmp_path, "\\section{Introduction}\nA bounded empirical claim.\n")
+    assert '"selected_novelty_review"' in packet
+    assert selected["gaps"][0] in packet
+    assert '"publication_acceptance": false' in packet
+
+
 def test_build_review_packet_supplement_excerpt_handling(tmp_path: Path) -> None:
     # includes the supplement beyond the manuscript excerpt
     marker = "SI robustness result unique to the manuscript tail."

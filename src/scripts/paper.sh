@@ -353,6 +353,34 @@ PAPER_STRATEGY_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_strategy.md"
 PAPER_REVIEW_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_review/review_json.md"
 PAPER_EVIDENCE_AUDIT_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_review/evidence_audit.md"
 PAPER_FIGURE_QUALITY_REPAIR_INSTRUCT_PATH="$REPO_ROOT/src/prompts/paper_figure_quality_repair.md"
+
+# Refresh only the host-verified selected-method projection. Finalization checks
+# the same projection without rewriting evidence already seen by an auditor.
+refresh_selected_novelty_context() {
+  local check_mode="${1:-refresh}"
+  "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "${INVESTIGATION_RESULTS_DIR:-$SOURCE_RESULTS_DIR}" "$check_mode" <<'PY_SELECTED_NOVELTY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from src.research.harness_state import read_json
+from src.research.evidence import verify_selected_novelty_for_paper
+from src.orchestrator.state import write_private_text
+import json
+
+path = Path(sys.argv[2]) / "paper_data.json"
+if not path.exists() and not path.is_symlink():
+    raise SystemExit(0)
+payload = read_json(path)
+selected = verify_selected_novelty_for_paper(payload, investigation_results_dir=Path(sys.argv[3]))
+if selected is None:
+    raise SystemExit(0)
+if payload.get("selected_novelty_review") != selected:
+    if sys.argv[4] == "verify_current":
+        raise SystemExit("Selected-candidate novelty evidence changed after paper review; refresh and repeat the evidence audit")
+    payload["selected_novelty_review"] = selected
+    write_private_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+PY_SELECTED_NOVELTY
+}
 if [ -n "$AGENT_MODEL" ] && [ -z "${AGENT_MODEL//[[:space:]]/}" ]; then
   echo "--agent-model must be non-empty when provided" >&2
   exit 1
@@ -640,6 +668,9 @@ fi
 paper_gate_complete "preparation" "phase=workspace"
 if [ -z "$VENUE_SOURCE_PATH" ]; then
   rm -f -- "$OUTPUT_DIR/VENUE.md"
+fi
+if [ "$RESUME_EXISTING" -eq 1 ]; then
+  refresh_selected_novelty_context
 fi
 if [ "$RESUME_EXISTING" -eq 1 ] && [ -z "$POSTHOC_DIR" ] && [ "$FINAL_EVALUATION_MODE" != "omit" ]; then
   paper_gate_start "finalization" "phase=resume"
@@ -3304,6 +3335,7 @@ PY
 }
 
 finalize_paper_evidence_audit() {
+  refresh_selected_novelty_context verify_current || return 1
   "$PYTHON_BIN" "$REPO_ROOT/src/orchestrator/paper_evidence_audit.py" \
     finalize-audit \
     --log "$EVIDENCE_AUDIT_LOG_FILE" \
@@ -3376,6 +3408,7 @@ cleanup_readonly_paper_audit_workspace() {
 }
 
 prepare_readonly_paper_audit_workspace() {
+  refresh_selected_novelty_context || return 1
   local workspace_tag="$1"
   local output_variable="$2"
   if ! "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "${INVESTIGATION_RESULTS_DIR:-$SOURCE_RESULTS_DIR}" "${FINAL_EVALUATION_DIR:-}" "${FINAL_EVALUATION_MODE:-discover}" "${CONTRACT_TASK_DIR:-}" "${FINAL_OUTCOME_POLICY:-qualified_only}" <<'PY'
@@ -3699,6 +3732,7 @@ save_audit_revision_pdf() {
 }
 
 build_paper_review_packet() {
+  refresh_selected_novelty_context || return 1
   "$PYTHON_BIN" "$REPO_ROOT/src/orchestrator/paper_review.py" \
     build-packet \
     --paper-dir "$OUTPUT_DIR" \
@@ -4210,6 +4244,7 @@ if [ "$FINAL_PAPER_PIPELINE_INCOMPLETE" -eq 1 ]; then
 fi
 
 paper_gate_start "finalization" "phase=pipeline"
+refresh_selected_novelty_context verify_current
 "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "$RESULTS_DIR" "$GLOBAL_MEMORY_DIR" "$VALIDATION_FEEDBACK_JSON_PATH" "$VALIDATION_FEEDBACK_MD_PATH" "$MANIFEST_DIR" <<'PY'
 import sys
 from pathlib import Path

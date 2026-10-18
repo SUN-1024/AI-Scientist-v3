@@ -905,6 +905,7 @@ def _paper_data_summary(payload: Any) -> dict[str, Any]:
         "paper_profile": payload.get("paper_profile", "default"),
         "downstream_study": payload.get("downstream_study"),
         "final_evaluation": final_outcome_summary(payload),
+        "selected_novelty_review": payload.get("selected_novelty_review"),
         "grounding_source_count": len(grounding_sources)
         if isinstance(grounding_sources, dict)
         else 0,
@@ -1419,6 +1420,7 @@ def build_audit_packet(paper_dir: Path, *, output_path: Path | None = None) -> P
         "- claims grounded to the wrong source ids, or source ids that do not support the visible wording",
         "- mismatches between visible manuscript text and the resolved/anchored evidence trail",
         "- cases where the evidence trail exists but does not justify the paper's wording or numeric precision",
+        "- novelty claims that exceed selected_novelty_review, omit its unresolved gaps, or treat development review as final experimental confirmation",
         "- contradictions between `paper.tex`, `claims_grounding.json`, `paper_data.json`, and `scientific-evidence/verification-report.json`",
         "- every visible claim in Supplementary Information, including tables and figures, under the same grounding standard as the main paper",
         "",

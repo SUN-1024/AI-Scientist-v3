@@ -40,14 +40,18 @@ def _read(path: Path, *, limit: int = 8 * 1024 * 1024) -> Any:
 
 
 def source_packet(task_dir: Path, agenda: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Provide complete closest texts; refuse oversized packets instead of truncating."""
+    """Give authors and reviewers all saved texts, including non-closest sources.
+
+    The agenda can attribute methods or exclusions through source_selection and
+    source_scan as well as closest_work. Every such claim needs the same source
+    evidence that the author received. Oversized packets fail without truncation.
+    """
     catalog = load_catalog(task_dir) or {"sources": [], "status": "unavailable", "queries": []}
-    selected = None if agenda is None else {row["source_id"] for row in agenda["closest_work"]}
     rows = []
     for source in catalog["sources"]:
         row = {key: source.get(key) for key in ("id", "title", "year", "venue", "url", "origin",
                                                "availability", "metadata_status", "passages", "text_sha256")}
-        if source.get("text_path") and (selected is None or source["id"] in selected):
+        if source.get("text_path"):
             row["full_text"] = (task_dir / CONTEXT_DIRECTORY / source["text_path"]).read_text(encoding="utf-8")
         rows.append(row)
     packet = {"retrieval_status": catalog["status"], "queries": catalog.get("queries", []),
@@ -55,6 +59,34 @@ def source_packet(task_dir: Path, agenda: dict[str, Any] | None = None) -> dict[
     if len(json.dumps(packet, ensure_ascii=False)) > MAX_PACKET_CHARS:
         raise ValueError("Complete source packet exceeds 600,000 characters; split the research question/closest-work review rather than silently truncating methods")
     return packet
+
+
+def _review_prompt_payload(prompt: str) -> dict[str, Any]:
+    marker = "\n\nFROZEN INPUT DATA:\n"
+    if marker not in prompt:
+        raise ValueError("Review prompt has no bound source packet")
+    payload = json.loads(prompt.split(marker, 1)[1])
+    if not isinstance(payload, dict) or not isinstance(payload.get("literature"), dict):
+        raise ValueError("Review prompt has an invalid source packet")
+    return payload
+
+
+def _source_packet_binding(packet: dict[str, Any]) -> dict[str, Any]:
+    rows = packet.get("sources")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) and isinstance(row.get("id"), str) for row in rows):
+        raise ValueError("Review source packet requires identified sources")
+    return {
+        "source_packet_sha256": content_hash(packet),
+        "source_coverage": {
+            "policy": "all_prepared_sources_v1", "source_ids": [row["id"] for row in rows],
+            "saved_text_source_ids": [row["id"] for row in rows if "full_text" in row],
+            "full_text_source_ids": [row["id"] for row in rows if row.get("availability") == "full_text" and "full_text" in row],
+        },
+    }
+
+
+def _call_source_binding(prompt: str, phase: str) -> dict[str, Any]:
+    return _source_packet_binding(_review_prompt_payload(prompt)["literature"]) if phase == "novelty_review" else {}
 
 
 def normalize_review(raw: object) -> dict[str, Any]:
@@ -121,7 +153,8 @@ def _check_binding(receipt: dict[str, Any], cfg: LiteratureConfig,
 
 
 def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
-                 frozen: dict[str, Any], *, prompt: str | None = None) -> dict[str, Any]:
+                 frozen: dict[str, Any], *, prompt: str | None = None,
+                 expected_source_packet: dict[str, Any] | None = None) -> dict[str, Any]:
     """Verify saved bytes, then derive the result again from the raw response."""
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError("Invalid review directory")
@@ -147,6 +180,22 @@ def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
                                 (response_path, receipt.get("response_sha256"))):
         if path.is_symlink() or not path.is_file() or _sha(path) != expected_hash:
             raise ValueError(f"Review artifact changed: {path.name}")
+    if phase == "novelty_review":
+        prompt_path = directory / "prompt.txt"
+        if prompt_path.stat().st_size > 1_800_000:
+            raise ValueError("Review prompt exceeds its bound")
+        saved_payload = _review_prompt_payload(prompt_path.read_text(encoding="utf-8"))
+        binding = _source_packet_binding(saved_payload["literature"])
+        if saved_payload.get("frozen_evidence") != frozen or content_hash(saved_payload.get("agenda")) != frozen.get("agenda_sha256"):
+            raise ValueError("Review prompt does not cover its frozen evidence and agenda")
+        if expected_source_packet is None and prompt is not None:
+            expected_source_packet = _review_prompt_payload(prompt)["literature"]
+        if expected_source_packet is not None and binding != _source_packet_binding(expected_source_packet):
+            raise ValueError("Review source packet does not contain all prepared source texts")
+        # Legacy receipts remain readable only when the actual saved prompt
+        # proves full coverage. A claimed policy label alone is insufficient.
+        if any(key in receipt for key in binding) and any(receipt.get(key) != value for key, value in binding.items()):
+            raise ValueError("Review source packet receipt changed")
     provider_response = _read(response_path)
     if not isinstance(provider_response, dict):
         raise ValueError("Invalid provider response")
@@ -264,7 +313,7 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
         "configuration_sha256": _configuration_hash(cfg, None),
         "provider": cfg.model_search.provider, "model": cfg.model_search.model,
         "frozen_evidence": frozen, "prompt_sha256": _sha(directory / "prompt.txt"),
-        "status": "started", "phase": phase,
+        "status": "started", "phase": phase, **_call_source_binding(prompt, phase),
     }
     _dump(directory / "receipt.json", receipt)
     try:
@@ -300,6 +349,7 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
         "configuration_sha256": configuration_sha256,
         "model": settings.get("model"), "frozen_evidence": frozen,
         "prompt_sha256": _sha(directory / "prompt.txt"), "status": "started", "phase": phase,
+        **_call_source_binding(prompt, phase),
     }
     _dump(directory / "receipt.json", receipt)
     try:
@@ -443,6 +493,7 @@ def load_review_records(task_dir: Path, agenda: dict[str, Any], output: Path, *,
     errors: list[str] = []
     try:
         expected = {**freeze_evidence(task_dir), "agenda_sha256": content_hash(agenda)}
+        complete_sources = source_packet(task_dir, agenda)
         if candidate_packet is not None:
             validate_candidate_packet(candidate_packet)
             expected["candidate_packet_sha256"] = content_hash(candidate_packet)
@@ -456,7 +507,7 @@ def load_review_records(task_dir: Path, agenda: dict[str, Any], output: Path, *,
     for directory in sorted(output.glob("reviewer_*")):
         try:
             receipt = _read(directory / "receipt.json")
-            assessment = _replay_call(directory, receipt, "novelty_review", expected)
+            assessment = _replay_call(directory, receipt, "novelty_review", expected, expected_source_packet=complete_sources)
             session_id = receipt["session_id"]
             if session_id in seen:
                 raise ValueError("Duplicate independent review session")
@@ -470,6 +521,7 @@ def load_review_records(task_dir: Path, agenda: dict[str, Any], output: Path, *,
                 "path": str(directory / "receipt.json"), "sha256": _sha(directory / "receipt.json"),
                 "session_id": session_id, "provider": receipt.get("provider"), "model": receipt.get("model"),
                 "backend": receipt["backend"], "response_sha256": receipt["response_sha256"],
+                **_source_packet_binding(complete_sources),
             }})
         except (ValueError, OSError, TypeError, KeyError) as exc:
             errors.append(f"{directory.name}: {exc}")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -36,6 +37,7 @@ ExecuteCommand = Callable[[list[str], Path, dict[str, str]], tuple[str, int]]
 _ENV_FILE_MAX_BYTES = 1024 * 1024
 _PAPER_MANIFEST_MAX_BYTES = 1024 * 1024
 _PAPER_PDF_MAX_BYTES = 100 * 1024 * 1024
+_REVIEW_EVIDENCE_MAX_BYTES = 2 * 1024 * 1024
 _REVIEW_OUTPUT_MAX_BYTES = 4 * 1024 * 1024
 _REVIEW_LOG_MAX_BYTES = 16 * 1024 * 1024
 _OPENAI_ENVIRONMENT_KEYS = {
@@ -133,6 +135,53 @@ def _read_env_file_no_follow(path: Path) -> str:
         max_bytes=_ENV_FILE_MAX_BYTES,
         description="configured environment file",
     )
+
+
+def _read_review_input(path: Path, *, max_bytes: int) -> bytes:
+    """Read a bounded input without following any directory or file symlink."""
+    path = absolute_path(path)
+    directory_fd = open_directory_tree_no_follow(path.parent)
+    try:
+        return read_regular_at(
+            directory_fd, path.name, max_bytes=max_bytes, description="review input"
+        )
+    finally:
+        os.close(directory_fd)
+
+
+def _review_input_record(content: bytes, *, source_id: str, name: str) -> dict[str, object]:
+    return {
+        "id": source_id, "name": name,
+        "sha256": hashlib.sha256(content).hexdigest(), "bytes": len(content),
+    }
+
+
+def _validate_review_input_receipt(
+    provenance: dict[str, object], expected_inputs: list[dict[str, object]]
+) -> None:
+    """Bind every returned source identifier to the host's ordered input packet."""
+    if provenance.get("paper_sha256") != expected_inputs[0]["sha256"]:
+        raise ValueError("agent review is not bound to the reviewed PDF")
+    inputs = provenance.get("inputs")
+    if not isinstance(inputs, list) or len(inputs) != len(expected_inputs):
+        raise ValueError("agent review inputs do not match the configured evidence")
+    for index, (actual, expected) in enumerate(zip(inputs, expected_inputs)):
+        if not isinstance(actual, dict):
+            raise ValueError("agent review has invalid evidence provenance")
+        # The reviewer extracts the paper text. The host binds its PDF bytes and
+        # checks a supplied text hash's format without claiming to re-extract it.
+        allowed = set(expected) | ({"text_sha256"} if index == 0 else set())
+        if (
+            set(actual) - allowed
+            or type(actual.get("bytes")) is not int
+            or {key: actual.get(key) for key in expected} != expected
+        ):
+            raise ValueError("agent review inputs do not match the configured evidence")
+        if "text_sha256" in actual and (
+            not isinstance(actual["text_sha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", actual["text_sha256"])
+        ):
+            raise ValueError("agent review has an invalid paper text hash")
 
 
 def read_paper_manifest(path: Path) -> dict[str, object]:
@@ -359,6 +408,7 @@ def run_final_ai_review(
     artifact_stem: str = "ai_review",
     manifest_key: str = "ai_review",
     reviewer_options: Mapping[str, object] | None = None,
+    reviewer_evidence_builder: Callable[[], Path | None] | None = None,
 ) -> FinalAiReviewResult:
     """Create a named review artifact and refresh the latest-review aliases."""
     if not _ARTIFACT_STEM_PATTERN.fullmatch(artifact_stem) or len(artifact_stem) > 128:
@@ -392,6 +442,15 @@ def run_final_ai_review(
             raise ValueError(
                 "pending nested revision publication cannot be recovered under the paper-root lock"
             )
+        if reviewer_evidence_builder is not None:
+            evidence = reviewer_evidence_builder()
+            if evidence is not None:
+                options = dict(reviewer_options or {})
+                configured_evidence = options.get("evidence_paths", [])
+                if not isinstance(configured_evidence, (list, tuple)):
+                    raise ValueError("review evidence_paths must be a list of paths")
+                options["evidence_paths"] = [*configured_evidence, evidence]
+                reviewer_options = options
         try:
             paper_root_fd = open_directory_tree_no_follow(paper_root)
         except OSError as exc:
@@ -552,6 +611,41 @@ def _run_pinned_final_ai_review(
                 latest_review_path=latest_review_path,
                 latest_log_path=latest_log_path,
             )
+        evidence_snapshots: list[tuple[Path, Path, dict[str, object]]] = []
+        expected_inputs: list[dict[str, object]] = []
+        if agent_backend:
+            try:
+                expected_inputs.append(_review_input_record(
+                    _read_review_input(temporary_pdf, max_bytes=_PAPER_PDF_MAX_BYTES),
+                    source_id="paper", name="paper.pdf",
+                ))
+                evidence_paths = (reviewer_options or {}).get("evidence_paths", [])
+                if not isinstance(evidence_paths, (list, tuple)):
+                    raise ValueError("review evidence_paths must be a list of paths")
+                for index, configured_path in enumerate(tuple(evidence_paths), 1):
+                    if not isinstance(configured_path, (str, os.PathLike)):
+                        raise ValueError("review evidence_paths must contain paths")
+                    source_path = absolute_path(Path(configured_path))
+                    content = _read_review_input(
+                        source_path, max_bytes=_REVIEW_EVIDENCE_MAX_BYTES
+                    )
+                    # Separate directories preserve names even for duplicate basenames.
+                    snapshot_dir = temporary_root / f"evidence_{index}"
+                    snapshot_dir.mkdir()
+                    snapshot_path = snapshot_dir / source_path.name
+                    snapshot_path.write_bytes(content)
+                    record = _review_input_record(
+                        content, source_id=f"evidence_{index}", name=source_path.name
+                    )
+                    expected_inputs.append(record)
+                    evidence_snapshots.append((source_path, snapshot_path, record))
+            except (OSError, ValueError) as exc:
+                return _failed_result(
+                    paper_root_fd=paper_root_fd, paper_dir_fd=paper_dir_fd,
+                    log_path=log_path, log_name=log_name, error=str(exc),
+                    paper_pdf=paper_pdf, manifest_key=manifest_key,
+                    latest_review_path=latest_review_path, latest_log_path=latest_log_path,
+                )
         command = [executable] if agent_backend else [executable, "run", "--script"]
         command += [
             str(reviewer_script),
@@ -568,7 +662,13 @@ def _run_pinned_final_ai_review(
                 value = reviewer_options.get(key)
                 if value is not None:
                     command.extend([flag, str(value)])
-            for evidence in reviewer_options.get("evidence_paths", []):
+            evidence_paths = (
+                [snapshot for _, snapshot, _ in evidence_snapshots]
+                if agent_backend else reviewer_options.get("evidence_paths", [])
+            )
+            if not isinstance(evidence_paths, (list, tuple)):
+                raise ValueError("review evidence_paths must be a list of paths")
+            for evidence in evidence_paths:
                 command.extend(["--evidence", str(evidence)])
         output, exit_code = execute_command(command, temporary_log, review_environment)
         try:
@@ -607,22 +707,37 @@ def _run_pinned_final_ai_review(
                 error = (
                     None if isinstance(payload, dict) else f"{review_name} must contain an object"
                 )
-        if error is None and reviewer_options and reviewer_options.get("backend") == "agent":
+        if error is None and agent_backend:
             try:
-                from src.review_backend import sha256, validate_agent_review
+                from src.review_backend import validate_agent_review
                 if not isinstance(payload, dict):
                     raise ValueError("agent review must be an object")
                 provenance = payload.get("Provenance")
                 if not isinstance(provenance, dict) or provenance.get("backend") != "agent" or provenance.get("independent_context") is not True:
                     raise ValueError("agent review has no independent provenance")
-                if provenance.get("paper_sha256") != sha256(temporary_pdf.read_bytes()):
-                    raise ValueError("agent review is not bound to the reviewed PDF")
-                inputs = provenance.get("inputs")
-                if not isinstance(inputs, list) or not all(isinstance(item, dict) and isinstance(item.get("id"), str) for item in inputs):
-                    raise ValueError("agent review has invalid evidence provenance")
+                _validate_review_input_receipt(provenance, expected_inputs)
+                paper_record = expected_inputs[0]
+                for content in (
+                    _read_review_input(temporary_pdf, max_bytes=_PAPER_PDF_MAX_BYTES),
+                    read_regular_at(
+                        paper_dir_fd, "paper.pdf", max_bytes=_PAPER_PDF_MAX_BYTES,
+                        description="final paper PDF",
+                    ),
+                ):
+                    if _review_input_record(content, source_id="paper", name="paper.pdf") != paper_record:
+                        raise ValueError("reviewed PDF changed during agent review")
+                for source_path, snapshot_path, record in evidence_snapshots:
+                    for input_path in (source_path, snapshot_path):
+                        content = _read_review_input(
+                            input_path, max_bytes=_REVIEW_EVIDENCE_MAX_BYTES
+                        )
+                        if _review_input_record(
+                            content, source_id=str(record["id"]), name=source_path.name
+                        ) != record:
+                            raise ValueError("configured evidence changed during agent review")
                 validate_agent_review(
                     {key: value for key, value in payload.items() if key != "Provenance"},
-                    source_ids={item["id"] for item in inputs},
+                    source_ids={str(item["id"]) for item in expected_inputs},
                 )
             except (OSError, ValueError) as exc:
                 error = str(exc)

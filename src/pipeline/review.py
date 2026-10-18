@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from src.investigation import script_runners
@@ -37,6 +41,56 @@ def _review_env_file(cfg: PipelineConfig, *, repo_root: Path) -> Path | None:
         return None
     path = Path(configured).expanduser()
     return path if path.is_absolute() else repo_root / path
+
+
+def _selected_novelty_evidence(paths: PipelinePaths) -> Path | None:
+    """Rebuild the selected review on the host before exposing it to a reviewer."""
+    from src.research.evidence import verify_selected_novelty_for_paper
+
+    data_path = paths.paper_dir / "paper_data.json"
+    if any(path.is_symlink() for path in (data_path, *data_path.parents)):
+        raise ValueError("Paper data for the independent review must not use symlinks")
+    paper_data = {}
+    if data_path.exists():
+        if not data_path.is_file() or data_path.stat().st_size > 32 * 1024 * 1024:
+            raise ValueError("Paper data for the independent review is invalid or oversized")
+        paper_data = json.loads(data_path.read_text(encoding="utf-8"))
+        if not isinstance(paper_data, dict):
+            raise ValueError("Paper data for the independent review must be an object")
+    selected = verify_selected_novelty_for_paper(
+        paper_data, investigation_results_dir=paths.investigation_dir,
+    )
+    if selected is None:
+        return None
+    packet = {
+        "schema_version": 1,
+        "scope": "host_revalidated_selected_candidate_novelty",
+        "interpretation": (
+            "This is a development-stage novelty assessment. Its gaps and next actions "
+            "limit the manuscript's claims. Supported does not establish final experimental "
+            "success, external validity, human approval, or publication acceptance."
+        ),
+        "selected_novelty_review": selected,
+    }
+    body = (json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+    if len(body) > 512 * 1024:
+        raise ValueError("Selected novelty evidence exceeds the independent review packet limit")
+    output_dir = paths.run_dir / "harness_review_evidence"
+    if any(path.is_symlink() for path in (output_dir, *output_dir.parents)):
+        raise ValueError("Independent review evidence directory must not use symlinks")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    destination = output_dir / f"selected_novelty_{hashlib.sha256(body).hexdigest()}.json"
+    fd, temporary = tempfile.mkstemp(prefix=".selected-novelty-", dir=output_dir)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())
+            os.fchmod(handle.fileno(), 0o444)
+        os.replace(temporary, destination)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return destination
 
 
 def run_pipeline_review(
@@ -91,5 +145,6 @@ def run_pipeline_review(
         env_file=_review_env_file(cfg, repo_root=repo_root),
         artifact_stem=artifact_stem,
         manifest_key=manifest_key,
-        **({"reviewer_options": reviewer_options} if reviewer_options else {}),
+        reviewer_options=reviewer_options,
+        reviewer_evidence_builder=(lambda: _selected_novelty_evidence(paths)) if reviewer_options else None,
     )

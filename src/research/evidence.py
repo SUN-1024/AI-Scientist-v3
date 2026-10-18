@@ -52,6 +52,198 @@ def merge_assessments(paper_data: dict[str, Any], results_dir: Path) -> None:
         })
     if assessments:
         paper_data["research_assessments"] = assessments
+    selected = verify_selected_novelty_for_paper(paper_data, investigation_results_dir=results_dir)
+    if selected is not None:
+        paper_data["selected_novelty_review"] = selected
+
+
+def _managed_novelty_workspace(results_dir: Path) -> Path | None:
+    """Recognize the harness layout only; never search arbitrary parent artifacts."""
+    directory = results_dir.expanduser().absolute()
+    if directory.name == "run":
+        directory /= "investigation"
+    if directory.name != "investigation" or directory.parent.name != "run":
+        return None
+    workspace = directory.parent.parent
+    marker = workspace / "harness_state.json"
+    return workspace if marker.exists() or marker.is_symlink() else None
+
+
+def _novelty_bound_path(workspace: Path, relative: str) -> Path:
+    path = Path(relative)
+    if not relative or path.is_absolute() or ".." in path.parts or path.as_posix() != relative:
+        raise ValueError("Selected novelty path must be a canonical workspace-relative path")
+    candidate = workspace / path
+    if workspace.is_symlink() or not candidate.resolve().is_relative_to(workspace.resolve()):
+        raise ValueError("Selected novelty path escaped its managed workspace")
+    current = workspace
+    for component in path.parts:
+        current /= component
+        if current.is_symlink():
+            raise ValueError("Selected novelty evidence cannot cross a symlink")
+    return candidate
+
+
+def _paper_novelty_binding(paper_data: dict[str, Any]) -> dict[str, Any]:
+    """Bind stable candidate context, excluding later final/posthoc projections."""
+    row_fields = ("program_dir", "idea_id", "attempt_id", "program_id", "combined_score", "correct")
+
+    def row(value: Any) -> Any:
+        return {key: value.get(key) for key in row_fields} if isinstance(value, dict) else value
+
+    downstream = paper_data.get("downstream_study")
+    return {
+        "results_dir": paper_data.get("results_dir"),
+        "best_correct": row(paper_data.get("best_correct")),
+        "best_any": row(paper_data.get("best_any")),
+        "all_programs": [row(value) for value in paper_data.get("all_programs", [])],
+        "downstream_study": ({key: downstream.get(key) for key in (
+            "program_dir", "program_tree_sha256", "source_attempt_id", "combined_score",
+        )} if isinstance(downstream, dict) else downstream),
+        "ablation_studies": [{key: value.get(key) for key in (
+            "study_id", "source_dir", "anchor_variant_id",
+        )} for value in paper_data.get("ablation_studies", [])],
+    }
+
+
+def _selected_novelty_gap(detail: str, *, provenance: dict[str, Any] | None = None,
+                          candidate: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": 1, "status": "needs_evidence", "verification_status": "invalid_or_missing",
+        "assessment_scope": "selected_candidate_development", "detail": detail,
+        "candidate_program": (candidate or {}).get("candidate_program"),
+        "candidate_source_sha256": (candidate or {}).get("candidate_source_sha256"),
+        "candidate_packet_sha256": (candidate or {}).get("candidate_packet_sha256"),
+        "candidate_selection": (candidate or {}).get("candidate_selection"),
+        "gaps": [{"code": "selected_novelty_unverified", "detail": detail}],
+        "next_actions": [{"kind": "independent_review", "reason":
+                          "Recover a candidate-bound review of the current implementation and development evidence. "
+                          "Preserve the frozen final holdout; do not tune on final outcomes."}],
+        "model_judgments": [], "claim_type": None, "provenance": dict(provenance or {}),
+        "human_approval": False, "publication_acceptance": False,
+        "independent_final_confirmation": False,
+    }
+
+
+def verify_selected_novelty_for_paper(
+    paper_data: dict[str, Any], *, investigation_results_dir: Path | None = None,
+) -> dict[str, Any] | None:
+    """Rebuild selected-method feedback from host evidence; saved fields are claims.
+
+    An explicit investigation path permits host assembly when the field is absent.
+    Existing projections are always compared with current evidence, even when an
+    explicit path is supplied. Standalone papers remain unchanged unless they
+    declare selected-method proof. This function never writes or invokes a model.
+    """
+    from src.final_evaluation.runner import FinalEvaluationError
+    from .harness_evidence import build_candidate_packet
+    from .harness_state import read_json, sha256
+    from .novelty import content_hash
+    from .novelty_review import load_frozen_novelty_report
+    from .workspace import resume
+
+    declared = "selected_novelty_review" in paper_data
+    saved = paper_data.get("selected_novelty_review")
+    provenance: dict[str, Any] = {}
+    candidate: dict[str, Any] = {}
+    try:
+        if investigation_results_dir is not None:
+            investigation = investigation_results_dir.expanduser().absolute()
+        elif declared:
+            if not isinstance(saved, dict) or not isinstance(saved.get("provenance"), dict):
+                raise ValueError("Selected novelty declaration has no managed provenance")
+            location = saved["provenance"].get("investigation_results_dir")
+            if not isinstance(location, str) or not Path(location).is_absolute():
+                raise ValueError("Selected novelty declaration has no absolute managed investigation path")
+            investigation = Path(location)
+        else:
+            location = paper_data.get("results_dir")
+            if not isinstance(location, str) or not location:
+                return None
+            investigation = Path(location).expanduser().absolute()
+        workspace = _managed_novelty_workspace(investigation)
+        if workspace is None:
+            if declared:
+                raise ValueError("Selected novelty declaration is not bound to a managed harness workspace")
+            return None
+        investigation = workspace / "run/investigation"
+        provenance.update(managed_workspace=str(workspace), investigation_results_dir=str(investigation))
+        _novelty_bound_path(workspace, "run/investigation")
+        _novelty_bound_path(workspace, "input_task")
+        manifest_path = _novelty_bound_path(workspace, "research_manifest.json")
+        cfg, manifest = resume(workspace)
+        state = read_json(_novelty_bound_path(workspace, "harness_state.json"))
+        if state.get("schema_version") != 1 or state.get("input_task_sha256") != manifest["input_task_sha256"]:
+            raise ValueError("Harness state does not identify the frozen research inputs")
+        provenance.update(input_task_sha256=manifest["input_task_sha256"], research_manifest_sha256=sha256(manifest_path))
+        results_value = paper_data.get("results_dir")
+        if not isinstance(results_value, str) or not Path(results_value).is_absolute():
+            raise ValueError("Paper data has no absolute results directory for its selected candidate")
+        results = Path(results_value)
+        if not results.is_relative_to(workspace / "run"):
+            raise ValueError("Paper data results do not belong to the declared managed run")
+        _novelty_bound_path(workspace, results.relative_to(workspace).as_posix())
+        provenance["paper_context_sha256"] = content_hash(_paper_novelty_binding(paper_data))
+        packet = build_candidate_packet(workspace)
+        candidate = {
+            "candidate_program": packet["selection"]["program_relative_path"],
+            "candidate_source_sha256": packet["candidate_source_sha256"],
+            "candidate_packet_sha256": content_hash(packet), "candidate_selection": packet["selection"],
+        }
+        _novelty_bound_path(workspace, candidate["candidate_program"])
+        downstream = paper_data.get("downstream_study")
+        if isinstance(downstream, dict) and downstream.get("program_dir") != str(workspace / candidate["candidate_program"]):
+            raise ValueError("Paper data identifies a different downstream candidate")
+        # In an investigation-only paper the chosen program must also be the
+        # paper's declared winner. Ablation winners are different comparisons.
+        best = paper_data.get("best_correct")
+        if not paper_data.get("ablation_studies") and not downstream and isinstance(best, dict):
+            if best.get("program_dir") != str(workspace / candidate["candidate_program"]):
+                raise ValueError("Paper data winner differs from the selected novelty candidate")
+        pointer_path = _novelty_bound_path(workspace, "novelty/latest.json")
+        pointer = read_json(pointer_path)
+        if pointer.get("schema_version") != 1 or any(pointer.get(key) != value for key, value in candidate.items()
+                                                   if key != "candidate_selection"):
+            raise ValueError("Selected novelty pointer differs from the current candidate, source, or evaluation packet")
+        cycle_value = pointer.get("cycle")
+        if not isinstance(cycle_value, str) or len(Path(cycle_value).parts) < 2 or Path(cycle_value).parts[0] != "novelty":
+            raise ValueError("Selected novelty pointer must identify a cycle inside workspace/novelty")
+        cycle = _novelty_bound_path(workspace, cycle_value)
+        report_path = _novelty_bound_path(workspace, (Path(cycle_value) / "novelty_report.json").as_posix())
+        provenance.update(cycle=cycle_value, pointer_sha256=sha256(pointer_path), report_sha256=sha256(report_path))
+        report = load_frozen_novelty_report(workspace / "input_task", cycle, candidate_packet=packet)
+        receipts = []
+        for judgment in report.get("model_judgments", []):
+            receipt = judgment["receipt"]
+            path = Path(receipt["path"])
+            if not path.is_relative_to(cycle):
+                raise ValueError("Verified novelty receipt escaped the selected review cycle")
+            path = _novelty_bound_path(workspace, path.relative_to(workspace).as_posix())
+            if sha256(path) != receipt["sha256"]:
+                raise ValueError("Verified novelty receipt changed during paper projection")
+            receipts.append({**receipt, "path": path.relative_to(workspace).as_posix()})
+        if report.get("status") == "supported" and len(receipts) < cfg.harness.novelty_reviewers:
+            report["status"] = "needs_evidence"
+            report.setdefault("gaps", []).append({"code": "independent_reviews_missing", "detail":
+                                                  "Selected-method reviews do not meet the configured reviewer count."})
+        provenance.update(replayed_report_sha256=content_hash(report), review_receipts=receipts,
+                          evaluation_receipt_sha256=packet["evaluation"]["receipt_sha256"])
+        current = {
+            "schema_version": 1, "status": report["status"], "verification_status": "host_verified",
+            "assessment_scope": "selected_candidate_development", **candidate,
+            "gaps": report.get("gaps", []), "next_actions": report.get("next_actions", []),
+            "model_judgments": report.get("model_judgments", []), "claim_type": report.get("claim_type"),
+            "supported_scope": report.get("supported_scope"), "independence_limit": report.get("independence_limit"),
+            "provenance": provenance, "human_approval": False, "publication_acceptance": False,
+            "independent_final_confirmation": False,
+        }
+        if declared and saved != current:
+            raise ValueError("Saved selected novelty projection is stale or differs from current host-verified evidence")
+        if not declared and investigation_results_dir is None:
+            raise ValueError("Managed paper data is missing its selected novelty projection")
+        return current
+    except (ValueError, OSError, TypeError, KeyError, AttributeError, FinalEvaluationError) as exc:
+        return _selected_novelty_gap(str(exc), provenance=provenance, candidate=candidate)
 
 
 def normalize_basis(raw: object) -> dict[str, Any]:

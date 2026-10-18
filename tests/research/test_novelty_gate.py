@@ -11,7 +11,7 @@ from src.research.literature import prepare_literature
 from src.research.evidence import render_context
 from src.research.novelty import REVIEW_CHECKS, CANDIDATE_CHECKS, content_hash, evaluate_novelty
 from src.research.novelty_review import (
-    draft_research_agenda, load_frozen_novelty_report, normalize_review, review_novelty,
+    draft_research_agenda, load_frozen_novelty_report, normalize_review, review_novelty, source_packet,
 )
 from src.research.research_agenda import agenda_from_basis, load_agenda
 
@@ -431,3 +431,148 @@ def test_v1_reflection_transport_error_keeps_harness_fallback_unverified(study, 
     assert receipt['frozen_evidence']['candidate_packet_sha256'] == content_hash(packet)
     trace = json.loads((output / 'agenda_reflection_trace.json').read_text())
     assert trace['status'] == 'failed' and trace['independent_novelty_evidence'] is False
+
+
+@pytest.fixture
+def source_selection_study(study, tmp_path):
+    original_task, cfg, agenda, review = study
+    task = tmp_path / "source_selection_task"
+    task.mkdir()
+    (task / "task.md").write_bytes((original_task / "task.md").read_bytes())
+    (task / "paper.txt").write_bytes((original_task / "paper.txt").read_bytes())
+    other_text = ("Related method: optimize a different model family. "
+                  "Evaluation: larger data and a different compute budget. "
+                  "Contribution boundary: no matched comparison with the fixed-step baseline.")
+    (task / "related.txt").write_text(other_text)
+    cfg = copy.deepcopy(cfg)
+    cfg.sources.extend([
+        {"id": "related", "title": "Related study outside closest_work", "path": "related.txt"},
+        {"id": "metadata_only", "title": "Unavailable source", "url": "https://example.org/unavailable"},
+    ])
+    prepare_literature(task, cfg, offline=True)
+    agenda = copy.deepcopy(agenda)
+    agenda["source_selection"].extend([
+        {"source_id": "related", "relation": "excluded", "reason": "Different model family and compute budget."},
+        {"source_id": "metadata_only", "relation": "excluded", "reason": "Full text is not available; no method claim relies on this source."},
+    ])
+    agenda["source_scan"]["coverage_limits"] += " Related study uses a different compute budget."
+    return task, cfg, agenda, review, other_text
+
+
+def test_review_source_packet_includes_full_text_outside_closest_work(source_selection_study):
+    task, _cfg, agenda, _review, other_text = source_selection_study
+    assert {row["source_id"] for row in agenda["closest_work"]} == {"prior"}
+    author_packet = source_packet(task)
+    reviewer_packet = source_packet(task, agenda)
+    assert reviewer_packet == author_packet
+    rows = {row["id"]: row for row in reviewer_packet["sources"]}
+    assert rows["prior"]["full_text"] == (task / "paper.txt").read_text()
+    assert rows["related"]["full_text"] == other_text
+    assert rows["metadata_only"]["availability"] == "metadata"
+    assert "full_text" not in rows["metadata_only"]
+
+
+def test_each_independent_reviewer_receives_all_prepared_full_text(source_selection_study, tmp_path, monkeypatch):
+    task, cfg, agenda, review, other_text = source_selection_study
+    calls = install_provider(monkeypatch, [review])
+    review_novelty(task, agenda, cfg, tmp_path / "complete_source_reviews")
+    assert len(calls) == 2
+    for call in calls:
+        prompt = call["messages"][0]["content"]
+        payload = json.loads(prompt.split("\n\nFROZEN INPUT DATA:\n", 1)[1])
+        rows = {row["id"]: row for row in payload["literature"]["sources"]}
+        assert rows["related"]["full_text"] == other_text
+        assert rows["prior"]["full_text"] == (task / "paper.txt").read_text()
+        assert payload["agenda"]["source_selection"] == agenda["source_selection"]
+    for receipt_path in (tmp_path / "complete_source_reviews").glob("reviewer_*/receipt.json"):
+        receipt = json.loads(receipt_path.read_text())
+        assert receipt["source_packet_sha256"] == content_hash(source_packet(task, agenda))
+        assert receipt["source_coverage"] == {
+            "policy": "all_prepared_sources_v1", "source_ids": ["prior", "related", "metadata_only"],
+            "saved_text_source_ids": ["prior", "related"], "full_text_source_ids": ["prior", "related"],
+        }
+
+
+def test_non_closest_full_text_keeps_packet_limit_and_fails_before_review(source_selection_study, tmp_path, monkeypatch):
+    from src.research.novelty_review import MAX_PACKET_CHARS
+    task, cfg, agenda, review, _other_text = source_selection_study
+    text_path = task / "research_context/text/related.txt"
+    body = ("complete source text " * 31_000).encode()
+    text_path.write_bytes(body)
+    catalog_path = task / "research_context/catalog.json"
+    catalog = json.loads(catalog_path.read_text())
+    source = next(row for row in catalog["sources"] if row["id"] == "related")
+    source.update(text_sha256=hashlib.sha256(body).hexdigest(), passages=[])
+    catalog_path.write_text(json.dumps(catalog))
+    calls = install_provider(monkeypatch, [review])
+    assert MAX_PACKET_CHARS == 600_000
+    with pytest.raises(ValueError, match="exceeds 600,000"):
+        source_packet(task)
+    with pytest.raises(ValueError, match="exceeds 600,000"):
+        review_novelty(task, agenda, cfg, tmp_path / "oversized_review")
+    assert not calls
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_old_narrow_review_packet_cannot_be_replayed_as_complete_source_review(source_selection_study, tmp_path, monkeypatch, legacy):
+    from src.research import novelty_review
+    task, cfg, agenda, review, _other_text = source_selection_study
+    complete_packet = novelty_review.source_packet
+    def old_packet(task, agenda=None):
+        packet = complete_packet(task, agenda)
+        if agenda is not None:
+            selected = {row["source_id"] for row in agenda["closest_work"]}
+            for row in packet["sources"]:
+                if row["id"] not in selected:
+                    row.pop("full_text", None)
+        return packet
+    calls = install_provider(monkeypatch, [review])
+    monkeypatch.setattr(novelty_review, "source_packet", old_packet)
+    output = tmp_path / "old_narrow_reviews"
+    report = review_novelty(task, agenda, cfg, output)
+    assert len(report["model_judgments"]) == 2
+    assert report["status"] == "supported"
+    if legacy:
+        for path in output.glob("reviewer_*/receipt.json"):
+            receipt = json.loads(path.read_text())
+            receipt["schema_version"] = 1
+            receipt.pop("source_packet_sha256")
+            receipt.pop("source_coverage")
+            path.write_text(json.dumps(receipt))
+    monkeypatch.setattr(novelty_review, "source_packet", complete_packet)
+    current = load_frozen_novelty_report(task, output)
+    assert current["status"] == "needs_evidence"
+    assert current["model_judgments"] == []
+    assert any("all prepared source texts" in str(gap) for gap in current["gaps"])
+    assert len(calls) == 2
+
+
+def test_legacy_full_source_prompt_remains_verifiable_without_new_coverage_fields(study, tmp_path, monkeypatch):
+    task, cfg, agenda, review = study
+    install_provider(monkeypatch, [review])
+    output = tmp_path / "legacy_complete_reviews"
+    review_novelty(task, agenda, cfg, output)
+    for path in output.glob("reviewer_*/receipt.json"):
+        receipt = json.loads(path.read_text())
+        receipt["schema_version"] = 1
+        receipt.pop("source_packet_sha256")
+        receipt.pop("source_coverage")
+        path.write_text(json.dumps(receipt))
+    report = load_frozen_novelty_report(task, output)
+    assert report["status"] == "supported"
+    assert all(row["receipt"]["source_packet_sha256"] == content_hash(source_packet(task)) for row in report["model_judgments"])
+
+
+def test_source_coverage_label_alone_does_not_validate_saved_packet(source_selection_study, tmp_path, monkeypatch):
+    task, cfg, agenda, review, _other_text = source_selection_study
+    install_provider(monkeypatch, [review])
+    output = tmp_path / "changed_coverage"
+    review_novelty(task, agenda, cfg, output)
+    for path in output.glob("reviewer_*/receipt.json"):
+        receipt = json.loads(path.read_text())
+        receipt["source_packet_sha256"] = "0" * 64
+        path.write_text(json.dumps(receipt))
+    report = load_frozen_novelty_report(task, output)
+    assert report["status"] == "needs_evidence"
+    assert not report["model_judgments"]
+    assert any("source packet receipt changed" in str(gap) for gap in report["gaps"])

@@ -36,6 +36,18 @@ SCIENTIFIC_EVIDENCE_SCRIPT = (
     Path(__file__).parents[2]
     / "src/agents/skills/scientific-evidence/scripts/scientific_evidence.py"
 )
+
+
+def test_audit_summary_retains_selected_novelty_limits() -> None:
+    selected = {
+        "status": "needs_evidence",
+        "gaps": ["The frozen code does not implement the proposed mechanism."],
+        "publication_acceptance": False,
+    }
+    summary = paper_evidence_audit._paper_data_summary({"selected_novelty_review": selected})
+    assert summary["selected_novelty_review"] == selected
+
+
 SKILL_PARTS = [
     (".claude", "skills"),
     (".codex", "skills"),
