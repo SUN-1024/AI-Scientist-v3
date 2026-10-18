@@ -47,7 +47,7 @@ GENERATED_SCAN_ARTIFACT_NAMES = {
     "verification-report.json",
 }
 ROOT_GENERATED_SCAN_ARTIFACT_NAMES = {"validation_report.json"}
-ROOT_ARCHIVE_DIR_PREFIXES = (("previous_paper",),)
+ROOT_ARCHIVE_DIR_PREFIXES = (("previous_paper",), ("paper_diagnostics",))
 GENERATED_SCAN_ARTIFACT_PREFIXES = (
     "paper_evidence_audit",
 )

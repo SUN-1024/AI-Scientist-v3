@@ -20,6 +20,7 @@ from src.orchestrator.paper_diagnostics import (
     main,
     reference_repair_context,
     record_reference_round,
+    retire_writer_validation_record,
 )
 from src.orchestrator.paper_event_bridge import (
     TRANSPORT_PREFIX,
@@ -102,6 +103,47 @@ def test_archive_round_preserves_each_validation_result_and_refuses_symlink_dest
     (root / "paper_diagnostics").symlink_to(root / "outside")
     with pytest.raises(ValueError, match="symlink"):
         archive_round(root, "validation", 0, [])
+
+
+def test_host_validation_retires_writer_record_as_diagnostics_without_asserting_validity(tmp_path: Path) -> None:
+    report = b'{"status":"writer_local_checks_pending_host_validation"}\n'
+    sidecar = b'{"artifact":{"sha256":"older-unavailable-report"}}\n'
+    (tmp_path / "validation_report.json").write_bytes(report)
+    (tmp_path / "validation_report.json.prov.json").write_bytes(sidecar)
+    destination = retire_writer_validation_record(tmp_path)
+    assert destination is not None
+    assert (destination / "validation_report.json").read_bytes() == report
+    assert (destination / "validation_report.json.prov.json").read_bytes() == sidecar
+    ownership = json.loads((destination / "ownership.json").read_text())
+    assert ownership["prior_validity"] == "not_asserted"
+    assert (tmp_path / "validation_report.json").read_bytes() == report
+    assert not (tmp_path / "validation_report.json.prov.json").exists()
+    assert retire_writer_validation_record(tmp_path) is None
+
+
+@pytest.mark.parametrize("unsafe", ["sidecar_symlink", "sidecar_fifo", "report_symlink"])
+def test_host_validation_rejects_unsafe_writer_report_records(tmp_path: Path, unsafe: str) -> None:
+    root = tmp_path / "paper"
+    root.mkdir()
+    report = root / "validation_report.json"
+    sidecar = root / "validation_report.json.prov.json"
+    report.write_text("writer report")
+    sidecar.write_text("writer provenance")
+    outside = tmp_path / "outside.json"
+    outside.write_text("unchanged")
+    if unsafe == "report_symlink":
+        report.unlink()
+        report.symlink_to(outside)
+    else:
+        sidecar.unlink()
+        if unsafe == "sidecar_symlink":
+            sidecar.symlink_to(outside)
+        else:
+            os.mkfifo(sidecar, 0o600)
+    with pytest.raises(ValueError, match="not a regular file"):
+        retire_writer_validation_record(root)
+    assert outside.read_text() == "unchanged"
+    assert not (root / "paper_diagnostics").exists()
 
 
 def test_reference_prompt_lists_every_supported_category() -> None:

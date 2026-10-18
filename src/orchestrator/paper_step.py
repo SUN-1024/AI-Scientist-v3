@@ -114,7 +114,7 @@ GENERATED_EVIDENCE_SCAN_ARTIFACT_NAMES = {
     "verification-report.json",
 }
 ROOT_GENERATED_EVIDENCE_SCAN_ARTIFACT_NAMES = {"validation_report.json"}
-ROOT_EVIDENCE_ARCHIVE_DIR_PREFIXES = (("previous_paper",),)
+ROOT_EVIDENCE_ARCHIVE_DIR_PREFIXES = (("previous_paper",), ("paper_diagnostics",))
 GENERATED_EVIDENCE_SCAN_ARTIFACT_PREFIXES = ("paper_evidence_audit",)
 EVIDENCE_BUNDLE_DIRNAME = "scientific-evidence"
 EVIDENCE_SCAN_SUFFIXES = (
@@ -4471,12 +4471,15 @@ def validate_and_compile_paper(
     container_network: str = "bridge",
 ) -> dict[str, Any]:
     """Validate and compile paper."""
+    from src.orchestrator.paper_diagnostics import retire_writer_validation_record
+
     tex_path = paper_dir / "paper.tex"
     bib_path = paper_dir / "references.bib"
     claims_path = paper_dir / "claims_grounding.json"
     data_path = paper_dir / "paper_data.json"
     provenance_path = paper_dir / "references_provenance.json"
     report_path = paper_dir / "validation_report.json"
+    retire_writer_validation_record(paper_dir)
 
     report: dict[str, Any] = {
         "ok": False,
@@ -4817,8 +4820,8 @@ def validate_and_compile_paper(
         report["pdf_path"] = str(pdf_path.resolve())
     except Exception as exc:
         report["error"] = str(exc)
-        report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+        _write_json_atomically(report_path, report)
         raise
 
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    _write_json_atomically(report_path, report)
     return report

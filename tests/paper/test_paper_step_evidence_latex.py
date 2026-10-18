@@ -112,6 +112,14 @@ SILENT_CASES: list[tuple[str, dict[str, str]]] = [
             "paper.tex": "Current paper has no evidence tokens.\n",
         },
     ),
+    (
+        "archived_gate_diagnostics",
+        {
+            "paper_diagnostics/validation/round_0000/attempt_001/validation_report.json":
+                '{"error":"Fix dangling @evidence[[...]] links."}',
+            "paper.tex": "Current manuscript has no evidence tokens.\n",
+        },
+    ),
     *[
         (
             f"agent_support_{skill_root}",
@@ -315,6 +323,30 @@ def test_paper_tex_dependency_paths_guards(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------------------------
 # validate_evidence_bundle: verifier integration
 # --------------------------------------------------------------------------------------------
+
+
+def test_diagnostic_archive_scope_preserves_strict_checks_for_results_and_imported_body(tmp_path: Path) -> None:
+    _emit_bundle(tmp_path)
+    write_text(tmp_path / "results/metrics.json", '{"accuracy": 0.5}')
+    _write_paper(tmp_path, "Recorded value. % @evidence[[results/metrics.json#/accuracy]]\n")
+    diagnostic = tmp_path / "paper_diagnostics/validation/round_0000/attempt_001"
+    write_text(diagnostic / "validation_report.json", '{"error":"Fix @evidence[[...]] links."}')
+    write_text(diagnostic / "validation_report.json.prov.json", json.dumps({
+        "schema_name": "scientific-evidence.artifact-manifest",
+        "artifact": {"path": "missing-diagnostic.json", "kind": "derived", "sha256": "f" * 64},
+        "derived_from": ["@evidence[[...]]"],
+    }))
+    report = paper_step.validate_evidence_bundle(tmp_path)
+    assert report["checked"] and not report["hard_errors"]
+    nested = tmp_path / "results/paper_diagnostics/measurement.json"
+    write_text(nested, json.dumps({"claim": MISSING_TOKEN}))
+    assert paper_step.validate_evidence_bundle(tmp_path)["hard_errors"]
+    nested.unlink()
+    _write_paper(tmp_path, r"\input{paper_diagnostics/body.tex}" + "\n")
+    write_text(tmp_path / "paper_diagnostics/body.tex", "Visible claim " + MISSING_TOKEN)
+    report = paper_step.validate_evidence_bundle(tmp_path)
+    assert report["hard_errors"]
+    assert any(v["subject_path"] == "paper_diagnostics/body.tex" for v in report["dangling"])
 
 
 def test_validate_evidence_bundle_with_emitted_bundle(tmp_path: Path) -> None:

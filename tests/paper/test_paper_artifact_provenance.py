@@ -15,6 +15,7 @@ from src.orchestrator import paper_artifact_provenance, paper_step
 from src.orchestrator.paper_evidence_audit import (
     audit_input_sha256, prepare_readonly_workspace, remove_readonly_workspace,
 )
+from src.research.harness_state import HarnessState, verify_stage_records
 
 
 def _workspace(root: Path, *, failed: bool = False) -> tuple[bytes, bytes]:
@@ -231,3 +232,35 @@ def test_readonly_audit_snapshot_retains_new_records_and_exact_input_hashes(tmp_
     finally:
         if readonly.exists():
             remove_readonly_workspace(readonly)
+
+
+def test_host_report_replaces_writer_report_only_after_preserving_its_observed_record(tmp_path: Path) -> None:
+    _workspace(tmp_path)
+    report = tmp_path / "validation_report.json"
+    sidecar = tmp_path / "validation_report.json.prov.json"
+    original = b'{"status":"local_checks_only"}\n'
+    original_record = b'{"artifact":{"sha256":"already_stale"}}\n'
+    report.write_bytes(original)
+    sidecar.write_bytes(original_record)
+    with pytest.raises(RuntimeError):
+        paper_step.validate_and_compile_paper(tmp_path)
+    archived = list((tmp_path / "paper_diagnostics/writer_validation_record/round_0000").glob("attempt_*"))
+    assert len(archived) == 1
+    assert (archived[0] / "validation_report.json").read_bytes() == original
+    assert (archived[0] / "validation_report.json.prov.json").read_bytes() == original_record
+    assert json.loads(report.read_text())["ok"] is False
+    assert not sidecar.exists()
+    _verify(tmp_path)
+
+
+def test_host_operational_report_remains_bound_by_completed_harness_receipt(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    root = workspace / "run/paper"
+    root.mkdir(parents=True)
+    report = root / "validation_report.json"
+    report.write_text('{"ok": false}\n')
+    state = HarnessState(workspace, phases=["paper"], quality_target="development", input_sha256="fixture")
+    state.observe("phase_end", phase_name="paper", status="completed", return_code=0)
+    assert verify_stage_records(workspace, state.payload["stages"]["paper"])
+    report.write_text('{"ok": true}\n')
+    assert not verify_stage_records(workspace, state.payload["stages"]["paper"])

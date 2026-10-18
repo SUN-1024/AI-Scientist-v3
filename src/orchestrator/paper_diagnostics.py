@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import stat
 
 from src.orchestrator.reference_query_plan import VALID_QUERY_CATEGORIES
 
@@ -51,6 +52,44 @@ def archive_round(root: Path, stage: str, round_number: int, names: list[str]) -
         if data is not None:
             (destination / name).write_bytes(data)
     return destination
+
+
+def retire_writer_validation_record(root: Path) -> Path | None:
+    """Preserve a writer's report record before the host owns validation_report.json.
+
+    The prior pair may already disagree after a stopped host validation. Archive
+    it as observed diagnostic data, without asserting its validity or re-stamping it.
+    The completed Harness paper-phase receipt hashes the host's saved report.
+    """
+    report_name = "validation_report.json"
+    sidecar_name = report_name + ".prov.json"
+    sidecar = root / sidecar_name
+    try:
+        metadata = sidecar.lstat()
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("Writer validation record is not a regular file")
+    report = root / report_name
+    if report.exists() or report.is_symlink():
+        if not stat.S_ISREG(report.lstat().st_mode):
+            raise ValueError("Writer validation report is not a regular file")
+    observed = {name: _read_artifact(root, name) for name in (report_name, sidecar_name)}
+    archived = archive_round(root, "writer_validation_record", 0, [report_name, sidecar_name])
+    for name, data in observed.items():
+        if data is not None and (archived / name).read_bytes() != data:
+            raise ValueError("Writer validation diagnostic copy changed")
+        if _read_artifact(root, name) != data:
+            raise ValueError("Writer validation input changed during archival")
+    (archived / "ownership.json").write_text(json.dumps({
+        "operation": "host_validation_report_ownership",
+        "prior_validity": "not_asserted",
+        "observed_sha256": {name: hashlib.sha256(data).hexdigest() if data is not None else None
+                            for name, data in observed.items()},
+        "current_report_binding": "completed Harness paper-phase receipt",
+    }, indent=2, sort_keys=True) + "\n")
+    sidecar.unlink()
+    return archived
 
 
 def reference_repair_context(root: Path, stage: str) -> str:
