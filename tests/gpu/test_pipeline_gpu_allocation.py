@@ -304,6 +304,64 @@ def test_parallel_workers_widen_the_pool_only_for_investigation_and_slice_it() -
     }
 
 
+@pytest.mark.parametrize("phase", ["ablations", "final_evaluation"])
+@pytest.mark.parametrize("gpu_count", [1, 2])
+def test_downstream_resume_slices_an_explicit_complete_parallel_pool(
+    phase: str, gpu_count: int,
+) -> None:
+    cfg = _pipeline(f"container.gpu_count={gpu_count}", "investigation.execution.workers=2")
+    pool = _selector(*UUIDS[:gpu_count * 2])
+    first_slice = _selector(*UUIDS[:gpu_count])
+    environment = {GPUS: pool}
+
+    assert prepare_gpu_allocation(cfg, {phase}, environment, discover=_no_discovery) is None
+    assert environment == {
+        POOL: pool, GPUS: first_slice, "VARIANT_EVAL_SANDBOX_GPUS": first_slice,
+    }
+    # A second downstream phase in the same process keeps the settled slice.
+    assert prepare_gpu_allocation(cfg, {phase}, environment, discover=_no_discovery) is None
+    assert environment[GPUS] == first_slice
+    assert environment[POOL] == pool
+
+
+@pytest.mark.parametrize("phase", ["ablations", "final_evaluation"])
+def test_downstream_resume_accepts_only_one_slice_or_the_complete_parallel_pool(phase: str) -> None:
+    cfg = _parallel_config(2)
+    for selector in (
+        _selector(UUIDS[0]),  # Too few GPUs for one container.
+        _selector(*UUIDS[:3]),  # An incomplete parallel pool.
+        _selector(*POOL_UUIDS[:5]),  # Extra GPUs beyond the configured pool.
+        _selector(UUIDS[0], UUIDS[1], UUIDS[2], UUIDS[2]),
+        _selector("0", "1", "2", "3"),
+        "all",
+    ):
+        environment = {GPUS: selector}
+        assert prepare_gpu_allocation(cfg, {phase}, environment, discover=_no_discovery) is not None
+        assert environment == {GPUS: selector}
+
+    environment = {GPUS: _selector(*UUIDS[:2]), "VARIANT_EVAL_SANDBOX_GPUS": _selector(UUIDS[3])}
+    expected = dict(environment)
+    assert prepare_gpu_allocation(cfg, {phase}, environment, discover=_no_discovery) is None
+    assert environment == expected
+
+
+def test_complete_parallel_pool_is_not_accepted_by_single_worker_or_task_drafting() -> None:
+    for cfg, selected in (
+        (_parallel_config(1), {"ablations"}),
+        (_parallel_config(1), {"final_evaluation"}),
+        (_parallel_config(2), {"task_drafting"}),
+        (_parallel_config(2), {"task_drafting", "ablations"}),
+        (_pipeline(
+            "container.gpu_count=0", "investigation.execution.gpu_evaluation=false",
+            "investigation.execution.workers=2",
+        ), {"final_evaluation"}),
+    ):
+        environment = {GPUS: _selector(*UUIDS)}
+        expected = dict(environment)
+        assert prepare_gpu_allocation(cfg, selected, environment, discover=_no_discovery) is not None
+        assert environment == expected
+
+
 # --------------------------------------------------------------------------- parallel investigation workers
 
 

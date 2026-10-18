@@ -1939,15 +1939,16 @@ def prepare_gpu_allocation(
 ) -> str | None:
     """Settle ``AGENT_CONTAINER_GPUS`` against ``container.gpu_count`` before compute phases.
 
-    The run's GPU pool is ``container.gpu_count`` per container times the parallel
-    investigation workers (one when the investigation phase is not selected). An
-    explicit selector must name exactly that many GPUs; without one the first that
-    many ``nvidia-smi`` reports are discovered and exported (plus the ablation sandbox
-    selector when unset). With several workers the pool is exported as
+    Investigation uses ``container.gpu_count`` per parallel worker. Other compute
+    phases use one slice. Downstream phases may also receive the complete configured
+    investigation pool when a fresh resume process inherits the original selector.
+    Both forms require an exact count of stable UUIDs. Discovery only allocates the
+    GPUs needed by the selected phases. With several workers the pool is exported as
     ``AGENT_CONTAINER_GPU_POOL`` for the parallel launcher to slice, and
     ``AGENT_CONTAINER_GPUS`` narrows to the first slice so every other phase still
     sees exactly ``container.gpu_count`` GPUs. Returns an error message, or ``None``.
     """
+    selected = set(selected)
     if not GPU_COMPUTE_PHASES.intersection(selected):
         return None
     gpu_count = cfg.container.gpu_count
@@ -1957,7 +1958,21 @@ def prepare_gpu_allocation(
     try:
         settled = settle_gpu_pool(raw_selector, gpu_count, workers, discover=discover)
     except GpuSelectorError as exc:
-        return str(exc)
+        if (
+            discovered or workers != 1 or cfg.investigation.workers <= 1
+            or not selected <= _DOWNSTREAM_PHASES
+        ):
+            return str(exc)
+        # A resumed downstream phase may inherit the original full pool instead
+        # of the slice exported by the earlier pipeline process. Validate every
+        # device and the exact configured pool size before narrowing that selector.
+        try:
+            settled = settle_gpu_pool(
+                raw_selector, gpu_count, cfg.investigation.workers, discover=discover,
+            )
+        except GpuSelectorError:
+            return str(exc)
+        workers = cfg.investigation.workers
     if settled is None:
         return None
     pool, first_slice = settled
