@@ -130,7 +130,8 @@ def test_resume_skips_unchanged_completed_stage_but_does_not_call_it_scientifica
     assert report["submission_ready"] is False
 
 
-def test_resume_plans_fresh_posthoc_retry_without_changing_prior_output(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("posthoc_network", [None, "host"])
+def test_resume_plans_fresh_posthoc_retry_without_changing_prior_output(tmp_path, monkeypatch, capsys, posthoc_network):
     task = make_task(tmp_path / "task")
     workspace = tmp_path / "workspace"
     monkeypatch.setattr(harness, "ensure_execution_ready", Mock())
@@ -152,10 +153,16 @@ def test_resume_plans_fresh_posthoc_retry_without_changing_prior_output(tmp_path
                      "--quality-target", "development", "execution.phases=posthoc,paper",
                      "container.enabled=false"]) == 1
     capsys.readouterr()
-    assert cli.main(["harness", "--resume", str(workspace), "--dry-run"]) == 0
+    frozen_manifest = (workspace / "research_manifest.json").read_bytes()
+    route = ["posthoc.container.network=" + posthoc_network] if posthoc_network else []
+    assert cli.main(["harness", "--resume", str(workspace), "--dry-run", *route]) == 0
     preview = json.loads(capsys.readouterr().out)
     assert preview["remaining_phases"] == ["posthoc", "paper"]
     assert "execution.restart_posthoc=true" in preview["pipeline_argv"]
+    if posthoc_network:
+        from src.pipeline.cli import load_pipeline_config
+        assert load_pipeline_config(preview["pipeline_argv"]).posthoc.container_network == posthoc_network
+    assert (workspace / "research_manifest.json").read_bytes() == frozen_manifest
     assert (workspace / "run/posthoc/failure.txt").read_text() == "transport failure"
     assert not list((workspace / "run").glob("posthoc.previous.*"))
 

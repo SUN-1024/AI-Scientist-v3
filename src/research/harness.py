@@ -27,7 +27,7 @@ REQUIRED_PHASES = set(PIPELINE_PHASES) - {"task_drafting"}
 RESUME_MUTABLE = {
     "execution.phases", "investigation.execution.max_idea_cycles", "investigation.execution.run_timeout_seconds",
     "investigation.execution.idea_timeout_seconds", "review.timeout_seconds", "logging.verbose",
-    "logging.heartbeat_seconds", "execution.fail_fast",
+    "logging.heartbeat_seconds", "execution.fail_fast", "posthoc.container.network",
 }
 
 
