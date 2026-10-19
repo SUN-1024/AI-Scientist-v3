@@ -32,7 +32,9 @@ from src.investigation.bounded_process import (
 from src.investigation.runtime_output import output_limit_evidence, timeout_evidence
 from src.investigation.task_contract import load_task_contract
 from src.task_drafting.qualification import qualify_task_for_publication
-from tests.runtime.test_task_runtime import _fake_broker, _stub_commands, _write_contract_task
+from tests.runtime.test_task_runtime import (
+    _broker_recovery_root, _fake_broker, _stub_commands, _write_contract_task,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKER_DIAGNOSTICS = REPO_ROOT / "src/prompts/shared/worker_diagnostics.md"
@@ -622,6 +624,7 @@ def test_failed_validation_nonzero_command_and_late_completion_retain_sanitized_
 
 @pytest.mark.parametrize("failure", ["reset_sequence", "feasibility"])
 def test_exit_zero_contracted_validation_failure_retains_stderr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure) -> None:
+    _broker_recovery_root(tmp_path, monkeypatch)
     task = _write_contract_task(tmp_path)
     contract = load_task_contract(task / "task_contract.json")
     _stub_commands(monkeypatch, _fake_broker(reset_seeds=() if failure == "reset_sequence" else (1,)))
