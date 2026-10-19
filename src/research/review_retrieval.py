@@ -652,7 +652,8 @@ def _enrich_locked(workspace, task_dir, review_dir, cfg, directory, packet, fixe
             body = _inside(workspace, item["raw"]).read_bytes()
             if not body.startswith(b"%PDF-"):
                 raise ValueError("Primary URL did not return a PDF")
-            text, availability = _extract_text(body, pdf=True)
+            extraction: dict[str, Any] = {}
+            text, availability = _extract_text(body, pdf=True, provenance=extraction)
             if availability != "full_text":
                 raise ValueError("Incomplete/scanned full text cannot satisfy enrichment")
             if not _title_matches(title, text):
@@ -662,6 +663,8 @@ def _enrich_locked(workspace, task_dir, review_dir, cfg, directory, packet, fixe
             text_path = round_dir / (Path(item["raw"]).stem + ".txt")
             write_private_text(text_path, text)
             item.update(status="accepted", text=text_path.relative_to(workspace).as_posix(), text_sha256=_sha(text_path), finished_at_unix=time.time())
+            if extraction:
+                item["extraction"] = extraction
             existing_hashes.add(item["raw_sha256"])
         except (ValueError, OSError, TypeError, KeyError) as exc:
             item.update(status="rejected", error=str(exc))
@@ -709,10 +712,13 @@ def _enrich_locked(workspace, task_dir, review_dir, cfg, directory, packet, fixe
             "passages": passages(text, source_id, [row["reason"] for row in packet["requests"]]),
             "retrieval_request_id": item["request_id"],
             "identity_check": "Landing and PDF URLs name the same work under a recognized identifier (or the same exact unknown URL); the downloaded PDF contains the complete normalized title near its start. Explicit arXiv revisions are retained and may differ. Publisher identity, authors, dates, cross-version content equivalence and scientific truth are not authenticated.",
+            **({"extraction": item["extraction"]} if item.get("extraction") else {}),
         }
         projected_source = {key: new_source.get(key) for key in (
             "id", "title", "year", "venue", "url", "origin", "availability", "metadata_status", "passages", "text_sha256")}
         projected_source["full_text"] = text
+        if "extraction" in new_source:
+            projected_source["extraction"] = new_source["extraction"]
         projected_packet["sources"].append(projected_source)
         if len(json.dumps(projected_packet, ensure_ascii=False)) > MAX_PACKET_CHARS:
             projected_packet["sources"].pop()

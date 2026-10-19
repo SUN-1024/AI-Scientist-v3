@@ -7,7 +7,6 @@ Failed requests stay visible and never become a successful novelty check.
 from __future__ import annotations
 
 import hashlib
-import io
 import ipaddress
 import json
 import re
@@ -69,24 +68,15 @@ def download(url: str, cfg: LiteratureConfig, *, accept: str | None = None) -> b
     raise ValueError(f"Retrieval failed for {url}: {last_error}")
 
 
-def _extract_text(body: bytes, *, pdf: bool) -> tuple[str, str]:
+def _extract_text(body: bytes, *, pdf: bool,
+                  provenance: dict[str, Any] | None = None) -> tuple[str, str]:
     if pdf:
-        from pypdf import PdfReader
+        from .pdf_text import extract_pdf
 
-        reader = PdfReader(io.BytesIO(body))
-        pages = []
-        extracted = []
-        for index, page in enumerate(reader.pages):
-            page_text = page.extract_text() or ""
-            extracted.append(page_text)
-            pages.append(f"[Page {index + 1}]\n{page_text}")
-            if sum(map(len, pages)) > MAX_TEXT_CHARS:
-                break
-        text = "\n\n".join(pages)
-        partial = len(pages) < len(reader.pages) or len(text) > MAX_TEXT_CHARS
-        if not any(page.strip() for page in extracted):
-            raise ValueError("No extractable text; scanned PDFs need OCR before use")
-        partial = partial or any(not page.strip() for page in extracted)
+        text, availability, metadata = extract_pdf(body, max_characters=MAX_TEXT_CHARS)
+        if provenance is not None:
+            provenance.update(metadata)
+        return text, availability
     else:
         text = body.decode("utf-8")
         partial = len(text) > MAX_TEXT_CHARS
@@ -151,6 +141,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
         text = ""
         availability = "metadata"
         raw_hash = None
+        extraction: dict[str, Any] = {}
         origin = record.get("url") or "local source"
         if record.get("path"):
             path = task_dir / record["path"]
@@ -161,7 +152,8 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
             if path.stat().st_size > MAX_DOWNLOAD_BYTES:
                 raise ValueError("Local source exceeds 20 MiB")
             body = path.read_bytes()
-            text, availability = _extract_text(body, pdf=path.suffix.lower() == ".pdf")
+            text, availability = _extract_text(body, pdf=path.suffix.lower() == ".pdf",
+                                               provenance=extraction)
             raw_hash = hashlib.sha256(body).hexdigest()
             origin = record["path"]
         elif not offline and cfg.fetch_full_text:
@@ -170,7 +162,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
             if pdf_url:
                 try:
                     body = download(pdf_url, cfg)
-                    text, availability = _extract_text(body, pdf=True)
+                    text, availability = _extract_text(body, pdf=True, provenance=extraction)
                     raw_hash = hashlib.sha256(body).hexdigest()
                     origin = pdf_url
                 except Exception as exc:
@@ -190,6 +182,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
             "model_summary": record.get("model_summary"), "search_sources": record.get("search_sources", []),
             "text_path": text_path, "text_sha256": hashlib.sha256(text.encode()).hexdigest() if text else None,
             "download_sha256": raw_hash, "passages": passages(text, source_id, cfg.queries),
+            **({"extraction": extraction} if extraction else {}),
         })
         if len(sources) >= cfg.max_papers:
             break

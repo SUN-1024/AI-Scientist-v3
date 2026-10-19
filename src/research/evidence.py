@@ -496,7 +496,7 @@ def load_catalog(task_dir: Path) -> dict[str, Any] | None:
         if not isinstance(source, dict) or not isinstance(source.get("id"), str) or source["id"] in identifiers:
             raise ValueError("Invalid or duplicate research source ID")
         identifiers.add(source["id"])
-        if source.get("availability") not in {"metadata", "abstract", "full_text", "full_text_partial"}:
+        if source.get("availability") not in {"metadata", "abstract", "full_text", "full_text_partial", "full_text_unreliable"}:
             raise ValueError("Invalid research source availability")
         if not isinstance(source.get("passages"), list):
             raise ValueError("Research source passages must be a list")
@@ -514,6 +514,14 @@ def load_catalog(task_dir: Path) -> dict[str, Any] | None:
             text = body.decode("utf-8")
         if source["availability"] != "metadata" and not text.strip():
             raise ValueError("Research source availability requires saved text")
+        if "extraction" in source:
+            extraction = source["extraction"]
+            if (not isinstance(extraction, dict) or extraction.get("policy_version") != 1
+                    or extraction.get("method") not in {"pypdf", "pdftotext_layout"}
+                    or extraction.get("input_sha256") != source.get("download_sha256")
+                    or extraction.get("selected_text_sha256") != source.get("text_sha256")
+                    or extraction.get("semantic_fidelity_verified") is not False):
+                raise ValueError("Research extraction provenance differs from its source bytes")
         for passage in source["passages"]:
             if not isinstance(passage, dict) or not isinstance(passage.get("text"), str):
                 raise ValueError("Invalid research passage")

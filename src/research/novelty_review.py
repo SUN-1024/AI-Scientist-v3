@@ -147,6 +147,8 @@ def source_packet(task_dir: Path, agenda: dict[str, Any] | None = None) -> dict[
     for source in catalog["sources"]:
         row = {key: source.get(key) for key in ("id", "title", "year", "venue", "url", "origin",
                                                "availability", "metadata_status", "passages", "text_sha256")}
+        if "extraction" in source:
+            row["extraction"] = source["extraction"]
         if source.get("text_path"):
             row["full_text"] = (task_dir / CONTEXT_DIRECTORY / source["text_path"]).read_text(encoding="utf-8")
         rows.append(row)

@@ -65,7 +65,7 @@ def mocks(monkeypatch, records=None, *, fail_download=False):
         if fail_download:
             raise ValueError("Network unavailable")
         return b"%PDF-" + url.encode()
-    def extract(body, *, pdf):
+    def extract(body, *, pdf, provenance=None):
         number = body.decode()[-1]
         return f"Accurate Adaptive Optimization Method {number}\nFull methods and evaluation.", "full_text"
     monkeypatch.setattr(rr, "download", download)
