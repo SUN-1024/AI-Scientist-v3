@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/lib/container_agent.sh"
 source "$SCRIPT_DIR/lib/concept_figure.sh"
 source "$SCRIPT_DIR/lib/paper_diagnostics.sh"
 source "$SCRIPT_DIR/lib/paper_progress.sh"
+source "$SCRIPT_DIR/lib/paper_stream_logging.sh"
 source "$SCRIPT_DIR/lib/paper_figure_quality.sh"
 source "$SCRIPT_DIR/lib/task_pathing.sh"
 
@@ -1526,7 +1527,7 @@ run_prompt_stage() {
   local log_path="$4"
   shift 4
   local -a expected_outputs=("$@")
-  local stage_log_pipe="$OUTPUT_DIR/.${stage_name}_stream_${TIMESTAMP}.fifo"
+  local stage_log_pipe=""
   local stage_agent_exit_code=0
   local stage_tee_exit_code=0
   local stage_forced_success=0
@@ -1545,8 +1546,8 @@ run_prompt_stage() {
   ACTIVE_COST_LOG="$log_path"
   ACTIVE_COST_STAGE="$stage_name"
   ACTIVE_COST_INVOCATION="$cost_invocation"
-  LOG_PIPE="$stage_log_pipe"
-  mkfifo "$stage_log_pipe"
+  create_paper_stage_log_pipe || return $?
+  stage_log_pipe="$LOG_PIPE"
   bounded_agent_log_writer "$PYTHON_BIN" "$log_path" "$AGENT_LOG_MAX_BYTES" \
     < "$stage_log_pipe" &
   TEE_PID=$!
@@ -1606,10 +1607,7 @@ run_prompt_stage() {
 
   AGENT_PID=""
   TEE_PID=""
-  if [ -p "$stage_log_pipe" ]; then
-    rm -f "$stage_log_pipe"
-  fi
-  LOG_PIPE=""
+  cleanup_paper_stage_log_pipe
 
   if [ "$INTERRUPTED" -eq 1 ]; then
     return 130
@@ -1793,6 +1791,7 @@ run_prompt_stage_with_feedback() {
 AGENT_PID=""
 TEE_PID=""
 LOG_PIPE=""
+LOG_PIPE_DIR=""
 INTERRUPTED=0
 CLEANUP_IN_PROGRESS=0
 ACTIVE_READONLY_AUDIT_WORKSPACE=""
@@ -1848,10 +1847,7 @@ cleanup_run_processes() {
     agent_session_stopped=0
   fi
 
-  if [ -n "${LOG_PIPE:-}" ] && [ -p "$LOG_PIPE" ]; then
-    rm -f "$LOG_PIPE"
-  fi
-  LOG_PIPE=""
+  cleanup_paper_stage_log_pipe
   if [ -n "${ACTIVE_READONLY_AUDIT_WORKSPACE:-}" ]; then
     cleanup_readonly_paper_audit_workspace "$ACTIVE_READONLY_AUDIT_WORKSPACE" || true
     ACTIVE_READONLY_AUDIT_WORKSPACE=""
@@ -3483,7 +3479,7 @@ run_readonly_prompt_stage() {
   local prompt_path="$3"
   local log_path="$4"
   local stage_work_dir="$5"
-  local stage_log_pipe="$OUTPUT_DIR/.${stage_name}_stream_${TIMESTAMP}.fifo"
+  local stage_log_pipe=""
   local stage_agent_exit_code=0
   local stage_tee_exit_code=0
   local agent_prompt_file
@@ -3502,8 +3498,8 @@ run_readonly_prompt_stage() {
   ACTIVE_COST_LOG="$log_path"
   ACTIVE_COST_STAGE="$stage_name"
   ACTIVE_COST_INVOCATION="$cost_invocation"
-  LOG_PIPE="$stage_log_pipe"
-  mkfifo "$stage_log_pipe"
+  create_paper_stage_log_pipe || return $?
+  stage_log_pipe="$LOG_PIPE"
   bounded_agent_log_writer "$PYTHON_BIN" "$log_path" "$AGENT_LOG_MAX_BYTES" \
     < "$stage_log_pipe" &
   TEE_PID=$!
@@ -3557,10 +3553,7 @@ run_readonly_prompt_stage() {
 
   AGENT_PID=""
   TEE_PID=""
-  if [ -p "$stage_log_pipe" ]; then
-    rm -f "$stage_log_pipe"
-  fi
-  LOG_PIPE=""
+  cleanup_paper_stage_log_pipe
 
   if [ "$INTERRUPTED" -eq 1 ]; then
     return 130

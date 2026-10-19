@@ -58,6 +58,8 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 使用返回的 `native_root/workspaces/研究名` 作为 `--workspace`，并将下方命令的 `./scripts/research-agent` 换成 `./scripts/run-research-harness-container.sh --native-state research`。恢复使用同一原生工作区。运行后可导出本地只读副本；PDF、源码和证据可以检查，原始回执不会被改写。完整命令、认证配置与导出方法见 [Linux 运行器说明](../src/docker/research-runner/README.md)。
 
+论文写作与修订的日志管道使用论文目录之外的私有运行时目录。即使进程被强制中断，残留管道也不会进入论文发布树。旧运行在论文目录中留下的管道，应先保存故障快照并确认相关进程已结束，再单独隔离；发布校验仍拒绝特殊文件。
+
 下面假设 `playground/my-study` 已有 `task.md` 与 `research.yaml`。如提供完整脚手架和 `task_contract.json`，Harness 可直接使用；只有研究说明时会进入任务构建阶段。
 
 ```bash

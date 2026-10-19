@@ -495,6 +495,7 @@ def _readonly_audit_shell(tmp_path: Path) -> str:
     )
     return f"""
 set -euo pipefail
+source {shlex.quote(str(REPO / 'src/scripts/lib/paper_stream_logging.sh'))}
 {functions}
 OUTPUT_DIR={shlex.quote(str(tmp_path / 'output'))}
 WORK_DIR={shlex.quote(str(tmp_path / 'readonly'))}

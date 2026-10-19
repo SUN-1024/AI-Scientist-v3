@@ -1242,6 +1242,7 @@ def test_actual_revision_stage_separates_agent_output_and_host_failures(tmp_path
     script = f'''
 set -euo pipefail
 source "{REPO_ROOT}/src/scripts/lib/container_agent.sh"
+source "{REPO_ROOT}/src/scripts/lib/paper_stream_logging.sh"
 source "{PROGRESS}"
 paper_progress_initialize
 trap paper_event_early_exit EXIT
