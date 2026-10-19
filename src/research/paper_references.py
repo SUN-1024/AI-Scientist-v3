@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import time
 from typing import Any
 import unicodedata
 from urllib.parse import unquote, urlsplit
@@ -443,6 +444,20 @@ def write_references_for_plan(task_dir: Path, output_dir: Path, *, queries: list
         })
         if not retrieved:
             stop_reason = "search_unavailable" if search_errors else "no_candidates"
+            if (search_errors and all(error.get("error_kind") == "transport" for error in search_errors)
+                    and index + 1 < _MAX_REFERENCE_SEARCH_ROUNDS):
+                # Keep the failed request and its unknown usage in the trace.
+                # A new search consumes the existing round budget; the HTTP
+                # helper does not silently replay an ambiguous POST.
+                delay = min(30, 15 * (index + 1))
+                rounds[-1]["transport_recovery"] = {
+                    "wait_seconds": delay, "next_round": index + 2,
+                    "prior_request_usage": "unknown", "action": "new_search_round",
+                }
+                print(f"[references] Model transport unavailable; next search round "
+                      f"{index + 2}/{_MAX_REFERENCE_SEARCH_ROUNDS} in {delay}s", flush=True)
+                time.sleep(delay)
+                continue
             break
     if len(references) >= min_refs:
         stop_reason = "minimum_met"

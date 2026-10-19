@@ -74,6 +74,14 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+class ModelTransportError(ValueError):
+    """An unavailable connection or interrupted response, with unknown usage.
+
+    The HTTP request is never replayed here. A bounded caller can retain this
+    failed attempt and decide whether to spend a remaining search round.
+    """
+
+
 def _http_json(url: str, body: dict[str, Any] | None, headers: dict[str, str], *,
                timeout: int, proxy: str, fallback: str) -> dict[str, Any]:
     """No redirect of credentials; no retry after ambiguous/billable POST failures."""
@@ -94,9 +102,15 @@ def _http_json(url: str, body: dict[str, Any] | None, headers: dict[str, str], *
         )
         try:
             with opener.open(request, timeout=timeout) as response:
+                declared_length = (getattr(response, "headers", None) or {}).get("Content-Length")
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("API response exceeds 8 MiB")
+            if (isinstance(declared_length, str) and declared_length.isdecimal()
+                    and len(raw) < int(declared_length)):
+                # A size-bounded HTTPResponse.read can return a truncated body
+                # without raising IncompleteRead. Check its framing before JSON.
+                raise ModelTransportError("API response was interrupted; request was not replayed")
             payload = json.loads(raw)
             if not isinstance(payload, dict):
                 raise ValueError("API response must be a JSON object")
@@ -111,9 +125,13 @@ def _http_json(url: str, body: dict[str, Any] | None, headers: dict[str, str], *
         except urllib.error.URLError as exc:
             if index + 1 < len(choices) and isinstance(exc.reason, (socket.gaierror, ConnectionRefusedError)):
                 continue  # No request reached the API; a proxy retry cannot duplicate billing.
+            if isinstance(exc.reason, (socket.gaierror, ConnectionError, TimeoutError)):
+                raise ModelTransportError(f"API connection failed; request was not replayed: {exc.reason}") from exc
             raise ValueError(f"API connection failed; request was not replayed: {exc.reason}") from exc
         except http.client.HTTPException as exc:
-            raise ValueError("API response was interrupted; request was not replayed") from exc
+            raise ModelTransportError("API response was interrupted; request was not replayed") from exc
+        except (ConnectionError, TimeoutError) as exc:
+            raise ModelTransportError("API connection timed out or disconnected; request was not replayed") from exc
     raise ValueError("API connection failed")
 
 
@@ -395,6 +413,9 @@ class SearchSession:
         except (ValueError, OSError) as exc:
             message = _redact(str(exc), self.secrets)
             entry["error"] = message
+            if isinstance(exc, ModelTransportError):
+                entry["error_kind"] = "transport"
+                raise ModelTransportError(message) from exc
             raise ValueError(message) from exc
 
     def ask(self, prompt: str, phase: str, *, native: bool) -> tuple[str, list[dict[str, str]]]:
@@ -528,7 +549,10 @@ def search_literature(cfg: LiteratureConfig, output: Path) -> tuple[list[dict[st
         if not papers:
             errors.append({"stage": "parse", "error": "Search ran, but no paper with a grounded source URL was extracted"})
     except (ValueError, OSError, TypeError, KeyError, AttributeError) as exc:
-        errors.append({"stage": "model_search", "error": _redact(str(exc), session.secrets)})
+        error = {"stage": "model_search", "error": _redact(str(exc), session.secrets)}
+        if isinstance(exc, ModelTransportError):
+            error["error_kind"] = "transport"
+        errors.append(error)
     trace = {"provider": model.provider, "model": model.model, "mode": mode, "calls": session.calls,
              "sources": sources, "papers": papers, "errors": errors,
              "status": "ready" if papers and not errors else "partial" if papers else "unavailable",
