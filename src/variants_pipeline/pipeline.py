@@ -617,6 +617,7 @@ def _load_variant_specs_from_disk(output_dir: Path) -> list[VariantSpec]:
                     target_components=data.get("target_components", []),
                     implementation_plan=data.get("implementation_plan", []),
                     expected_effect=data.get("expected_effect", ""),
+                    description_body=data.get("description_body", ""),
                 )
             )
         except KeyError as exc:
@@ -725,8 +726,6 @@ def _validate_pipeline_summary(
         return "pipeline_summary.json is unreadable or malformed"
     if not isinstance(summary, dict) or summary.get("schema_version") != 1:
         return "pipeline_summary.json has an unsupported schema"
-    if summary.get("variant_specs_sha256") != _variant_specs_digest(variant_specs):
-        return "pipeline_summary.json does not match the materialized variants"
     entries = summary.get("variants")
     if not isinstance(entries, list):
         return "pipeline_summary.json has no valid variants list"
@@ -739,8 +738,16 @@ def _validate_pipeline_summary(
             return f"pipeline_summary.json contains duplicate variant {variant_id!r}"
         entries_by_id[variant_id] = entry
     expected_ids = {spec.variant_id for spec in variant_specs}
+    if len(expected_ids) != len(variant_specs):
+        return "materialized variants contain duplicate variant IDs"
     if set(entries_by_id) != expected_ids:
         return "pipeline_summary.json variant IDs are stale or incomplete"
+    # Disk discovery sorts directory names, whereas the host summary binds the
+    # original plan order. Replay that order while checking every saved field.
+    specs_by_id = {spec.variant_id: spec for spec in variant_specs}
+    declared_specs = [specs_by_id[entry["variant_id"]] for entry in entries]
+    if summary.get("variant_specs_sha256") != _variant_specs_digest(declared_specs):
+        return "pipeline_summary.json does not match the materialized variants"
 
     from .execute import _inspect_program_results
     from .rubric_contract import build_rubric_contract
@@ -765,6 +772,7 @@ def _validate_pipeline_summary(
             spec.variant_dir / "task_bundle",
             spec.variant_id,
             required_rubrics,
+            include_evaluated_seed=spec.kind == "control",
         )
         if rubric_passed != artifacts_passed:
             return f"variant {spec.variant_id!r} summary disagrees with canonical artifacts"

@@ -847,12 +847,15 @@ def _inspect_program_results(
     task_bundle_dir: Path,
     variant_id: str,
     required_rubric_ids: list[str] | None = None,
+    *,
+    include_evaluated_seed: bool = False,
 ) -> tuple[int, bool]:
     """Inspect program_N directories for results.
 
     Returns ``(eval_count, rubric_passed)`` where *eval_count* is the number of
     program directories with ``metrics.json`` and *rubric_passed* is True if any
     completely evaluated program has a host-canonical passing rubric status.
+    Explicit control replay also inspects its host-evaluated seed program.
     """
     eval_count = 0
     rubric_passed = False
@@ -866,7 +869,16 @@ def _inspect_program_results(
 
         idx = int(entry.name.split("_")[1])
         if idx == 0:
-            continue  # program_0 is the seed, not counted as an eval attempt
+            if not include_evaluated_seed:
+                continue
+            # Controls execute their unchanged seed. Count it only when the
+            # host actually evaluated it; a supplied seed alone is no result.
+            try:
+                seed_manifest = json.loads(safe_read_text(entry, "evaluation_manifest.json"))
+            except (OSError, ValueError, UnicodeError, json.JSONDecodeError):
+                continue
+            if not isinstance(seed_manifest, dict) or seed_manifest.get("producer") != "sandbox_host_eval":
+                continue
 
         evaluation_complete = evaluation_results_complete(entry)
 

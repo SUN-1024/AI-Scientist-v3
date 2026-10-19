@@ -408,11 +408,14 @@ def evaluation_results_complete(program_dir: Path) -> bool:
         )
 
     if manifest.get("producer") == "sandbox_host_eval" or (
-        manifest.get("execution_boundary") == "sandbox" and "returncode" in manifest
+        manifest.get("execution_boundary") in ("sandbox", "brokered_search") and "returncode" in manifest
     ):
         return (
             manifest.get("producer") in (None, "sandbox_host_eval")
-            and manifest.get("execution_boundary") == "sandbox"
+            and (manifest.get("execution_boundary") == "sandbox" or (
+                manifest.get("execution_boundary") == "brokered_search"
+                and manifest.get("producer") == "sandbox_host_eval"
+            ))
             and manifest.get("program_id") == program_dir.name
             and manifest.get("returncode") == 0
             and isinstance(manifest.get("command"), list)
