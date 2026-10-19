@@ -59,7 +59,7 @@ EVIDENCE_TASK_FILES = ("task.md", "research.yaml", "research_agenda.json", "rese
 
 SearchBackend = Callable[[LiteratureConfig, Path], tuple[list[dict[str, Any]], list[dict[str, str]]]]
 PRIMARY_HOSTS = (
-    "arxiv.org", "openreview.net", "proceedings.mlr.press", "jmlr.org",
+    "arxiv.org", "openreview.net", "proceedings.mlr.press", "jmlr.org", "aaai.org",
     "openaccess.thecvf.com", "cv-foundation.org", "aclanthology.org",
     "proceedings.neurips.cc", "papers.nips.cc", "proceedings.iclr.cc",
     "dl.acm.org", "ieeexplore.ieee.org", "ieee.org", "springer.com",
@@ -268,6 +268,12 @@ def primary_source_identity(url: str) -> dict[str, str]:
         values = parse_qs(parsed.query).get("id", [])
         if len(values) == 1 and values[0]:
             return {"scheme": "openreview", "value": values[0]}
+    if host == "ojs.aaai.org":
+        match = re.fullmatch(r"/index\.php/([A-Za-z0-9_-]+)/article/(?:view|download)/(\d+)(?:/\d+)?", path)
+        if match:
+            # OJS's last numeric component is a galley, not a different article.
+            # Keep the journal path so unrelated proceedings cannot collide.
+            return {"scheme": "aaai_ojs", "value": match[1] + "/" + match[2]}
     if host in {"pmc.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov"}:
         match = re.search(r"/(?:pmc/)?articles/(PMC\d+)(?:/|$)", path, re.I)
         if match:

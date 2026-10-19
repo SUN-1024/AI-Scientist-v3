@@ -520,6 +520,33 @@ def test_same_arxiv_work_versions_preserve_downloaded_origin_identity(reviewed, 
     assert "cross-version content equivalence" in source["identity_check"]
 
 
+def test_aaai_ojs_full_text_is_sealed_with_its_article_identity(reviewed, monkeypatch):
+    page = "https://ojs.aaai.org/index.php/AAAI/article/view/9016"
+    pdf = "https://ojs.aaai.org/index.php/AAAI/article/download/9016/8875"
+    title = "Learning Instance Concepts from Multiple-Instance Data with Bags as Distributions"
+    search, calls, downloads = mocks(monkeypatch, [proposal(title=title, url=page, openAccessPdf={"url": pdf})])
+    monkeypatch.setattr(rr, "_extract_text", lambda *args, **kwargs: (title + "\nFull methods and evaluation.", "full_text"))
+    result = invoke(reviewed, search)
+    assert result["status"] == "enriched"
+    assert len(calls) == 1 and downloads == [pdf]
+    catalog = read(reviewed[0] / result["evidence_task"] / "research_context/catalog.json")
+    source = catalog["sources"][-1]
+    assert source["url"] == page
+    assert source["verified_origin_url"] == source["origin"] == pdf
+    assert source["primary_identity"] == {"scheme": "aaai_ojs", "value": "AAAI/9016"}
+    assert source["discovery_status"] == "agent_suggested_unverified"
+    assert invoke(reviewed, search) == result
+    assert len(calls) == 1 and downloads == [pdf]
+
+
+def test_aaai_lookalike_download_host_is_rejected():
+    page = "https://ojs.aaai.org/index.php/AAAI/article/view/9016"
+    pdf = "https://ojs.aaai.org.example.com/index.php/AAAI/article/download/9016/8875"
+    assert not rr.compatible_primary_urls(page, pdf)
+    with pytest.raises(ValueError, match="not a recognized primary"):
+        rr._primary_pdf(proposal(url=page, openAccessPdf={"url": pdf}), suggested=True, trace_sources=[])
+
+
 @pytest.mark.parametrize("landing,pdf,scheme,value", [
     ("https://doi.org/10.1145/12345", "https://dl.acm.org/doi/pdf/10.1145/12345", "doi", "10.1145/12345"),
     ("https://link.springer.com/article/10.1007/ABC-123", "https://link.springer.com/content/pdf/10.1007/abc-123.pdf", "doi", "10.1007/abc-123"),
@@ -527,6 +554,8 @@ def test_same_arxiv_work_versions_preserve_downloaded_origin_identity(reviewed, 
     ("https://openaccess.thecvf.com/content/CVPR2023/html/Lin_Example_CVPR_2023_paper.html", "https://openaccess.thecvf.com/content/CVPR2023/papers/Lin_Example_CVPR_2023_paper.pdf", "cvf", "content/cvpr2023/lin_example_cvpr_2023_paper"),
     ("https://openreview.net/forum?id=AbC123", "https://openreview.net/pdf?id=AbC123", "openreview", "AbC123"),
     ("https://arxiv.org/abs/hep-th/9901001v1", "https://arxiv.org/pdf/hep-th/9901001v3.pdf", "arxiv", "hep-th/9901001"),
+    ("https://ojs.aaai.org/index.php/AAAI/article/view/9016", "https://ojs.aaai.org/index.php/AAAI/article/download/9016/8875", "aaai_ojs", "AAAI/9016"),
+    ("https://ojs.aaai.org/index.php/AAAI/article/view/9016", "https://ojs.aaai.org/index.php/AAAI/article/view/9016/8875", "aaai_ojs", "AAAI/9016"),
 ])
 def test_known_landing_pdf_identifiers_agree(landing, pdf, scheme, value):
     assert rr.compatible_primary_urls(landing, pdf)
@@ -539,6 +568,8 @@ def test_known_landing_pdf_identifiers_agree(landing, pdf, scheme, value):
     ("https://proceedings.mlr.press/v80/ilse18a.html", "https://proceedings.mlr.press/v81/ilse18a/ilse18a.pdf"),
     ("https://openreview.net/forum?id=PaperA", "https://openreview.net/pdf?id=PaperB"),
     ("https://doi.org/10.1145/11111", "https://arxiv.org/pdf/2601.00001"),
+    ("https://ojs.aaai.org/index.php/AAAI/article/view/9016", "https://ojs.aaai.org/index.php/AAAI/article/download/9017/8875"),
+    ("https://ojs.aaai.org/index.php/AAAI/article/view/9016", "https://ojs.aaai.org/index.php/AIIDE/article/download/9016/8875"),
 ])
 def test_conflicting_or_unproven_cross_namespace_identifiers_fail_before_download(landing, pdf):
     assert not rr.compatible_primary_urls(landing, pdf)
