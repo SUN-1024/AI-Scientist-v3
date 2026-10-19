@@ -64,6 +64,8 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 比较证据重读保留已保存摘要的变体顺序和完整描述绑定，并识别主机生成的 `brokered_search` 完成回执。控制组中已由主机实际评估的 `program_0` 可参与校验；其身份、完成状态、正确性和规范化 rubric 仍逐项检查。
 
+论文写作和修订还会保留最终评估实际使用的程序源码，并在审计前与最终主机回执重新核对。`paper_data.json.final_program` 给出源码入口和论文内的相对路径；它与开发阶段的 `best_correct` 分开。源码对应关系支持方法描述，不能替代权重对应关系、独立确认或性能证据。
+
 下面假设 `playground/my-study` 已有 `task.md` 与 `research.yaml`。如提供完整脚手架和 `task_contract.json`，Harness 可直接使用；只有研究说明时会进入任务构建阶段。
 
 ```bash

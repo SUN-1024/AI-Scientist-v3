@@ -29,6 +29,8 @@ final results separate. Preserve final qualification failures and validity limit
 `not_qualified` does not establish inferiority as the sole cause. Never invent a winner or
 improvement. Compilation, reference, provenance, and claim-grounding requirements still apply.
 
+When `paper_data.json.final_program` is present, read its staged implementation sources. They identify the program used in sealed final evaluation. `best_correct` and other development rows may describe different programs. Keep those identities and evaluation scopes explicit. A source match supports implementation details; checkpoint identity, independent confirmation and performance claims require their own recorded evidence.
+
 Implementation-specific claims require inspectable source evidence for the relevant evaluated implementation; cite readable files and locations (`./source_evidence/` when available). Hashes and previous audit verdicts identify provenance, not substantive support for implementation details. Details with unavailable source evidence must be removed or qualified; family-level alignment alone does not establish exact implementation or source identity.
 
 Ground manuscript claims in evaluated task artifacts and inspectable research source files. Keep agent skill files and active `paper_evidence_audit*` products outside scientific evidence references. Record operational repair history, if needed, with immutable review snapshots.

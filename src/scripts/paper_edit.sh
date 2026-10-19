@@ -3845,12 +3845,16 @@ prepare_readonly_paper_audit_workspace() {
   local output_variable="$2"
   local readonly_dir=""
 
-  if ! "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "${INVESTIGATION_RESULTS_DIR:-$SOURCE_RESULTS_DIR}" "${FINAL_EVALUATION_DIR:-}" "${FINAL_EVALUATION_MODE:-discover}" "${CONTRACT_TASK_DIR:-}" "${FINAL_OUTCOME_POLICY:-qualified_only}" <<'PY'
+  if ! "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "${INVESTIGATION_RESULTS_DIR:-$SOURCE_RESULTS_DIR}" "${FINAL_EVALUATION_DIR:-$SOURCE_RESULTS_DIR/final_evaluation}" "${FINAL_EVALUATION_MODE:-discover}" "${CONTRACT_TASK_DIR:-}" "${FINAL_OUTCOME_POLICY:-qualified_only}" <<'PY'
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 from src.orchestrator.paper_study_sources import verify_study_sources
-verify_study_sources(Path(sys.argv[2]), Path(sys.argv[3]))
+verify_study_sources(
+    Path(sys.argv[2]), Path(sys.argv[3]),
+    final_evaluation_dir=(Path(sys.argv[4]) if len(sys.argv) > 5 and sys.argv[4]
+                          and sys.argv[5] == "discover" else None),
+)
 if sys.argv[5] == "discover" and sys.argv[7] == "allow_not_qualified":
     from src.orchestrator.paper_final_outcome import verify_paper_final_outcome
     final_dir = Path(sys.argv[4]) if sys.argv[4] else Path(sys.argv[3]) / "final_evaluation"

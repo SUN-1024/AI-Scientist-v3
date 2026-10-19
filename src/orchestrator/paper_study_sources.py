@@ -1,4 +1,4 @@
-"""Stage bounded, verified implementation sources inside fallback manuscripts."""
+"""Stage bounded, verified implementation sources inside manuscripts."""
 
 from __future__ import annotations
 
@@ -108,17 +108,19 @@ def _write_tree(directory_fd: int, tree: SourceTree) -> None:
             os.close(parent_fd)
 
 
-def _publish_sources_without_rename(parent_fd: int, tree: SourceTree) -> None:
+def _publish_sources_without_rename(
+    parent_fd: int, tree: SourceTree, destination_name: str = "downstream",
+) -> None:
     """Reserve once; interrupted copies remain visible and fail full-tree verification."""
-    os.mkdir("downstream", 0o700, dir_fd=parent_fd)
-    created = os.stat("downstream", dir_fd=parent_fd, follow_symlinks=False)
-    destination_fd = open_relative_directory_no_follow(parent_fd, Path("downstream"))
+    os.mkdir(destination_name, 0o700, dir_fd=parent_fd)
+    created = os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
+    destination_fd = open_relative_directory_no_follow(parent_fd, Path(destination_name))
     try:
         if not os.path.samestat(created, os.fstat(destination_fd)):
             raise UnsafeGluePathError("paper sources changed before copying")
         _write_tree(destination_fd, tree)
         _require_same_sources(_read_tree(destination_fd), tree)
-        current = os.stat("downstream", dir_fd=parent_fd, follow_symlinks=False)
+        current = os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
         if not os.path.samestat(created, current):
             raise UnsafeGluePathError("paper sources changed while copying")
         os.fsync(destination_fd)
@@ -127,10 +129,12 @@ def _publish_sources_without_rename(parent_fd: int, tree: SourceTree) -> None:
         os.close(destination_fd)
 
 
-def _publish_sources(output_dir: Path, tree: SourceTree) -> None:
+def _publish_sources(
+    output_dir: Path, tree: SourceTree, *, destination_name: str = "downstream",
+) -> None:
     with ensure_directory(output_dir / "source_evidence", role="paper source parent") as parent_fd:
         try:
-            existing_fd = open_relative_directory_no_follow(parent_fd, Path("downstream"))
+            existing_fd = open_relative_directory_no_follow(parent_fd, Path(destination_name))
         except FileNotFoundError:
             existing_fd = None
         if existing_fd is not None:
@@ -140,7 +144,7 @@ def _publish_sources(output_dir: Path, tree: SourceTree) -> None:
                 os.close(existing_fd)
             _require_same_sources(existing, tree)
             return
-        staging = f".downstream-{secrets.token_hex(8)}"
+        staging = f".{destination_name}-{secrets.token_hex(8)}"
         os.mkdir(staging, 0o700, dir_fd=parent_fd)
         try:
             staging_fd = open_relative_directory_no_follow(parent_fd, Path(staging))
@@ -149,9 +153,11 @@ def _publish_sources(output_dir: Path, tree: SourceTree) -> None:
             finally:
                 os.close(staging_fd)
             try:
-                rename_directory_no_replace(parent_fd, staging, "downstream", role="paper sources")
+                rename_directory_no_replace(
+                    parent_fd, staging, destination_name, role="paper sources",
+                )
             except AtomicNoReplaceUnsupported:
-                _publish_sources_without_rename(parent_fd, tree)
+                _publish_sources_without_rename(parent_fd, tree, destination_name)
         finally:
             cleanup_task_tree_preserving_error(parent_fd, staging, role="paper source staging")
 
@@ -216,6 +222,9 @@ def stage_study_sources(
     """Preserve verified code at stable relative paths; never overwrite prior evidence."""
     context = paper_data.get("downstream_study")
     if not isinstance(context, dict):
+        from src.orchestrator.paper_final_sources import stage_final_sources
+
+        stage_final_sources(paper_data, output_dir, investigation_dir)
         return
     selection = load_downstream_selection(investigation_dir)
     if selection is None or any(
@@ -232,7 +241,9 @@ def stage_study_sources(
     context["source_evidence"] = paths
 
 
-def verify_study_sources(output_dir: Path, investigation_dir: Path) -> None:
+def verify_study_sources(
+    output_dir: Path, investigation_dir: Path, *, final_evaluation_dir: Path | None = None,
+) -> None:
     """Reject author mutations before auditing; never repair or recreate missing evidence."""
     selection = load_downstream_selection(investigation_dir)
     try:
@@ -245,6 +256,12 @@ def verify_study_sources(output_dir: Path, investigation_dir: Path) -> None:
         if selection is None:
             if context is not None:
                 raise ValueError("paper declares a downstream study without a frozen selection")
+            from src.orchestrator.paper_final_sources import verify_final_sources
+
+            verify_final_sources(
+                paper_data, output_dir, investigation_dir,
+                final_evaluation_dir=final_evaluation_dir,
+            )
             return
         context = _require_selection_context(context, selection)
         expected, paths = _selected_sources(selection)

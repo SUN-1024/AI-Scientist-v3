@@ -113,6 +113,7 @@ def _paper_data_summary(payload: Any) -> dict[str, Any]:
         "available": True,
         "paper_profile": payload.get("paper_profile", "default"),
         "downstream_study": payload.get("downstream_study"),
+        "final_program": payload.get("final_program"),
         "final_evaluation": final_outcome_summary(payload),
         "selected_novelty_review": payload.get("selected_novelty_review"),
         **({"research_methodology": payload["research_methodology"]} if "research_methodology" in payload else {}),

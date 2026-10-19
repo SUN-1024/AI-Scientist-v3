@@ -40,6 +40,8 @@ If `./paper_evidence_audit_stage_feedback.json` or `./paper_evidence_audit_stage
 
 # Source and Comparison Grounding
 
+When `paper_data.json.final_program` is present, read its staged implementation sources. They identify the program used in sealed final evaluation. `best_correct` and other development rows may describe different programs. Keep those identities and evaluation scopes explicit. A source match supports implementation details; checkpoint identity, independent confirmation and performance claims require their own recorded evidence.
+
 Implementation-specific claims require inspectable source evidence for the relevant evaluated implementation; cite readable files and locations (`./source_evidence/` when available). Hashes and previous audit verdicts identify provenance, not substantive support for implementation details. Details with unavailable source evidence must be removed or qualified; family-level alignment alone does not establish exact implementation or source identity.
 
 Sequential optimization results support comparisons between evaluated configurations, not isolated causal attribution to a component. When ablations are missing or failed, narrow claims and state the limitation; never imply an unperformed experiment or invent measurements. Claims supported by actual controlled comparisons remain valid within their measured scope.
