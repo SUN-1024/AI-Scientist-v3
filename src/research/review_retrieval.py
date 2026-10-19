@@ -274,6 +274,12 @@ def primary_source_identity(url: str) -> dict[str, str]:
             # OJS's last numeric component is a galley, not a different article.
             # Keep the journal path so unrelated proceedings cannot collide.
             return {"scheme": "aaai_ojs", "value": match[1] + "/" + match[2]}
+    if host == "jmlr.org":
+        match = re.fullmatch(r"/papers/v(\d+)/([A-Za-z0-9_-]+)\.html", path)
+        if not match:
+            match = re.fullmatch(r"/papers/(?:volume|v)(\d+)/([A-Za-z0-9_-]+)/\2\.pdf", path)
+        if match:
+            return {"scheme": "jmlr", "value": match[1] + "/" + match[2]}
     if host in {"pmc.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov"}:
         match = re.search(r"/(?:pmc/)?articles/(PMC\d+)(?:/|$)", path, re.I)
         if match:
