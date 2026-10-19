@@ -128,7 +128,7 @@ def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bo
 def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, offline: bool) -> None:
     from .harness_evidence import build_candidate_packet
     from .novelty import content_hash
-    from .novelty_review import load_frozen_novelty_report
+    from .novelty_review import load_completed_novelty_report
     packet = build_candidate_packet(workspace)
     selection_path = workspace / "novelty/latest.json"
     state_path, preparation_path = workspace / "harness_state.json", workspace / "research_preparation.json"
@@ -144,16 +144,23 @@ def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, off
         resolve_selected_evidence_task(workspace, pointer, candidate_packet=packet)
         _dump(selection_path, pointer)
         return
-    if selection_path.is_file():
+    if selection_path.is_file() and not selection_path.is_symlink():
         previous = read_json(selection_path)
         cycle_value = previous.get("cycle", "")
-        cycle_path = workspace / cycle_value
-        if (previous.get("candidate_packet_sha256") == content_hash(packet) and cycle_value
+        cycle_path = workspace / cycle_value if isinstance(cycle_value, str) else workspace
+        if (previous.get("candidate_packet_sha256") == content_hash(packet)
+                and previous.get("candidate_source_sha256") == packet["candidate_source_sha256"]
+                and previous.get("candidate_program") == packet["selection"]["program_relative_path"]
+                and isinstance(cycle_value, str) and cycle_value
                 and not Path(cycle_value).is_absolute()
+                and cycle_value == Path(cycle_value).as_posix() and ".." not in Path(cycle_value).parts
+                and not cycle_path.is_symlink() and not (workspace / "novelty").is_symlink()
                 and cycle_path.resolve().is_relative_to((workspace / "novelty").resolve())):
             try:
-                current = load_frozen_novelty_report(workspace / "input_task", cycle_path, candidate_packet=packet)
-                if current.get("status") == "supported":
+                current = load_completed_novelty_report(workspace / "input_task", cycle_path, cfg.literature,
+                    reviewer_count=cfg.harness.novelty_reviewers, reviewer_settings=_reviewer_settings(pipeline_cfg),
+                    candidate_packet=packet)
+                if current is not None:
                     return
             except (OSError, ValueError, TypeError, KeyError):
                 pass

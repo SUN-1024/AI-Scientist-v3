@@ -898,3 +898,36 @@ def load_frozen_novelty_report(task_dir: Path, output: Path, *,
         report["gaps"].append({"code": "agenda_changed", "detail": "Saved agenda differs from the frozen report."})
         report["next_actions"].append({"kind": "independent_review", "reason": "Review the changed agenda against the current frozen sources."})
     return report
+
+
+def load_completed_novelty_report(task_dir: Path, output: Path, cfg: LiteratureConfig, *,
+                                  reviewer_count: int,
+                                  reviewer_settings: dict[str, Any] | None = None,
+                                  candidate_packet: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Reuse a complete bound review regardless of its scientific verdict.
+
+    This is a resume decision, not approval of the claim. All evidence and
+    provider responses are rechecked. Incomplete or stale calls need a new cycle;
+    an unchanged negative assessment must not be rerolled into a positive one.
+    """
+    if type(reviewer_count) is not int or not 2 <= reviewer_count <= 4:
+        raise ValueError("Selected review requires two to four reviewers")
+    saved = _read(output / "novelty_report.json")
+    report = load_frozen_novelty_report(task_dir, output, candidate_packet=candidate_packet)
+    if (report.get("frozen_evidence") != saved.get("frozen_evidence")
+            or report.get("machine_checks", {}).get("review_artifacts_valid") is not True
+            or len(report.get("model_judgments", [])) != reviewer_count):
+        return None
+    # Missing scientific evidence is a valid review outcome. Missing bindings
+    # or malformed implementation assessments are not completed candidate reviews.
+    if any(row.get("code") in {
+        "candidate_review_unbound", "candidate_checks_missing",
+        "claim_code_evidence_missing", "claim_code_evidence_invalid",
+    } for row in report.get("gaps", [])):
+        return None
+    directories = sorted(output.glob("reviewer_*"))
+    if {path.name for path in directories} != {f"reviewer_{i}" for i in range(1, reviewer_count + 1)}:
+        return None
+    for directory in directories:
+        _check_binding(_read(directory / "receipt.json"), cfg, reviewer_settings)
+    return report
