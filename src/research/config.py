@@ -80,6 +80,7 @@ class HarnessConfig:
     quality_target: str = "high_impact"
     novelty_review: bool = True
     novelty_reviewers: int = 2
+    agent_source_lookup: bool = False
     quality: HarnessQualityConfig = field(default_factory=HarnessQualityConfig)
 
 
@@ -209,6 +210,8 @@ def load_config(task_dir: Path) -> ResearchConfig:
         raise ValueError("harness.quality_target must be high_impact or development")
     if type(cfg.harness.novelty_review) is not bool:
         raise ValueError("harness.novelty_review must be boolean")
+    if type(cfg.harness.agent_source_lookup) is not bool:
+        raise ValueError("harness.agent_source_lookup must be boolean")
     if type(cfg.harness.novelty_reviewers) is not int or not 2 <= cfg.harness.novelty_reviewers <= 4:
         raise ValueError("harness.novelty_reviewers must be from 2 to 4")
     quality_cfg = cfg.harness.quality

@@ -223,12 +223,18 @@ def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
                     "instructions": "Navigate only the frozen source packet. Tool output establishes exact text "
                                     "locations, not novelty, truth, or scientific support.",
                 }
+                if audit is not None:
+                    audit({"event": "source_lookup_initialized", "packet_sha256": packet_sha256,
+                           "protocol_version": PROTOCOL_VERSION})
             elif method == "ping":
                 result = {}
             elif not initialized:
                 raise ValueError("Initialize the MCP connection first")
             elif method == "tools/list":
                 result = {"tools": tools()}
+                if audit is not None:
+                    audit({"event": "source_lookup_tools_listed", "packet_sha256": packet_sha256,
+                           "result_sha256": _sha(_json(result))})
             elif method == "tools/call":
                 try:
                     name = params.get("name")

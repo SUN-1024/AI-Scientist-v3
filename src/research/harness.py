@@ -44,22 +44,32 @@ def _dump(path: Path, payload: dict[str, Any]) -> None:
     write_private_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
-def _author_settings(pipeline_cfg) -> dict[str, Any]:
+def _source_lookup_settings(settings: dict[str, Any] | None, enabled: bool) -> dict[str, Any] | None:
+    if not enabled or settings is None:
+        return settings
+    if settings.get("agent") != "codex" or not settings.get("model") or not settings.get("profile"):
+        raise ValueError("Source tools require an explicit Codex model and profile")
+    return {**settings, "source_lookup": True}
+
+
+def _author_settings(pipeline_cfg, *, source_lookup: bool = False) -> dict[str, Any]:
     """Use the configured research agent for author work, independent of review overrides."""
-    return {"agent": pipeline_cfg.agent.name, "model": pipeline_cfg.agent.model,
+    settings = _source_lookup_settings({"agent": pipeline_cfg.agent.name, "model": pipeline_cfg.agent.model,
             "profile": pipeline_cfg.agent.profile, "reasoning_effort": pipeline_cfg.agent.reasoning_effort,
-            "timeout_seconds": pipeline_cfg.review.timeout_seconds}
+            "timeout_seconds": pipeline_cfg.review.timeout_seconds}, source_lookup)
+    assert settings is not None
+    return settings
 
 
-def _reviewer_settings(pipeline_cfg) -> dict[str, Any] | None:
+def _reviewer_settings(pipeline_cfg, *, source_lookup: bool = False) -> dict[str, Any] | None:
     review = pipeline_cfg.review
     if review.backend != "agent":
         return None
-    return {"agent": review.agent_name or pipeline_cfg.agent.name,
+    return _source_lookup_settings({"agent": review.agent_name or pipeline_cfg.agent.name,
             "model": review.agent_model or pipeline_cfg.agent.model,
             "profile": review.agent_profile or pipeline_cfg.agent.profile,
             "reasoning_effort": review.agent_reasoning_effort or pipeline_cfg.agent.reasoning_effort,
-            "timeout_seconds": review.timeout_seconds}
+            "timeout_seconds": review.timeout_seconds}, source_lookup)
 
 
 def _resolved_campaign_context(task: Path, pipeline_cfg) -> dict[str, Any]:
@@ -92,6 +102,9 @@ def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bo
     output.mkdir(parents=True, exist_ok=True)
     agenda = agenda_from_basis(research_basis) if research_basis is not None else load_agenda(task)
     permitted = cfg.harness.novelty_review and not offline
+    if permitted and cfg.harness.agent_source_lookup:
+        author_settings = _source_lookup_settings(author_settings, True)
+        reviewer_settings = _source_lookup_settings(reviewer_settings, True)
     errors = []
     resume_kwargs: dict[str, Any] = {"resume": True} if resume_calls else {}
     campaign_kwargs: dict[str, Any] = {"host_context": host_context} if host_context is not None else {}
@@ -141,7 +154,7 @@ def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, off
             raise ValueError("Selected review enrichment marker differs from fresh preparation")
         from .review_enrichment import ensure_selected_novelty, resolve_selected_evidence_task
         pointer = ensure_selected_novelty(workspace, cfg, packet=packet,
-            author_settings=_author_settings(pipeline_cfg), reviewer_settings=_reviewer_settings(pipeline_cfg), offline=offline)
+            author_settings=_author_settings(pipeline_cfg, source_lookup=cfg.harness.agent_source_lookup), reviewer_settings=_reviewer_settings(pipeline_cfg, source_lookup=cfg.harness.agent_source_lookup), offline=offline)
         resolve_selected_evidence_task(workspace, pointer, candidate_packet=packet)
         _dump(selection_path, pointer)
         return
@@ -159,7 +172,7 @@ def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, off
                 and cycle_path.resolve().is_relative_to((workspace / "novelty").resolve())):
             try:
                 current = load_completed_novelty_report(workspace / "input_task", cycle_path, cfg.literature,
-                    reviewer_count=cfg.harness.novelty_reviewers, reviewer_settings=_reviewer_settings(pipeline_cfg),
+                    reviewer_count=cfg.harness.novelty_reviewers, reviewer_settings=_reviewer_settings(pipeline_cfg, source_lookup=cfg.harness.agent_source_lookup),
                     candidate_packet=packet)
                 if current is not None:
                     return
@@ -167,7 +180,7 @@ def _selected_novelty(workspace: Path, cfg: ResearchConfig, pipeline_cfg, *, off
                 pass
     cycle = workspace / "novelty" / ("selected_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + secrets.token_hex(2))
     report = _novelty_cycle(workspace / "input_task", cfg, cycle, offline=offline,
-                           reviewer_settings=_reviewer_settings(pipeline_cfg), author_settings=_author_settings(pipeline_cfg),
+                           reviewer_settings=_reviewer_settings(pipeline_cfg, source_lookup=cfg.harness.agent_source_lookup), author_settings=_author_settings(pipeline_cfg, source_lookup=cfg.harness.agent_source_lookup),
                            research_basis=packet["research_basis"],
                            candidate_packet=packet)
     _dump(selection_path, {"schema_version": 1, "status": report["status"],
@@ -580,8 +593,8 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
                                    if host_context is not None else {})
                 try:
                     report = _novelty_cycle(staged, frozen_cfg, workspace / "novelty/initial", offline=offline,
-                                            reviewer_settings=_reviewer_settings(pipeline_cfg),
-                                            author_settings=_author_settings(pipeline_cfg), resume_calls=preparation is not None,
+                                            reviewer_settings=_reviewer_settings(pipeline_cfg, source_lookup=frozen_cfg.harness.agent_source_lookup),
+                                            author_settings=_author_settings(pipeline_cfg, source_lookup=frozen_cfg.harness.agent_source_lookup), resume_calls=preparation is not None,
                                             **campaign_kwargs)
                 except PlanValidationError:
                     state.payload["preparation"] = {

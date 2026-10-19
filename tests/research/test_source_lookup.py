@@ -153,7 +153,9 @@ def test_mcp_stdio_lifecycle_errors_and_tool_results_have_only_protocol_output()
     assert responses[4]["result"]["isError"] is True
     assert responses[5]["error"]["code"] == -32601
     assert responses[6]["result"] == {}
-    assert [e["tool"] for e in events] == ["locate_source_quote", "read_source_span"]
+    assert [e["tool"] for e in events if e["event"] == "source_lookup_call"] == ["locate_source_quote", "read_source_span"]
+    assert any(e["event"] == "source_lookup_initialized" for e in events)
+    assert any(e["event"] == "source_lookup_tools_listed" for e in events)
     assert all(t["annotations"]["readOnlyHint"] for t in tools())
 
 
@@ -179,7 +181,8 @@ def test_real_stdio_process_preserves_packet_and_records_actual_tool_call(tmp_pa
     assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
     events = [json.loads(line) for line in log.read_text().splitlines()]
     assert events[0]["event"] == "source_lookup_started"
-    assert events[1]["tool"] == "locate_source_quote" and events[1]["packet_sha256"] == digest
+    calls = [e for e in events if e["event"] == "source_lookup_call"]
+    assert calls[0]["tool"] == "locate_source_quote" and calls[0]["packet_sha256"] == digest
 
 
 def test_oversized_or_duplicate_field_protocol_messages_fail_without_running_a_tool() -> None:

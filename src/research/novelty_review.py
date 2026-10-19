@@ -185,6 +185,18 @@ def _call_source_binding(prompt: str, phase: str) -> dict[str, Any]:
     return _source_packet_binding(_review_prompt_payload(prompt)["literature"]) if phase == "novelty_review" else {}
 
 
+def _source_tools_packet(prompt: str, phase: str) -> dict[str, Any]:
+    if phase == "novelty_review":
+        return _review_prompt_payload(prompt)["literature"]
+    marker = "\n\nINPUT DATA:\n"
+    if phase != "research_agenda" or marker not in prompt:
+        raise ValueError("Source tools require a bound research prompt")
+    payload, _ = json.JSONDecoder().raw_decode(prompt.split(marker, 1)[1])
+    if not isinstance(payload, dict) or not isinstance(payload.get("literature"), dict):
+        raise ValueError("Author prompt has no complete source packet")
+    return payload["literature"]
+
+
 def normalize_review(raw: object) -> dict[str, Any]:
     if not isinstance(raw, dict) or raw.get("verdict") not in {
         "differentiated", "needs_evidence", "overlap", "no_novelty_claim",
@@ -246,6 +258,13 @@ def _check_binding(receipt: dict[str, Any], cfg: LiteratureConfig,
         cfg.model_search.model if settings is None else settings.get("model")
     ) or (settings is None and receipt.get("provider") != cfg.model_search.provider):
         raise ValueError("Saved call provider, model, or backend changed")
+    enabled = settings is not None and settings.get("source_lookup", False)
+    if type(enabled) is not bool:
+        raise ValueError("source_lookup must be boolean")
+    if bool(enabled) != (receipt.get("source_lookup_requested") is True):
+        raise ValueError("Saved source-tool configuration changed")
+    if enabled and receipt.get("status") == "complete" and not isinstance(receipt.get("source_lookup"), dict):
+        raise ValueError("Completed call is missing its source-tool evidence")
 
 
 def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
@@ -312,6 +331,17 @@ def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
         transport = _read(directory / "transport/receipt.json")
         if not isinstance(transport, dict):
             raise ValueError("Invalid agent transport receipt")
+        if receipt.get("source_lookup_requested") is True:
+            from .agent_source_tools import verify_source_tools
+            if receipt.get("source_lookup") != transport.get("source_lookup"):
+                raise ValueError("Agent source-tool receipt differs from its transport")
+            saved_prompt = (directory / "prompt.txt").read_text(encoding="utf-8")
+            complete_packet = _source_tools_packet(saved_prompt, phase)
+            verify_source_tools(directory / "transport", receipt["source_lookup"],
+                                expected_packet=complete_packet)
+            expected_binding = _source_packet_binding(complete_packet)
+            if any(receipt.get(key) != value for key, value in expected_binding.items()):
+                raise ValueError("Source-tool packet differs from its call source binding")
         native_session = transport.get("native_session_id")
         if (_sha(directory / "transport/receipt.json") != receipt.get("transport_receipt_sha256")
                 or transport.get("status") != "completed" or transport.get("independent_context") is not True
@@ -465,9 +495,14 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
                 cancel_event: threading.Event | None = None) -> dict[str, Any]:
     from src.review_backend import run_fresh_agent_json
 
-    allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment"}
+    allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment", "source_lookup"}
     if set(settings) - allowed:
         raise ValueError("Unknown independent-review agent setting")
+    enabled = settings.get("source_lookup", False)
+    if type(enabled) is not bool:
+        raise ValueError("source_lookup must be boolean")
+    execution_settings = {key: value for key, value in settings.items() if key != "source_lookup"}
+    lookup_packet = _source_tools_packet(prompt, phase) if enabled else None
     directory.mkdir()
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
@@ -477,10 +512,14 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
         "prompt_sha256": _sha(directory / "prompt.txt"), "status": "started", "phase": phase,
         **_call_source_binding(prompt, phase),
     }
+    if enabled:
+        receipt.update(source_lookup_requested=True, **_source_packet_binding(lookup_packet))
     _dump(directory / "receipt.json", receipt)
     try:
         lifecycle: dict[str, Any] = {"cancel_event": cancel_event} if cancel_event is not None else {}
-        parsed, transport = run_fresh_agent_json(prompt, work_dir=directory / "transport", **settings, **lifecycle)
+        if enabled:
+            lifecycle["source_lookup_packet"] = lookup_packet
+        parsed, transport = run_fresh_agent_json(prompt, work_dir=directory / "transport", **execution_settings, **lifecycle)
         if transport.get("status") != "completed" or transport.get("independent_context") is not True:
             raise ValueError("Reviewer did not complete in an independent agent context")
         result = normalize_review(parsed) if phase == "novelty_review" else normalize_agenda(parsed)
@@ -491,6 +530,11 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
                      "transport_receipt_sha256": _sha(directory / "transport/receipt.json"),
                      "provider": transport.get("observed_provider"),
                      "native_session_id": transport.get("native_session_id")}
+        if enabled:
+            from .agent_source_tools import verify_source_tools
+            source_receipt = transport.get("source_lookup")
+            verify_source_tools(directory / "transport", source_receipt, expected_packet=lookup_packet)
+            completed["source_lookup"] = source_receipt
     except BaseException as exc:
         receipt.update(status="failed", error=str(exc) or type(exc).__name__)
         _dump(directory / "receipt.json", receipt)

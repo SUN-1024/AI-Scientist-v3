@@ -82,6 +82,7 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
+"src" = ["scripts/lib/stage_codex_profile.py"]
 "src.research.upstream" = ["provenance.json"]
 
 [tool.ruff]

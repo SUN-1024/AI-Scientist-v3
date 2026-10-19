@@ -19,6 +19,21 @@ python -m src.research.source_lookup \
 
 ## 连接一次 Codex 调用
 
+研究 Harness 可在任务的 research.yaml 中自动启用：
+
+~~~yaml
+harness:
+  agent_source_lookup: true
+~~~
+
+该选项默认关闭。启用后，议程作者、V1 反思和原生创新性审查各自取得一份完整来源包，并创建单次调用的私有 Codex HOME。调用需明确选择 Codex 模型和 profile；作者与审查器仍各用原先选定的模型和 profile。现有 profile staging 代码复制认证和模型列表文件到临时目录，结束后清理，不修改全局配置或复制历史会话。
+
+transport/source_lookup 保存来源包、工具代码快照、实际 MCP 调用日志和绑定回执。回执记录原始文件与正文哈希、初始化和工具目录交付、调用次数及结果重放。完成状态要求工具在原生客户端初始化；未调用工具时也如实记录为零次。它不以工具调用次数判断科研质量。该目录不保存认证文件。恢复时会重新核对正文、代码快照和每条实际工具结果；绑定不符会停止复用，已完成的审查不会自动重发。
+
+程序接口也可为 run_fresh_agent_json 提供 source_lookup_packet，或在 draft_research_agenda / review_novelty 的原生 reviewer_settings 中设 source_lookup=true。后者自动使用实际提示中绑定的来源包，包含 V1 反思提示的原始输入。
+
+以下手动配置用于单独调试工具；自动模式会为每次调用完成这些配置。
+
 在本次运行的私有 CODEX_HOME 中，为所选 profile 增加以下配置。保留该 profile 原有的模型和 provider 配置；不要用示例覆盖全局配置。
 
 ~~~toml
@@ -35,7 +50,7 @@ cwd = "/ABS/trusted/harness"
 
 原生 agent review 的 environment 已支持为单次调用指定 CODEX_HOME。原文包和工具代码应来自宿主冻结的输入；每次调用使用自己的日志目录。Codex 的 [stdio MCP 配置](https://learn.chatgpt.com/docs/extend/mcp) 由其原生客户端加载。
 
-该连接不修改 run_fresh_agent_json 的 read-only 终端策略。若 Linux 内层命令沙箱无法启动，MCP 原文工具与终端命令须分别做运行验证。
+该连接不修改 run_fresh_agent_json 的 read-only 终端策略。若 Linux 内层命令沙箱无法启动，MCP 原文工具与终端命令须分别做运行验证。自动模式当前覆盖议程与创新性审查；论文审稿可由程序接口另行提供相应来源包。
 
 ## 四个工具
 

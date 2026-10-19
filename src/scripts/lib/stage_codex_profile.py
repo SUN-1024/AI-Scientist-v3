@@ -133,7 +133,8 @@ def selected_provider_config(source_home: Path, profile_content: str) -> str | N
     return "\n".join(lines) + "\n" if len(lines) > 1 else None
 
 
-def stage_profile(source_home: Path, destination_home: Path, profile: str) -> None:
+def stage_profile(source_home: Path, destination_home: Path, profile: str, *,
+                  catalog_destination_home: Path | None = None) -> None:
     if not PROFILE_NAME.fullmatch(profile):
         raise ValueError("invalid Codex profile name")
 
@@ -158,7 +159,10 @@ def stage_profile(source_home: Path, destination_home: Path, profile: str) -> No
             MAX_CATALOG_BYTES,
             "Codex model catalog",
         )
-        remote_path = f"/home/agent-home/.codex/{catalog_name}"
+        catalog_home = catalog_destination_home or Path("/home/agent-home/.codex")
+        if not catalog_home.is_absolute():
+            raise ValueError("Codex catalog destination must be absolute")
+        remote_path = str(catalog_home / catalog_name)
         replacement = f"{assignment.group(1)}{json.dumps(remote_path)}{assignment.group(3)}"
         profile_content = (
             profile_content[: assignment.start()]

@@ -103,6 +103,8 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 已冻结的完整原文也可通过[只读原文定位工具](source-lookup.zh-CN.md)提供给原生 Codex 调用。它返回可校验的字符区间 ID，并明确区分唯一匹配、重复匹配与缺失；模型仍需判断片段的科学含义。
 
+在 research.yaml 设置 `harness.agent_source_lookup: true` 后，议程作者、V1 反思和原生创新性审查会自动配置单次调用的来源工具，保存来源与工具日志绑定，并在恢复时重放核验。该选项默认关闭；启用时需为原生调用明确配置 Codex 模型和 profile。
+
 在 macOS Docker 中，宿主服务地址应使用 `host.docker.internal`。例如 Magpie 位于宿主机时，为容器准备独立 profile，并通过 `container.auth_root` 指向它的父目录；保留本机 profile 的原地址。不要把凭据加入任务目录或 Git。
 
 从中断点恢复：

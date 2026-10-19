@@ -122,6 +122,7 @@ def run_fresh_agent_json(
     prompt: str, *, work_dir: Path, agent: str = "codex", model: str | None = None,
     profile: str | None = None, reasoning_effort: str | None = None,
     timeout_seconds: int = 1800, environment: Mapping[str, str] | None = None,
+    source_lookup_packet: dict[str, Any] | None = None,
     cancel_event: threading.Event | None = None,
     on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
     on_process_exit: Callable[[subprocess.Popen[bytes]], None] | None = None,
@@ -157,6 +158,8 @@ def run_fresh_agent_json(
         "reasoning_effort": reasoning_effort, "independent_context": True,
         "prompt_sha256": sha256(prompt), "status": "failed", "permission_mode": "read-only",
     }
+    if source_lookup_packet is not None:
+        receipt["source_lookup_requested"] = True
     cleanup_witness = ProcessCleanupWitness()
     interrupted: list[int] = []
     can_handle_signals = threading.current_thread() is threading.main_thread()
@@ -216,6 +219,15 @@ def run_fresh_agent_json(
             cwd = Path(temporary).resolve()
             prompt_file = cwd / "prompt.txt"
             prompt_file.write_text(prompt, encoding="utf-8")
+            source_tools = None
+            call_env = env
+            if source_lookup_packet is not None:
+                from src.research.agent_source_tools import prepare_source_tools
+                source_tools = prepare_source_tools(
+                    source_lookup_packet, artifacts=work_dir, temporary=cwd, environment=env,
+                    agent=agent, model=model, profile=profile,
+                )
+                call_env = source_tools.environment
             command = [executable, agent, "--allow", "read-only", "--sdk-format", "json", "--usage",
                        "--work-dir", str(cwd), "--timeout", str(timeout_seconds)]
             for flag, value in [("--model", model), ("--profile", profile),
@@ -228,7 +240,7 @@ def run_fresh_agent_json(
                 command.extend(["--prompt", f"Read all instructions from {prompt_file} and follow them."])
             try:
                 result = run_bounded_process(
-                    command, cwd=cwd, env=env, timeout_seconds=timeout_seconds,
+                    command, cwd=cwd, env=call_env, timeout_seconds=timeout_seconds,
                     max_output_bytes=_MAX_RESPONSE_BYTES, cancel_event=InvocationCancellation(),
                     process_lifecycle=process_lifecycle, cleanup_witness=cleanup_witness,
                 )
@@ -254,6 +266,8 @@ def run_fresh_agent_json(
             if not isinstance(data, dict) or not isinstance(data.get("finalMessage"), str):
                 raise AgentReviewError("independent reviewer returned no final message")
             payload = strict_json_object(data["finalMessage"])
+            if source_tools is not None:
+                receipt["source_lookup"] = source_tools.finish()
             receipt.update(status="completed", observed_model=data.get("model"),
                            observed_provider=data.get("provider"), native_session_id=data.get("nativeSessionId"),
                            usage=data.get("usage"), response_sha256=sha256(data["finalMessage"]))
