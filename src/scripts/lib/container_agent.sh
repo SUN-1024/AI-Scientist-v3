@@ -1366,7 +1366,53 @@ run_agent_prompt() {
     "$agent" "$work_dir" "$use_container" "$container_image" \
     "$container_network" "$container_home_dir" "$container_env_file" \
     "$container_mount_root" "$container_session_name" \
-    "$subscription_extra_allowed_env_keys"
+    "$subscription_extra_allowed_env_keys" "$agent_profile"
+}
+
+run_container_agent_command() {
+  local agent="$1"
+  local agent_profile="$2"
+  local container_network="$3"
+  local container_home_dir="$4"
+  local inner_count="$5"
+  shift 5
+
+  # Resolve the destination from host-owned auth configuration, not the guest's
+  # writable home. A model route grants access only to that selected endpoint.
+  if [ "$agent" != "codex" ] || [ "$container_network" != "bridge" ]; then
+    "$@"
+    return $?
+  fi
+  case "${AGENT_CONTAINER_MODEL_LOOPBACK:-auto}" in
+    off|0|false)
+      "$@"
+      return $?
+      ;;
+    auto|on|1|true) ;;
+    *)
+      echo "[container_agent] AGENT_CONTAINER_MODEL_LOOPBACK must be auto, on, or off" >&2
+      return 2
+      ;;
+  esac
+  if [ -z "${CONTAINER_AUTH_ROOT:-}" ]; then
+    if [ "${AGENT_CONTAINER_MODEL_LOOPBACK:-auto}" != "auto" ]; then
+      echo "[container_agent] model loopback routing requires a host CONTAINER_AUTH_ROOT" >&2
+      return 125
+    fi
+    "$@"
+    return $?
+  fi
+
+  local endpoint=""
+  endpoint="$("$PYTHON_BIN" "$CONTAINER_AGENT_LIB_DIR/model_loopback.py" endpoint \
+    --source-home "$CONTAINER_AUTH_ROOT/.codex" --profile "$agent_profile")" || return $?
+  if [ -z "$endpoint" ]; then
+    "$@"
+    return $?
+  fi
+  "$PYTHON_BIN" "$CONTAINER_AGENT_LIB_DIR/model_loopback.py" run \
+    --endpoint "$endpoint" --home "$container_home_dir" \
+    --inner-count "$inner_count" -- "$@"
 }
 
 # Dispatch a prepared AGENT_INNER_CMD either inside the agent container or
@@ -1376,7 +1422,7 @@ run_agent_prompt() {
 # sub-agents need the same seeded home + env-file as a normal agent stage).
 #   args: agent work_dir use_container container_image container_network
 #         container_home_dir container_env_file container_mount_root
-#         container_session_name [subscription_extra_allowed_env_keys]
+#         container_session_name [subscription_extra_allowed_env_keys] [agent_profile]
 _dispatch_inner_command() {
   local agent="$1"
   local work_dir="$2"
@@ -1388,6 +1434,7 @@ _dispatch_inner_command() {
   local container_mount_root="$8"
   local container_session_name="$9"
   local subscription_extra_allowed_env_keys="${10:-}"
+  local agent_profile="${11:-}"
   local workdir_readonly="${AGENT_WORKDIR_READONLY:-0}"
   local AGENT_CONTAINER_ACTIVE_DENY_ENV_KEYS="${AGENT_CONTAINER_DENY_ENV_KEYS:-}"
   local -a AGENT_INNER_CMD=("${AGENT_INNER_CMD[@]}")
@@ -1521,7 +1568,8 @@ _dispatch_inner_command() {
       fi
       exec_cmd+=("$container_session_name" "${AGENT_INNER_CMD[@]}")
       set +e
-      "${exec_cmd[@]}"
+      run_container_agent_command "$agent" "$agent_profile" "$container_network" \
+        "$container_home_dir" "${#AGENT_INNER_CMD[@]}" "${exec_cmd[@]}"
       docker_rc=$?
       set -e
 
@@ -1641,7 +1689,9 @@ _dispatch_inner_command() {
       run_output_file="$run_output_dir/output.log"
       set +e
       run_with_bounded_capture \
-        "$run_output_file" "${AGENT_LOG_MAX_BYTES:-16777216}" "${docker_cmd[@]}"
+        "$run_output_file" "${AGENT_LOG_MAX_BYTES:-16777216}" \
+        run_container_agent_command "$agent" "$agent_profile" "$container_network" \
+        "$container_home_dir" "${#AGENT_INNER_CMD[@]}" "${docker_cmd[@]}"
       docker_rc=$?
       set -e
 
@@ -1732,5 +1782,5 @@ run_command_prompt() {
   _dispatch_inner_command \
     "$agent" "$work_dir" "$use_container" "$container_image" \
     "$container_network" "$container_home_dir" "$container_env_file" \
-    "$container_mount_root" "$container_session_name"
+    "$container_mount_root" "$container_session_name" "" "${AGENT_PROFILE:-}"
 }
