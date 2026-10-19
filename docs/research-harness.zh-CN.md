@@ -101,6 +101,8 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 文献模型和搜索服务也可分别选择。支持服务端搜索且能返回结构化来源时使用 `native`；普通模型使用 `external`，由 Harness 实际请求所配置的搜索服务。仅更换模型名称不会自动赋予联网能力。详见[两条检索路径](model-search.zh-CN.md#两条执行路径)。
 
+已冻结的完整原文也可通过[只读原文定位工具](source-lookup.zh-CN.md)提供给原生 Codex 调用。它返回可校验的字符区间 ID，并明确区分唯一匹配、重复匹配与缺失；模型仍需判断片段的科学含义。
+
 在 macOS Docker 中，宿主服务地址应使用 `host.docker.internal`。例如 Magpie 位于宿主机时，为容器准备独立 profile，并通过 `container.auth_root` 指向它的父目录；保留本机 profile 的原地址。不要把凭据加入任务目录或 Git。
 
 从中断点恢复：
