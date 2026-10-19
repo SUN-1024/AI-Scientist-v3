@@ -8,6 +8,7 @@ import secrets
 import stat
 import sys
 from argparse import Namespace
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ from typing import Any
 from src.investigation.files import missing_task_scaffold_files
 from src.final_evaluation.runner import FinalEvaluationError
 from src.orchestrator.state import write_private_text
-from src.pipeline.config import PIPELINE_PHASES, parse_pipeline_phases
+from src.pipeline.config import PIPELINE_PHASES, parse_pipeline_phases, validate_pipeline_config
 from .config import ResearchConfig, load_config
 from .harness_state import HarnessState, read_json, sha256, verify_stage_records, now
 from .paper_readiness import write_readiness
@@ -189,6 +190,15 @@ def _resume_plan(workspace: Path, prior: dict[str, Any], phases: set[str]) -> se
                                             for name in ("invocation.json", "comparison_set.json")):
         raise ValueError("Final confirmation has already been invoked or its method set has been frozen. Do not tune this study on confirmation results; create a new study with a new frozen confirmation protocol")
     return remaining
+
+
+def _resume_paper_overrides(workspace: Path, prior: dict[str, Any], remaining: set[str]) -> list[str]:
+    """Bind downstream stages to the unchanged, host-recorded manuscript."""
+    if "paper" in remaining or not remaining.intersection({"review", "revision"}):
+        return []
+    if not verify_stage_records(workspace, prior.get("stages", {}).get("paper", {})):
+        raise ValueError("Saved paper evidence changed or is incomplete; inspect artifacts before resuming")
+    return ["paths.paper_dir=" + json.dumps(str(workspace / "run/paper"))]
 
 
 def _startup_events(path: Path) -> list[dict[str, Any]]:
@@ -503,6 +513,8 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     if prior and target != prior["quality_target"]:
         raise ValueError("Quality target is frozen; create a new workspace to change it")
     effective = _merge(overrides, ["execution.phases=" + ",".join(phase for phase in PIPELINE_PHASES if phase in remaining)])
+    if prior:
+        effective = _merge(effective, _resume_paper_overrides(workspace, prior, remaining))
     if prior and "posthoc" in remaining:
         # Retain failed analysis output and retry in a fresh directory.
         effective = _merge(effective, ["execution.restart_posthoc=true"])
@@ -513,6 +525,12 @@ def _run_harness(args: Namespace, overrides: list[str]) -> int:
     command = pipeline_args(workspace, cfg, effective) if remaining else []
     pipeline_cfg = load_pipeline_config(command) if command else pipeline_cfg
     if args.dry_run:
+        if prior and "paper" not in remaining and remaining.intersection({"review", "revision"}):
+            execution_task = workspace / "run/task" if (workspace / "run/task").is_dir() else task
+            preview_cfg = replace(pipeline_cfg, task=replace(pipeline_cfg.task, dir=str(execution_task)))
+            errors = validate_pipeline_config(preview_cfg)
+            if errors:
+                raise ValueError("Resumed pipeline configuration is invalid: " + "; ".join(errors))
         print(json.dumps({"dry_run": True, "mode": "research_harness", "workspace": str(workspace),
                           "quality_target": target, "requested_phases": requested,
                           "remaining_phases": [p for p in PIPELINE_PHASES if p in remaining],
