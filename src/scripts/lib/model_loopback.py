@@ -127,17 +127,30 @@ class ForwardHandler(socketserver.BaseRequestHandler):
 class UnixForwarder(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
 
-    def __init__(self, path: Path, target: tuple[str, int]):
+    def __init__(self, path: Path, target: tuple[str, int], *, directory_fd: int | None = None):
         self.target = target
         # Linux's Unix-socket path limit is shorter than valid workspace paths.
-        # This process has no serving threads until binding has completed.
-        previous = Path.cwd()
+        # Anchor the directory before changing cwd: a running guest can rename
+        # entries in its shared home. No serving threads exist yet.
+        previous = os.open(".", os.O_RDONLY | os.O_DIRECTORY)
+        parent = None
         try:
-            os.chdir(path.parent)
+            parent = (
+                os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                if directory_fd is None else os.dup(directory_fd)
+            )
+            os.fchdir(parent)
             super().__init__(path.name, ForwardHandler)
-            os.chmod(path.name, 0o600)
+            try:
+                os.chmod(path.name, 0o600, follow_symlinks=False)
+            except BaseException:
+                self.server_close()
+                raise
         finally:
-            os.chdir(previous)
+            os.fchdir(previous)
+            os.close(previous)
+            if parent is not None:
+                os.close(parent)
 
 
 class TcpForwarder(socketserver.ThreadingTCPServer):
@@ -209,16 +222,23 @@ def run_container(
     home = home.resolve(strict=True)
     leaf = Path(tempfile.mkdtemp(prefix=".model-loopback-", dir=home))
     server = None
+    directory_fd = None
     try:
-        source = Path(__file__).read_bytes()
-        client_path = leaf / "relay.py"
-        client_path.write_bytes(source)
-        client_path.chmod(0o600)
-        # The client mode is standalone and uses no host configuration imports.
-        shutil.copyfile(Path(__file__).with_name("stage_codex_profile.py"), leaf / "stage_codex_profile.py")
-        (leaf / "stage_codex_profile.py").chmod(0o600)
+        directory_fd = os.open(leaf, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        # The guest may already be running. Do not follow replaced directories
+        # or helper files when writing into its shared home.
+        for name, source in (
+            ("relay.py", Path(__file__)),
+            ("stage_codex_profile.py", Path(__file__).with_name("stage_codex_profile.py")),
+        ):
+            descriptor = os.open(
+                name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd,
+            )
+            with os.fdopen(descriptor, "wb") as destination:
+                destination.write(source.read_bytes())
         sock_path = leaf / "provider.sock"
-        server = UnixForwarder(sock_path, endpoint)
+        server = UnixForwarder(sock_path, endpoint, directory_fd=directory_fd)
         serve(server)
         guest_root = f"/home/agent-home/{leaf.name}"
         wrapped = command[:-inner_count] + [
@@ -232,6 +252,8 @@ def run_container(
         if server is not None:
             server.shutdown()
             server.server_close()
+        if directory_fd is not None:
+            os.close(directory_fd)
         if shutil.rmtree.avoids_symlink_attacks:
             shutil.rmtree(leaf)
 

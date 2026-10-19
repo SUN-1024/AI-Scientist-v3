@@ -14,6 +14,9 @@ The destination is read from `CONTAINER_AUTH_ROOT/.codex/config.toml` and the
 explicitly selected `<profile>.config.toml`. The guest's writable configuration
 cannot choose the host-side destination. Only the selected HTTP(S) loopback
 endpoint is forwarded. The helper does not parse or log request contents.
+Helper files and the socket are created through an open directory descriptor.
+A running guest cannot redirect those host writes by replacing a shared-home
+entry with a symbolic link.
 
 The route is created for Codex calls using `container.network=bridge`. It works
 with single-use containers, commands in reusable containers, and the isolated

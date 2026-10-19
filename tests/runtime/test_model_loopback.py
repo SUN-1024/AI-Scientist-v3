@@ -176,6 +176,65 @@ def test_client_forwards_termination_and_releases_listener(tmp_path: Path) -> No
             process.wait(timeout=5)
 
 
+@pytest.mark.parametrize("replace", ["directory", "file"])
+def test_guest_symlink_replacement_cannot_overwrite_host_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replace: str,
+) -> None:
+    home = tmp_path / "home"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    outside.mkdir()
+    victim = outside / "relay.py"
+    victim.write_bytes(b"preserve host contents")
+    original = route.tempfile.mkdtemp
+
+    def replaced_directory(*args, **kwargs):
+        leaf = Path(original(*args, **kwargs))
+        if replace == "directory":
+            leaf.rmdir()
+            leaf.symlink_to(outside, target_is_directory=True)
+        else:
+            (leaf / "relay.py").symlink_to(victim)
+        return str(leaf)
+
+    monkeypatch.setattr(route.tempfile, "mkdtemp", replaced_directory)
+    with pytest.raises(OSError):
+        route.run_container(("127.0.0.1", 3425), home, 1, ["unused", "command"])
+    assert victim.read_bytes() == b"preserve host contents"
+    assert sorted(p.name for p in outside.iterdir()) == ["relay.py"]
+
+
+def test_socket_bind_remains_anchored_when_guest_renames_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    outside = tmp_path / "outside"
+    moved = home / "moved"
+    home.mkdir()
+    outside.mkdir()
+    called = []
+    original = route.UnixForwarder
+
+    class RenameBeforeBind(original):
+        def __init__(self, path, target, **kwargs):
+            path.parent.rename(moved)
+            path.parent.symlink_to(outside, target_is_directory=True)
+            super().__init__(path, target, **kwargs)
+
+    def child(_command):
+        assert (moved / "provider.sock").is_socket()
+        assert list(outside.iterdir()) == []
+        called.append(True)
+        return 17
+
+    monkeypatch.setattr(route, "UnixForwarder", RenameBeforeBind)
+    monkeypatch.setattr(route, "run_child", child)
+    with pytest.raises(OSError):  # Cleanup refuses the guest's replacement symlink.
+        route.run_container(("127.0.0.1", 3425), home, 1, ["unused", "command"])
+    assert called == [True]
+    assert list(outside.iterdir()) == []
+
+
 @pytest.mark.parametrize("mode", ["one_shot", "session", "figure_command"])
 def test_dispatch_starts_private_route_and_cleans_it_after_nonzero_child(
     tmp_path: Path, mode: str,
