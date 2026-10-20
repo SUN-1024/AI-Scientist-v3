@@ -21,22 +21,27 @@ REPO = Path(os.environ.get("CASE_REPO", str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(REPO))
 from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 
+HERE = Path(__file__).resolve().parent
 EVIDENCE = Path(os.environ.get("CASE_OUT", HERE))
 if os.environ.get("CASE_DATA"):
     DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
 else:
     DATA = HERE / "mil2002"
-SEEDS = (11, 23, 37, 41, 53)
+SEEDS = tuple(int(value) for value in os.environ.get("CASE_SEEDS", "11,23,37,41,53").split(",") if value)
+IMAGE_EPOCHS = int(os.environ.get("CASE_EPOCHS", "60"))
+TEXT_EPOCHS = int(os.environ.get("CASE_EPOCHS", "40"))
 TRAIN_FRACTION = 0.7
-IMAGE_EPOCHS = 60
-TEXT_EPOCHS = 40
 BUCKETS = 4096
 HIDDEN = 64
-DATASETS = {
+DEFAULT_DATASETS = {
     "elephant": "image", "fox": "image", "tiger": "image",
     "trec9_1": "text", "trec9_2": "text", "trec9_3": "text", "trec9_4": "text",
     "trec9_7": "text", "trec9_9": "text", "trec9_10": "text",
 }
+if os.environ.get("CASE_DATASETS"):
+    DATASETS = {name: DEFAULT_DATASETS[name] for name in os.environ["CASE_DATASETS"].split(",") if name}
+else:
+    DATASETS = DEFAULT_DATASETS
 
 
 def hash_index(index: int) -> int:

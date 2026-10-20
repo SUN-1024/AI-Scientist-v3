@@ -22,17 +22,18 @@ REPO = Path(os.environ.get("CASE_REPO", str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(REPO))
 from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 
+HERE = Path(__file__).resolve().parent
 EVIDENCE = Path(os.environ.get("CASE_OUT", HERE))
 if os.environ.get("CASE_DATA"):
     DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
 else:
     DATA = HERE / "mil2002"
-SEEDS = (11, 23, 37, 41, 53)
+SEEDS = tuple(int(value) for value in os.environ.get("CASE_SEEDS", "11,23,37,41,53").split(",") if value)
 TRAIN_FRACTION = 0.7
-EPOCHS = 60
+EPOCHS = int(os.environ.get("CASE_EPOCHS", "60"))
 HIDDEN = 64
-MIX_FRACTIONS = (0.0, 0.2, 0.4, 0.6)
-DATASETS = ("elephant", "fox", "tiger")
+MIX_FRACTIONS = tuple(float(value) for value in os.environ.get("CASE_MIXES", "0.0,0.2,0.4,0.6").split(",") if value)
+DATASETS = tuple(name for name in os.environ.get("CASE_DATASETS", "elephant,fox,tiger").split(",") if name)
 
 
 def load_svm(path: Path):

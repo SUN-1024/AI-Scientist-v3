@@ -11,6 +11,7 @@ from __future__ import annotations
 import collections
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -20,8 +21,8 @@ REPO = Path(os.environ.get("CASE_REPO", str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(REPO))
 from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 
-import os
 HERE = Path(__file__).resolve().parent
+OUT = Path(os.environ.get("CASE_OUT", HERE))
 if os.environ.get("CASE_DATA"):
     DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
 else:
@@ -76,10 +77,12 @@ def split(names, labels, seed):
 
 
 def main() -> int:
-    bench = json.loads((EVIDENCE / "benchmark-models.json").read_text())
+    bench = json.loads((OUT / "benchmark-models.json").read_text())
     by_key = {(row["dataset"], row["architecture"]): row for row in bench["results"]}
+    datasets = bench.get("datasets") or {row["dataset"]: ("text" if row["dataset"].startswith("trec9") else "image")
+                                        for row in bench["results"]}
     updated = []
-    for name, kind in DATASETS.items():
+    for name, kind in datasets.items():
         bags, truth = load(name, kind)
         names = list(bags)
         bag_labels = np.array([1 if truth[bags[bag]].max() == 1 else 0 for bag in names])
@@ -114,7 +117,7 @@ def main() -> int:
     bench["certificate_baseline_note"] = (
         "certificate_test_only_f1 uses the evaluation-set bag labels; the training-bag certificate "
         "is reported separately because bag-disjoint splits make it vacuous on the test set")
-    (HERE / "benchmark-models.json").write_text(json.dumps(bench, indent=1, sort_keys=True) + "\n")
+    (OUT / "benchmark-models.json").write_text(json.dumps(bench, indent=1, sort_keys=True) + "\n")
     for row in updated:
         print(row["dataset"], row["summary"])
     return 0

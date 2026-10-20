@@ -15,7 +15,7 @@ TEX = (OUT / "NOTE.tex").read_text()
 
 
 def load(name):
-    return json.loads((HERE / name).read_text())
+    return json.loads((OUT / name).read_text())
 
 
 MUSK = load("musk-certificate-stats.json")["datasets"]

@@ -11,7 +11,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 HERE = Path(__file__).resolve().parent
-SWEEP = json.loads((EVIDENCE / "mixed-bag-sweep.json").read_text())
+OUT = Path(os.environ.get("CASE_OUT", HERE))
+EVIDENCE = OUT
+SWEEP = json.loads((OUT / "mixed-bag-sweep.json").read_text())
 rows: dict[str, dict[float, dict]] = {}
 for result in SWEEP["results"]:
     rows.setdefault(result["dataset"], {}).setdefault(result["mixed_fraction"], {})[result["architecture"]] = result["summary"]

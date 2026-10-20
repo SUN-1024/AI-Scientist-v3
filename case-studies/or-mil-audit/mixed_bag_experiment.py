@@ -22,6 +22,7 @@ REPO = Path(os.environ.get("CASE_REPO", str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(REPO))
 from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 
+HERE = Path(__file__).resolve().parent
 EVIDENCE = Path(os.environ.get("CASE_OUT", HERE))
 if os.environ.get("CASE_DATA"):
     DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
