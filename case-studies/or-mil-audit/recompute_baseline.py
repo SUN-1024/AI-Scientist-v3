@@ -22,7 +22,10 @@ from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 
 import os
 HERE = Path(__file__).resolve().parent
-DATA = Path(os.environ.get("CASE_DATA", HERE / "mil2002"))
+if os.environ.get("CASE_DATA"):
+    DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
+else:
+    DATA = HERE / "mil2002"
 SEEDS = (11, 23, 37, 41, 53)
 TRAIN_FRACTION = 0.7
 BUCKETS = 4096

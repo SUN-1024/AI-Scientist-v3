@@ -22,8 +22,12 @@ from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 import os
 HERE = Path(__file__).resolve().parent
 OUT = Path(os.environ.get("CASE_OUT", HERE))
-DATA = Path(os.environ.get("CASE_DATA", HERE / "mil2002"))
-DATASETS = ["elephant", "fox", "tiger"] + [f"trec9_{name}" for name in ("1", "2", "3", "4", "7", "9", "10")]
+if os.environ.get("CASE_DATA"):
+    DATA = Path(os.environ["CASE_DATA"]) / "mil2002"
+else:
+    DATA = HERE / "mil2002"
+DEFAULT_DATASETS = ["elephant", "fox", "tiger"] + [f"trec9_{name}" for name in ("1", "2", "3", "4", "7", "9", "10")]
+DATASETS = [name for name in os.environ.get("CASE_DATASETS", "").split(",") if name] or DEFAULT_DATASETS
 
 
 def load_svm(path: Path):

@@ -20,9 +20,10 @@ CASE_DATA=/tmp/or-mil-data HTTPS_PROXY=http://host:port bash fetch_archive.sh
 
 所有脚本都用环境变量定位输入输出：
 
-- `CASE_DATA`：数据目录（包含 `mil2002/*.svm`）
+- `CASE_DATA`：数据**根目录**，脚本读取其中的 `mil2002/*.svm`（`fetch_archive.sh` 生成的结构）
 - `CASE_OUT`：结果目录（JSON/图）
 - `CASE_REPO`：仓库根（默认按脚本位置推断）
+- `CASE_DATASETS`：可选，逗号分隔的数据集名，默认全部十个（便于小样本测试）
 
 | 脚本 | 作用 | 预期结果 |
 |---|---|---|
@@ -40,6 +41,12 @@ CASE_DATA=/tmp/or-mil-data HTTPS_PROXY=http://host:port bash fetch_archive.sh
 ```bash
 CASE_DATA=/tmp/or-mil-data CASE_OUT=/tmp/or-mil-out \
   python case-studies/or-mil-audit/benchmark_models.py
+```
+
+一键流程（`--skip-torch` 可跳过模型对照）：
+
+```bash
+CASE_DATA=/tmp/or-mil-data CASE_OUT=/tmp/or-mil-out bash run_all.sh --skip-torch
 ```
 
 `benchmark_models.py`、`mixed_bag_*.py` 需要 PyTorch（CPU 版即可；论文实验用 2.11.0+cpu，
