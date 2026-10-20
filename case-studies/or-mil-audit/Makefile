@@ -12,6 +12,7 @@ analysis:
 
 models:
 	CASE_DATA=$(CASE_DATA) CASE_OUT=$(CASE_OUT) $(PYTHON) benchmark_models.py
+	CASE_DATA=$(CASE_DATA) CASE_OUT=$(CASE_OUT) $(PYTHON) strong_mil_experiment.py
 	CASE_DATA=$(CASE_DATA) CASE_OUT=$(CASE_OUT) $(PYTHON) mixed_bag_experiment.py
 	CASE_DATA=$(CASE_DATA) CASE_OUT=$(CASE_OUT) $(PYTHON) mixed_bag_sweep.py
 	CASE_DATA=$(CASE_DATA) CASE_OUT=$(CASE_OUT) $(PYTHON) plot_mixing_curve.py

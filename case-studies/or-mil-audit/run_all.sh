@@ -14,6 +14,7 @@ PY="${PYTHON:-python}"
 if [ "${1:-}" != "--skip-torch" ]; then
   "$PY" recompute_baseline.py            # needs benchmark-models.json from a previous run
   "$PY" benchmark_models.py
+  "$PY" strong_mil_experiment.py
   "$PY" mixed_bag_experiment.py
   "$PY" mixed_bag_sweep.py
   "$PY" plot_mixing_curve.py

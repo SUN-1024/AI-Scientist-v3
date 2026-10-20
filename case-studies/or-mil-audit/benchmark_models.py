@@ -17,7 +17,8 @@ import numpy as np
 import torch
 from torch import nn
 
-REPO = Path(os.environ.get("CASE_REPO", str(Path(__file__).resolve().parents[2])))
+_CASE_REPO = os.environ.get("CASE_REPO")
+REPO = Path(_CASE_REPO) if _CASE_REPO else Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 from src.research.audit.mil_assumption_audit import certificate  # noqa: E402
 

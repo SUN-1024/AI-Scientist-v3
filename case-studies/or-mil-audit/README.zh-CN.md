@@ -33,6 +33,7 @@ CASE_DATA=/tmp/or-mil-data HTTPS_PROXY=http://host:port bash fetch_archive.sh
 | `recompute_baseline.py` | 用评估集袋标签重算传播基线 | 纯数据上传播 F1=1（标签即袋标签） |
 | `mixed_bag_experiment.py` | 40% 混合袋重建实验 | 传播 F1=0.75，仍高于所有模型 |
 | `mixed_bag_sweep.py` | 混合比例 0/0.2/0.4/0.6 扫描 | 传播 F1 = 2(1−m)/(2−m)，attention 在 m=0.6 反超 |
+| `strong_mil_experiment.py` | 更强的 gated attention（两层编码器 + dropout）基线，3 seeds | 与 prevalence 对照，用于回应"基线太弱"的评审意见 |
 | `plot_mixing_curve.py` | 画 Figure 1 | `mixing-curve.pdf` |
 | `verify_note_numbers.py` | 手稿数字与证据 JSON 对账 | 41 项检查、0 失败 |
 
