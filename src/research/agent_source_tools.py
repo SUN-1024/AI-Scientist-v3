@@ -2,61 +2,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
-import json
-import math
-import os
 from pathlib import Path
-import stat
 import sys
-import tomllib
 from typing import Any, Mapping
 
-from src.scripts.lib.stage_codex_profile import PROFILE_NAME, stage_profile
+from .agent_tool_profile import (
+    PrivateToolProfile, _private, _regular, _toml_value as _toml_value, prepare_tool_profile,
+)
 from . import source_lookup
 from .source_lookup import SourceLookup, _json, _parse, _read_packet, _sha
 
 POLICY = "frozen_source_lookup_v1"
 DIRECTORY = "source_lookup"
-
-
-def _regular(path: Path, maximum: int) -> bytes:
-    path = path.expanduser().absolute()
-    if any(p.is_symlink() for p in (path, *path.parents)):
-        raise ValueError("Source-tool input path contains a symlink")
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd, "rb") as stream:
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise ValueError("Source-tool input must be a regular file")
-        body = stream.read(maximum + 1)
-    if len(body) > maximum:
-        raise ValueError("Source-tool input exceeds its size bound")
-    return body
-
-
-def _private(path: Path, body: bytes) -> None:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "wb") as stream:
-        stream.write(body)
-
-
-def _toml_value(value: Any) -> str:
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
-    if type(value) is bool:
-        return "true" if value else "false"
-    if type(value) is int:
-        return str(value)
-    if type(value) is float and math.isfinite(value):
-        return repr(value)
-    if isinstance(value, (date, datetime, time)):
-        return value.isoformat()
-    if isinstance(value, list):
-        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
-    if isinstance(value, dict) and all(isinstance(key, str) for key in value):
-        return "{" + ", ".join(json.dumps(key) + " = " + _toml_value(item)
-                                for key, item in value.items()) + "}"
-    raise ValueError("Unsupported or non-finite Codex profile value")
 
 
 def _events(body: bytes, lookup: SourceLookup, packet_sha256: str) -> dict[str, Any]:
@@ -110,14 +67,12 @@ class PreparedSourceTools:
     environment: dict[str, str]
     binding: dict[str, Any]
     installed_module: Path
-    private_profile: Path
-    private_profile_sha256: str
+    profile: PrivateToolProfile
 
     def finish(self) -> dict[str, Any]:
         if _sha(_regular(self.installed_module, source_lookup.MAX_PACKET_BYTES)) != self.binding["server_sha256"]:
             raise ValueError("Source-tool executable changed during the call")
-        if _sha(_regular(self.private_profile, source_lookup.MAX_PACKET_BYTES)) != self.private_profile_sha256:
-            raise ValueError("Private source-tool profile changed during the call")
+        self.binding["private_profile_sha256"] = self.profile.verify()
         root = self.artifacts / DIRECTORY
         packet_bytes = _read_packet(root / "source-packet.json", self.binding["packet_sha256"])
         snapshot = _regular(root / "server.py", source_lookup.MAX_PACKET_BYTES)
@@ -134,63 +89,39 @@ class PreparedSourceTools:
 
 def prepare_source_tools(packet: dict[str, Any], *, artifacts: Path, temporary: Path,
                          environment: Mapping[str, str], agent: str, model: str | None,
-                         profile: str | None) -> PreparedSourceTools:
+                         profile: str | None,
+                         tool_profile: PrivateToolProfile | None = None) -> PreparedSourceTools:
     """Stage one selected profile, its auth, and its catalog into a fresh home."""
-    if agent != "codex" or not model or not profile or not PROFILE_NAME.fullmatch(profile):
-        raise ValueError("Source tools require an explicit Codex model and profile")
+    selected = tool_profile or prepare_tool_profile(
+        temporary=temporary, environment=environment, agent=agent, model=model, profile=profile)
     SourceLookup(packet)
     packet_bytes = (_json(packet) + "\n").encode()
     if len(packet_bytes) > source_lookup.MAX_PACKET_BYTES:
         raise ValueError("Source-tool packet exceeds its size bound")
-    original_home = Path(environment.get("CODEX_HOME") or str(Path(
-        environment.get("HOME", str(Path.home()))) / ".codex")).expanduser().absolute()
-    original_profile = original_home / (profile + ".config.toml")
-    profile_bytes = _regular(original_profile, 1024 * 1024)
-    profile_config = tomllib.loads(profile_bytes.decode())
-    if "agsci_sources" in profile_config.get("mcp_servers", {}):
-        raise ValueError("The selected profile already defines agsci_sources")
     root = artifacts / DIRECTORY
     root.mkdir()
-    private_home = temporary / "source-tool-home"
-    codex_home = private_home / ".codex"
-    private_home.mkdir(mode=0o700)
-    codex_home.mkdir(mode=0o700)
-    stage_profile(original_home, codex_home, profile, catalog_destination_home=codex_home)
-    if _regular(original_profile, 1024 * 1024) != profile_bytes:
-        raise ValueError("Selected profile changed while staging source tools")
-    auth = original_home / "auth.json"
-    if auth.exists() or auth.is_symlink():
-        _private(codex_home / "auth.json", _regular(auth, 1024 * 1024))
     installed = Path(source_lookup.__file__).resolve()
     server_bytes = _regular(installed, source_lookup.MAX_PACKET_BYTES)
     _private(root / "server.py", server_bytes)
     _private(root / "source-packet.json", packet_bytes)
-    staged_profile = codex_home / (profile + ".config.toml")
-    staged_config = tomllib.loads(staged_profile.read_text(encoding="utf-8"))
-    staged_config.setdefault("mcp_servers", {})["agsci_sources"] = {
+    selected.add_server("agsci_sources", {
         "command": sys.executable,
         "args": [str(installed), "--packet", str(root / "source-packet.json"),
                  "--packet-sha256", _sha(packet_bytes),
                  "--audit-log", str(root / "calls.jsonl")],
         "cwd": str(installed.parent), "startup_timeout_sec": 20, "tool_timeout_sec": 30,
-    }
-    staged_text = "\n".join(json.dumps(key) + " = " + _toml_value(value)
-                             for key, value in staged_config.items()) + "\n"
-    if tomllib.loads(staged_text) != staged_config:
-        raise ValueError("Private Codex profile values did not survive serialization")
-    staged_profile.write_text(staged_text, encoding="utf-8")
+    })
     binding = {
         "schema_version": 1, "policy": POLICY,
         "packet_sha256": _sha(packet_bytes), "packet_content_sha256": _sha(_json(packet)),
-        "server_sha256": _sha(server_bytes), "profile_source_sha256": _sha(profile_bytes),
-        "private_profile_sha256": _sha(_regular(staged_profile, 1024 * 1024)),
+        "server_sha256": _sha(server_bytes), "profile_source_sha256": selected.source_sha256,
+        "private_profile_sha256": selected.verify(),
         "source_ids": list(SourceLookup(packet).sources),
         "offset_units": "Python Unicode code points",
         "credential_files_exported": False, "permission_mode": "read-only",
     }
     return PreparedSourceTools(
-        artifacts, {**environment, "HOME": str(private_home), "CODEX_HOME": str(codex_home)},
-        binding, installed, staged_profile, binding["private_profile_sha256"],
+        artifacts, selected.environment, binding, installed, selected,
     )
 
 

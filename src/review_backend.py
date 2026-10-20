@@ -17,7 +17,7 @@ import tempfile
 import threading
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
@@ -123,6 +123,7 @@ def run_fresh_agent_json(
     profile: str | None = None, reasoning_effort: str | None = None,
     timeout_seconds: int = 1800, environment: Mapping[str, str] | None = None,
     source_lookup_packet: dict[str, Any] | None = None,
+    python_execution_image: str | None = None,
     cancel_event: threading.Event | None = None,
     on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
     on_process_exit: Callable[[subprocess.Popen[bytes]], None] | None = None,
@@ -160,6 +161,8 @@ def run_fresh_agent_json(
     }
     if source_lookup_packet is not None:
         receipt["source_lookup_requested"] = True
+    if python_execution_image is not None:
+        receipt["python_execution_requested"] = True
     cleanup_witness = ProcessCleanupWitness()
     interrupted: list[int] = []
     can_handle_signals = threading.current_thread() is threading.main_thread()
@@ -215,19 +218,35 @@ def run_fresh_agent_json(
         owner_token = uuid.uuid4().hex
         env[OWNER_TOKEN_ENV] = owner_token
         baseline = process_baseline()
-        with tempfile.TemporaryDirectory(prefix="agsci-independent-review-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="agsci-independent-review-") as temporary, ExitStack() as tool_stack:
             cwd = Path(temporary).resolve()
             prompt_file = cwd / "prompt.txt"
             prompt_file.write_text(prompt, encoding="utf-8")
             source_tools = None
+            execution_tools = None
             call_env = env
+            tool_profile = None
+            if source_lookup_packet is not None or python_execution_image is not None:
+                from src.research.agent_tool_profile import prepare_tool_profile
+                tool_profile = prepare_tool_profile(temporary=cwd, environment=env,
+                    agent=agent, model=model, profile=profile)
+                call_env = tool_profile.environment
             if source_lookup_packet is not None:
                 from src.research.agent_source_tools import prepare_source_tools
                 source_tools = prepare_source_tools(
                     source_lookup_packet, artifacts=work_dir, temporary=cwd, environment=env,
-                    agent=agent, model=model, profile=profile,
+                    agent=agent, model=model, profile=profile, tool_profile=tool_profile,
                 )
                 call_env = source_tools.environment
+            if python_execution_image is not None:
+                from src.research.agent_execution_tools import PreparedExecutionTools
+                assert tool_profile is not None
+                execution_tools = PreparedExecutionTools(
+                    artifacts=work_dir, temporary=cwd, profile=tool_profile,
+                    image=python_execution_image, prompt_sha256=receipt["prompt_sha256"],
+                    cancel_event=InvocationCancellation(),
+                )
+                tool_stack.callback(execution_tools.close)
             command = [executable, agent, "--allow", "read-only", "--sdk-format", "json", "--usage",
                        "--work-dir", str(cwd), "--timeout", str(timeout_seconds)]
             for flag, value in [("--model", model), ("--profile", profile),
@@ -266,6 +285,8 @@ def run_fresh_agent_json(
             if not isinstance(data, dict) or not isinstance(data.get("finalMessage"), str):
                 raise AgentReviewError("independent reviewer returned no final message")
             payload = strict_json_object(data["finalMessage"])
+            if execution_tools is not None:
+                receipt["python_execution"] = execution_tools.finish()
             if source_tools is not None:
                 receipt["source_lookup"] = source_tools.finish()
             receipt.update(status="completed", observed_model=data.get("model"),

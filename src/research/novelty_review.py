@@ -344,6 +344,12 @@ def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
             expected_binding = _source_packet_binding(complete_packet)
             if any(receipt.get(key) != value for key, value in expected_binding.items()):
                 raise ValueError("Source-tool packet differs from its call source binding")
+        if receipt.get("python_execution_requested") is True:
+            from .agent_execution_tools import verify_execution_tools
+            if receipt.get("python_execution") != transport.get("python_execution"):
+                raise ValueError("Agent Python execution receipt differs from its transport")
+            verify_execution_tools(directory / "transport", receipt["python_execution"],
+                                   expected_prompt_sha256=receipt["prompt_sha256"])
         native_session = transport.get("native_session_id")
         if (_sha(directory / "transport/receipt.json") != receipt.get("transport_receipt_sha256")
                 or transport.get("status") != "completed" or transport.get("independent_context") is not True
@@ -497,7 +503,7 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
                 cancel_event: threading.Event | None = None) -> dict[str, Any]:
     from src.review_backend import run_fresh_agent_json
 
-    allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment", "source_lookup"}
+    allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment", "source_lookup", "python_execution_image"}
     if set(settings) - allowed:
         raise ValueError("Unknown independent-review agent setting")
     enabled = settings.get("source_lookup", False)
@@ -516,6 +522,8 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
     }
     if enabled:
         receipt.update(source_lookup_requested=True, **_source_packet_binding(lookup_packet))
+    if "python_execution_image" in execution_settings:
+        receipt["python_execution_requested"] = True
     _dump(directory / "receipt.json", receipt)
     try:
         lifecycle: dict[str, Any] = {"cancel_event": cancel_event} if cancel_event is not None else {}
@@ -537,6 +545,12 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
             source_receipt = transport.get("source_lookup")
             verify_source_tools(directory / "transport", source_receipt, expected_packet=lookup_packet)
             completed["source_lookup"] = source_receipt
+        if receipt.get("python_execution_requested") is True:
+            from .agent_execution_tools import verify_execution_tools
+            execution_receipt = transport.get("python_execution")
+            verify_execution_tools(directory / "transport", execution_receipt,
+                                   expected_prompt_sha256=receipt["prompt_sha256"])
+            completed["python_execution"] = execution_receipt
     except BaseException as exc:
         receipt.update(status="failed", error=str(exc) or type(exc).__name__)
         _dump(directory / "receipt.json", receipt)

@@ -81,6 +81,7 @@ class HarnessConfig:
     novelty_review: bool = True
     novelty_reviewers: int = 2
     agent_source_lookup: bool = False
+    agent_python_image: str = ""
     quality: HarnessQualityConfig = field(default_factory=HarnessQualityConfig)
 
 
@@ -212,6 +213,9 @@ def load_config(task_dir: Path) -> ResearchConfig:
         raise ValueError("harness.novelty_review must be boolean")
     if type(cfg.harness.agent_source_lookup) is not bool:
         raise ValueError("harness.agent_source_lookup must be boolean")
+    if (not isinstance(cfg.harness.agent_python_image, str) or (cfg.harness.agent_python_image
+            and not re.fullmatch(r"sha256:[0-9a-f]{64}", cfg.harness.agent_python_image))):
+        raise ValueError("harness.agent_python_image must be empty or an immutable sha256 Docker image ID")
     if type(cfg.harness.novelty_reviewers) is not int or not 2 <= cfg.harness.novelty_reviewers <= 4:
         raise ValueError("harness.novelty_reviewers must be from 2 to 4")
     quality_cfg = cfg.harness.quality
