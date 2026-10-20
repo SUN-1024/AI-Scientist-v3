@@ -11,12 +11,12 @@ Magpie 不再是默认路径。
 ## 配置文件
 
 - profile：`configs/research-providers/agsci-deepseek.config.toml.example`
-- 模型目录：`configs/research-providers/deepseek-models.json`
-- 目录来源：`configs/research-providers/deepseek-models.provenance.json`
+- 模型目录：`configs/research-providers/agsci-deepseek.json`
+- 目录来源：`configs/research-providers/agsci-deepseek.provenance.json`
 - 当前 checkout 的私有 profile：
   `scratch/harness-audit/container-auth/.codex/agsci-deepseek.config.toml`
 - 当前 checkout 的私有模型目录：
-  `scratch/harness-audit/container-auth/.codex/deepseek-models.json`
+  `scratch/harness-audit/container-auth/.codex/agsci-deepseek.json`
 
 profile 使用 `env_key = "DEEPSEEK_API_KEY"`。仓库和 profile 都不保存 API key。
 

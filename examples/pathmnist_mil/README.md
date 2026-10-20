@@ -44,7 +44,7 @@ curl -fL --retry 2 -C - --proxy http://127.0.0.1:7890 \
 
 为实验 Codex 创建专用 `~/.codex/agsci-deepseek.config.toml`，可从
 [模板](../../configs/research-providers/agsci-deepseek.config.toml.example)复制，
-并从该模板目录复制 `deepseek-models.json` 到同一 `.codex` 目录。配置文件不含
+并从该模板目录复制 `agsci-deepseek.json` 到同一 `.codex` 目录。配置文件不含
 API key。设置 `DEEPSEEK_API_KEY` 后，Codex 直接访问 DeepSeek Responses API。
 
 ## 执行融合流程

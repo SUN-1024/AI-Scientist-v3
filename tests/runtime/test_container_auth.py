@@ -55,6 +55,14 @@ def test_codex_deepseek_model_only_passes_deepseek_provider_keys() -> None:
     assert "DEEPSEEK_API_KEY" not in default
 
 
+def test_codex_deepseek_profile_seed_paths_include_model_catalog() -> None:
+    paths = _ok(
+        "AGENT_PROFILE=agsci-deepseek; seed_paths_for_agent codex"
+    ).stdout.split()
+    assert ".codex/agsci-deepseek.config.toml" in paths
+    assert ".codex/agsci-deepseek.json" in paths
+
+
 @pytest.mark.parametrize("posthoc_policy", [False, True])
 def test_variant_agent_passes_selected_qwen_key_to_container(
     tmp_path: Path, posthoc_policy: bool,

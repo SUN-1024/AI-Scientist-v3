@@ -7,7 +7,7 @@ forced_login_method = "api"
 model_reasoning_effort = "high"
 web_search = "disabled"
 show_raw_agent_reasoning = true
-model_catalog_json = "deepseek-models.json"
+model_catalog_json = "agsci-deepseek.json"
 
 [model_providers.deepseek_direct]
 name = "DeepSeek direct"

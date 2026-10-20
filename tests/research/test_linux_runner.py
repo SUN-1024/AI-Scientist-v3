@@ -33,7 +33,7 @@ def test_deepseek_profile_is_direct_and_keeps_the_key_out_of_files() -> None:
     provider = profile["model_providers"]["deepseek_direct"]
     assert profile["model"] == "deepseek-flash"
     assert profile["model_provider"] == "deepseek_direct"
-    assert profile["model_catalog_json"] == "deepseek-models.json"
+    assert profile["model_catalog_json"] == "agsci-deepseek.json"
     assert provider == {
         "name": "DeepSeek direct",
         "base_url": "https://api.deepseek.com/",
@@ -44,7 +44,7 @@ def test_deepseek_profile_is_direct_and_keeps_the_key_out_of_files() -> None:
         "stream_max_retries": 3,
     }
     assert "experimental_bearer_token" not in provider
-    catalog = json.loads((provider_root / "deepseek-models.json").read_text())
+    catalog = json.loads((provider_root / "agsci-deepseek.json").read_text())
     assert [row["slug"] for row in catalog["models"]] == ["deepseek-flash", "deepseek-v4-pro"]
 
 
@@ -170,19 +170,19 @@ def test_native_profile_copy_includes_its_model_catalog(tmp_path: Path) -> None:
     (seed / "agsci-deepseek.config.toml").write_text(
         'model = "deepseek-flash"\n'
         'model_provider = "deepseek_direct"\n'
-        'model_catalog_json = "deepseek-models.json"\n'
+        'model_catalog_json = "agsci-deepseek.json"\n'
         '[model_providers.deepseek_direct]\n'
         'name = "DeepSeek direct"\n'
         'base_url = "https://api.deepseek.com/"\n'
         'env_key = "DEEPSEEK_API_KEY"\n'
     )
     catalog = '{"models":[{"slug":"deepseek-flash"}]}\n'
-    (seed / "deepseek-models.json").write_text(catalog)
+    (seed / "agsci-deepseek.json").write_text(catalog)
     destination = tmp_path / "destination"
     native.copy_selected_profile(seed, destination, "agsci-deepseek")
     assert (destination / "config.toml").read_text() == 'model_provider = "deepseek_direct"\n'
     assert (destination / "agsci-deepseek.config.toml").is_file()
-    assert (destination / "deepseek-models.json").read_text() == catalog
+    assert (destination / "agsci-deepseek.json").read_text() == catalog
     assert all(path.stat().st_mode & 0o777 == 0o600 for path in destination.iterdir())
 
 
