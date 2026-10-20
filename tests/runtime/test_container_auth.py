@@ -45,6 +45,16 @@ def test_qwen_plan_environment_is_scoped_to_selected_provider(tmp_path: Path) ->
     assert "QWEN_PLAN_API_KEY" not in other
 
 
+def test_codex_deepseek_model_only_passes_deepseek_provider_keys() -> None:
+    keys = _ok("agent_provider_allowed_env_keys codex deepseek-flash ''").stdout.split()
+    assert "DEEPSEEK_API_KEY" in keys
+    assert "CODEX_API_KEY" not in keys
+    assert "OPENAI_API_KEY" not in keys
+    default = _ok("agent_provider_allowed_env_keys codex gpt-test ''").stdout.split()
+    assert "CODEX_API_KEY" in default and "OPENAI_API_KEY" in default
+    assert "DEEPSEEK_API_KEY" not in default
+
+
 @pytest.mark.parametrize("posthoc_policy", [False, True])
 def test_variant_agent_passes_selected_qwen_key_to_container(
     tmp_path: Path, posthoc_policy: bool,

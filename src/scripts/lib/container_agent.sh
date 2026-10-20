@@ -177,7 +177,14 @@ agent_provider_allowed_env_keys() {
       allowed_keys="HEADLESS_BILLING ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_BEARER_TOKEN_BEDROCK AWS_REGION AWS_DEFAULT_REGION AWS_REGION_NAME CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CODE_USE_BEDROCK"
       ;;
     codex)
-      allowed_keys="HEADLESS_BILLING HEADLESS_CAPACITY_RETRIES CODEX_API_KEY OPENAI_API_KEY"
+      case "$normalized_model" in
+        *deepseek*)
+          allowed_keys="HEADLESS_BILLING HEADLESS_CAPACITY_RETRIES DEEPSEEK_API_KEY"
+          ;;
+        *)
+          allowed_keys="HEADLESS_BILLING HEADLESS_CAPACITY_RETRIES CODEX_API_KEY OPENAI_API_KEY"
+          ;;
+      esac
       ;;
     cursor)
       allowed_keys="CURSOR_API_KEY"
