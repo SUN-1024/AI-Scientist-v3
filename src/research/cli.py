@@ -71,6 +71,14 @@ def _parser() -> argparse.ArgumentParser:
 
     report = sub.add_parser("report", help="Inspect the saved run summary")
     report.add_argument("workspace", type=Path)
+    critique = sub.add_parser("critique", help="Run independent model reviews of a manuscript draft")
+    critique.add_argument("manuscript", type=Path, help="Path to .tex, .pdf or .md")
+    critique.add_argument("--output", type=Path, required=True, help="Directory for receipts and the report")
+    critique.add_argument("--model", required=True)
+    critique.add_argument("--profile", required=True)
+    critique.add_argument("--reviewers", type=int, default=2)
+    critique.add_argument("--reasoning-effort", default="high")
+    critique.add_argument("--timeout-seconds", type=int, default=1800)
     return parser
 
 
@@ -135,6 +143,16 @@ def main(argv: list[str] | None = None) -> int:
             load_config(destination)
             print(f"Created research project: {destination}")
             print("Edit research.yaml for the model provider, model ID, key environment variable and sources; then run agsci research prepare.")
+            return 0
+        if args.command == "critique":
+            from .paper_critique import critique
+            report = critique(args.manuscript, args.output, reviewers=args.reviewers, settings={
+                "agent": "codex", "model": args.model, "profile": args.profile,
+                "reasoning_effort": args.reasoning_effort, "timeout_seconds": args.timeout_seconds,
+            })
+            print(json.dumps({"consensus": report["consensus"], "verdicts": report["verdicts"],
+                              "blocking_total": report["blocking_total"],
+                              "report": str(args.output / "critique_report.json")}, ensure_ascii=False))
             return 0
         if args.command == "report":
             path = args.workspace.expanduser() / "research_report.json"

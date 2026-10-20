@@ -298,3 +298,38 @@ WORKSPACE/
 就绪报告分别检查论文文件、实验回执、对照消融、最终确认、主张依据、独立审稿和创新性。全部通过才标记 `ready_for_human_review`。流程返回成功、PDF 能打开、模型建议接收，都是不同事实。最终结果为负时仍可生成诚实论文，并明确证据缺口。系统不会自动向期刊或会议投稿。
 
 论文写作上下文会直接列出 `research.yaml` 的就绪要求及配置哈希，不复制模型服务设置。正效应检查要求效应值和区间下界都严格大于声明阈值。写作时必须区分这些配置要求、作者议程和实际执行协议；样本量、bootstrap 次数及结果以评价证据为准。配置要求本身不能证明检查通过。
+
+## 手稿独立评审（`critique`）
+
+研究流程内的审稿阶段由 `src/pipeline/review.py` 负责。若要在管线之外对任意草稿做独立评审，
+使用：
+
+```bash
+agsci research critique path/to/NOTE.tex \
+  --output critique-01 \
+  --model deepseek-flash --profile agsci-deepseek \
+  --reviewers 2
+```
+
+每个评审使用独立的模型上下文、同一份 rubric，并只返回固定 schema 的 JSON：
+`verdict`、`blocking`、`non_blocking`、`prior_art_gaps`、`venue_fit`、
+`required_extra_evidence`、`verdict_reasoning`。模块会校验 schema、为每位评审写出
+`reviewer_<i>/assessment.json` 与调用回执，并合并为 `critique_report.json`。
+报告显式记录独立性上限：可能是同一模型的多次独立调用，不构成人类同行评审。
+命令不修改手稿；输出目录已有评审时拒绝覆盖。
+
+评审是随机的：不同轮次会提出不同意见，因此"再跑一轮通过"不能当作收敛判据，
+只能作为修订输入。人类评审仍是必需的。
+
+## 有限诊断（`mil_assumption_audit`）
+
+对有限 MIL 构造做精确、可复算的诊断：
+
+```bash
+python -m src.research.audit.mil_assumption_audit task.json --output report.json
+```
+
+`task.json` 提供 `points`（内容/环境类型）、`bags`（实例索引与 OR 标签）、可选
+`permutation`。报告包含：相容布尔映射与 support、forced/unresolved 证书、
+组成矩阵及其精确秩、A4/A5 集合（含置换后对比）、target-blind 自适应查询最优、
+target-aware teaching 成本。全部用整数与 `fractions.Fraction`，无第三方依赖、无随机抽样。

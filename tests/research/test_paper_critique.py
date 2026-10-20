@@ -127,6 +127,22 @@ def test_existing_reviewer_output_is_not_overwritten(tmp_path: Path) -> None:
         critique(manuscript, output, settings=settings_for(tmp_path), reviewers=2)
 
 
+def test_cli_critique_command(tmp_path: Path, monkeypatch) -> None:
+    from src.research.cli import main as cli_main
+
+    manuscript = tmp_path / "note.tex"
+    manuscript.write_text(TEX)
+    environment = settings_for(tmp_path)["environment"]
+    for key, value in environment.items():
+        monkeypatch.setenv(key, value)
+    output = tmp_path / "cli-critique"
+    assert cli_main(["critique", str(manuscript), "--output", str(output),
+                     "--model", "codex/fixture", "--profile", "fixture", "--reviewers", "2"]) == 0
+    report = json.loads((output / "critique_report.json").read_text())
+    assert report["verdicts"] == ["accept_as_note", "accept_as_note"]
+    assert report["manuscript_sha256"] == sha256(TEX)
+
+
 def test_settings_requirements(tmp_path: Path) -> None:
     manuscript = tmp_path / "note.tex"
     manuscript.write_text(TEX)
