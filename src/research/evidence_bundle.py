@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import sys
 import tarfile
@@ -111,13 +112,36 @@ def verify_bundle(bundle: Path, *, manuscript: Path | None = None,
     if manuscript is not None:
         text = manuscript.expanduser().read_text(encoding="utf-8")
         cited = report["manifest_sha256"] in text
-        expected = expect_hash is not None and expect_hash in text
+        expected = expect_hash is not None and expected_hash_in(text, expect_hash)
+        mentions = bundle_hash_mentions(text)
+        stale = sorted(token for token in mentions
+                       if token != report["manifest_sha256"]
+                       and (expect_hash is None or token != expect_hash))
         report["manuscript"] = str(manuscript.expanduser().resolve())
         report["manuscript_cites_manifest"] = cited
         report["manuscript_cites_expected_hash"] = expected if expect_hash is not None else None
-        if not cited or (expect_hash is not None and not expected):
+        report["manuscript_bundle_hash_mentions"] = sorted(mentions)
+        report["manuscript_stale_bundle_hashes"] = stale
+        if not cited or (expect_hash is not None and not expected) or stale:
             report["status"] = "failed"
     return report
+
+
+HASH = re.compile(r"[0-9a-f]{64}")
+
+
+def bundle_hash_mentions(text: str, window: int = 240) -> set[str]:
+    """SHA-256 tokens whose preceding text attributes them to the bundle or its manifest."""
+    tokens = set()
+    for match in HASH.finditer(text):
+        context = text[max(0, match.start() - window):match.start()].lower()
+        if "bundle" in context or "manifest" in context:
+            tokens.add(match.group(0))
+    return tokens
+
+
+def expected_hash_in(text: str, expected: str) -> bool:
+    return expected in text
 
 
 def main(argv: list[str] | None = None) -> int:

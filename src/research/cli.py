@@ -153,7 +153,8 @@ def main(argv: list[str] | None = None) -> int:
             report = verify_bundle(args.bundle, manuscript=args.manuscript, expect_hash=args.expect_hash)
             print(json.dumps({key: report[key] for key in
                               ("status", "checked_files", "manifest_sha256", "missing", "mismatched",
-                               "unexpected", "manuscript_cites_manifest")
+                               "unexpected", "manuscript_cites_manifest",
+                               "manuscript_bundle_hash_mentions", "manuscript_stale_bundle_hashes")
                               if key in report}, indent=1, sort_keys=True))
             return 0 if report["status"] == "verified" else 1
         if args.command == "critique":

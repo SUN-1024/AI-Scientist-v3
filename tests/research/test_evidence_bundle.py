@@ -8,7 +8,7 @@ import tarfile
 
 import pytest
 
-from src.research.evidence_bundle import main as verify_main
+from src.research.evidence_bundle import bundle_hash_mentions, main as verify_main
 from src.research.evidence_bundle import verify_bundle, verify_directory
 
 
@@ -118,6 +118,29 @@ def test_archive_with_escaping_path_is_rejected(tmp_path: Path) -> None:
         stream.add(bundle / "solver.py", arcname="../solver.py")
     with pytest.raises(ValueError, match="unsafe"):
         verify_bundle(archive)
+
+
+def test_bundle_hash_mentions_ignores_unrelated_hashes() -> None:
+    manifest = "a" * 64
+    unrelated = "b" * 64
+    filler = "unrelated prose. " * 30
+    text = (f"The bundle has manifest SHA-256\n{manifest}.\n{filler}"
+            f"The image hash is {unrelated}.\n")
+    assert bundle_hash_mentions(text) == {manifest}
+
+
+def test_stale_second_bundle_hash_fails_verification(tmp_path: Path) -> None:
+    bundle = make_bundle(tmp_path / "bundle")
+    digest = manifest_hash(bundle)
+    stale = "c" * 64
+    manuscript = tmp_path / "NOTE.tex"
+    manuscript.write_text(
+        f"The bundle manifest SHA-256 is {digest}.\n"
+        f"An older copy of the bundle cited {stale}.\n")
+    report = verify_bundle(bundle, manuscript=manuscript)
+    assert report["status"] == "failed"
+    assert report["manuscript_stale_bundle_hashes"] == [stale]
+    assert set(report["manuscript_bundle_hash_mentions"]) == {digest, stale}
 
 
 def test_cli_verify_bundle_subcommand(tmp_path: Path) -> None:
