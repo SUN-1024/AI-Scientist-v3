@@ -105,9 +105,23 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 
 在 research.yaml 设置 `harness.agent_source_lookup: true` 后，议程作者、V1 反思和原生创新性审查会自动配置单次调用的来源工具，保存来源与工具日志绑定，并在恢复时重放核验。该选项默认关闭；启用时需为原生调用明确配置 Codex 模型和 profile。
 
-将 `harness.agent_python_image` 设为当前 Linux Docker 中已安装 research-runner 镜像的完整 `sha256:` ID，可为这些调用提供 `get_execution_policy` 和 `run_python`。空字符串表示关闭。此能力同样需要明确的 Codex 模型和 profile，可单独使用，也可与来源工具组合。每次调用使用私有 profile，仅为这两个工具设置批准规则；全局配置与终端的 read-only 权限保持不变。
+将 `harness.agent_python_image` 设为当前 Linux Docker 中已安装计算镜像的完整 `sha256:` ID，可为这些调用提供 `get_execution_policy` 和 `run_python`。空字符串表示关闭。此能力同样需要明确的 Codex 模型和 profile，可单独使用，也可与来源工具组合。每次调用使用私有 profile，仅为这两个工具设置批准规则；全局配置与终端的 read-only 权限保持不变。
 
 宿主协调进程负责 Docker。模型生成的 Python 只在新的程序子容器中执行：无网络与 GPU、非 root、根文件系统只读、CPU 1 核、内存 512 MiB、最多 64 个进程、10 秒运行时间及 64 KiB 合并输出。每个原生上下文最多执行 12 个程序。代码和 JSON 输入分别限 32 KiB 与 64 KiB；程序通过 `INPUT_DATA` 取得输入。子容器仅挂载本次输入，不挂载凭据、来源目录或 Docker socket。镜像需包含 `/opt/research-runner/venv/bin/python`。
+
+research-runner 的项目依赖不包含 PyTorch。需要直接执行论文模型的 CPU forward 检查时，可使用[离线 PyTorch 计算镜像配方](../src/docker/finite-python/Dockerfile.offline-torch)。基础镜像必须已有固定的 wheelhouse，默认目录为 `/opt/portfolio-wheelhouse`，其中需包含指定 PyTorch 版本及其全部依赖。构建时从本地 wheelhouse 安装到专用 venv，不下载包，也不修改基础镜像。将下面的基础镜像 ID 替换为已核验的完整 ID：
+
+```bash
+docker build --network=none --pull=false \
+  --build-arg FINITE_PYTHON_BASE=sha256:YOUR_VERIFIED_BASE_IMAGE_ID \
+  --build-arg TORCH_REQUIREMENT=torch==2.11.0 \
+  -f src/docker/finite-python/Dockerfile.offline-torch \
+  -t unified-ai-scientist/finite-python-torch:local \
+  src/docker/finite-python
+docker image inspect unified-ai-scientist/finite-python-torch:local --format '{{.Id}}'
+```
+
+把输出 ID 填入 `harness.agent_python_image`。先在相同预算下检查实际 import 和所需的小型 forward；镜像标签或 wheelhouse 中存在安装包，不代表隔离解释器已经安装该包。此配方安装 PyTorch 及其依赖，不自动补齐论文训练依赖。即使 wheelhouse 中的构建带有 CUDA 库，程序子容器仍不请求或挂载 GPU；执行限制保持不变。
 
 程序、输入、实际输出、隔离条件与执行收据均绑定到该次提示词。取消或超时会停止服务并清理程序容器；恢复时先核验独占租约、容器 ID 和所有权标签。无法确认容器身份或清理结果时，保留私有恢复记录并拒绝将调用保存为完成状态。缓存重放只校验证据，不在宿主机执行模型代码。执行收据证明本次运行与保存字节的关系，科学含义仍由研究设计、原文证据和独立审查判断。
 

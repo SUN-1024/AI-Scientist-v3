@@ -1,0 +1,17 @@
+# Supply an immutable base image containing a complete, pinned wheelhouse.
+# Build with --network=none --pull=false. No dependency download is permitted.
+ARG FINITE_PYTHON_BASE
+FROM ${FINITE_PYTHON_BASE}
+
+USER root
+ARG TORCH_REQUIREMENT=torch==2.11.0
+ARG WHEELHOUSE=/opt/portfolio-wheelhouse
+RUN python -m venv --clear /opt/research-runner/venv \
+    && /opt/research-runner/venv/bin/python -m pip install --no-cache-dir \
+      --no-index --find-links "${WHEELHOUSE}" "${TORCH_REQUIREMENT}" \
+    && /opt/research-runner/venv/bin/python -I -B -c \
+      "import importlib.util; assert importlib.util.find_spec('torch') is not None"
+
+ENV PATH="/opt/research-runner/venv/bin:${PATH}" \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 1000:1000
