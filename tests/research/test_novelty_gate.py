@@ -410,8 +410,54 @@ def test_v1_invalid_reflection_does_not_publish_a_completed_agenda(study, tmp_pa
         draft_research_agenda(task, cfg, output)
     assert len(calls) == 2
     assert not (output / 'research_agenda.json').exists()
-    assert json.loads((output / 'agenda_reflection_trace.json').read_text())['status'] == 'failed'
+    trace = json.loads((output / 'agenda_reflection_trace.json').read_text())
+    assert trace['status'] == 'failed'
+    assert trace['recovery']['source_directory'] == 'agenda_draft'
+    recovery = json.loads((output / 'agenda_reflection_recovery.json').read_text())
+    assert recovery['status'] == 'verified_last_valid_author_agenda'
+    assert recovery['source_directory'] == 'agenda_draft'
+    assert recovery['agenda_sha256'] == content_hash(recovery['agenda'])
     assert not list(output.glob('reviewer_*'))
+
+
+def test_v1_third_round_schema_failure_recovers_second_reflection_in_harness(study, tmp_path, monkeypatch):
+    from src.research.config import ResearchConfig
+    from src.research.harness import _novelty_cycle
+
+    task, cfg, agenda, _review = study
+    revised = copy.deepcopy(agenda)
+    revised["scope"] += " This is the last schema-valid reflection."
+    second = {
+        **revised,
+        "_reflection": {
+            "done": False,
+            "changes": "Narrow the claim and retain unresolved evidence.",
+            "remaining_gaps": ["Independent confirmation."],
+        },
+    }
+    malformed_third = {
+        **revised,
+        "_reflection": {
+            "done": False,
+            "changes": "Try another revision.",
+            "remaining_gaps": "This must be a list.",
+        },
+    }
+    calls = install_provider(monkeypatch, [agenda, second, malformed_third])
+    output = tmp_path / "recover-second-reflection"
+    report = _novelty_cycle(
+        task, ResearchConfig(literature=cfg), output, offline=False,
+        reviewer_settings=None, research_basis={"contribution": "Original idea"},
+    )
+    assert len(calls) == 3
+    assert report["status"] == "needs_evidence"
+    assert any(gap["code"] == "review_execution_failed" for gap in report["gaps"])
+    assert report["agenda_recovery"]["source_directory"] == "agenda_reflection_2"
+    assert load_agenda(output) == revised
+    trace = json.loads((output / "agenda_reflection_trace.json").read_text())
+    assert trace["status"] == "failed"
+    assert trace["recovery"]["source_directory"] == "agenda_reflection_2"
+    assert not list(output.glob("reviewer_*"))
 
 
 def test_v1_reflection_transport_error_keeps_harness_fallback_unverified(study, tmp_path, monkeypatch):
@@ -438,6 +484,8 @@ def test_v1_reflection_transport_error_keeps_harness_fallback_unverified(study, 
     assert result['status'] == 'needs_evidence' and result['model_judgments'] == []
     assert any(gap['code'] == 'review_execution_failed' for gap in result['gaps'])
     assert not list(output.glob('reviewer_*'))
+    assert result['agenda_recovery']['source_directory'] == 'agenda_draft'
+    assert load_agenda(output) == agenda
     receipt = json.loads((output / 'agenda_reflection_2/receipt.json').read_text())
     assert receipt['status'] == 'failed'
     assert receipt['frozen_evidence']['candidate_packet_sha256'] == content_hash(packet)

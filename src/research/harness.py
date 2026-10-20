@@ -110,7 +110,7 @@ def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bo
                    host_context: dict[str, Any] | None = None,
                    seed_agenda: dict[str, Any] | None = None) -> dict[str, Any]:
     from .research_agenda import load_agenda, normalize_agenda, agenda_from_basis
-    from .novelty import evaluate_novelty
+    from .novelty import content_hash, evaluate_novelty
     from .novelty_review import InvalidReviewResume, draft_research_agenda, review_novelty
     from .campaign_plan import PlanValidationError, compile_campaign_plan
     output.mkdir(parents=True, exist_ok=True)
@@ -143,8 +143,33 @@ def _novelty_cycle(task: Path, cfg: ResearchConfig, output: Path, *, offline: bo
         raise
     except (ValueError, OSError, TypeError, KeyError) as exc:
         errors.append(str(exc))
+        recovery_path = output / "agenda_reflection_recovery.json"
+        recovery = None
+        if recovery_path.is_file() and not recovery_path.is_symlink():
+            try:
+                recovery = read_json(recovery_path)
+                if (recovery.get("schema_version") != 1
+                        or recovery.get("status") != "verified_last_valid_author_agenda"
+                        or recovery.get("frozen_evidence") is None):
+                    raise ValueError("Author agenda recovery record is invalid")
+                recovered_agenda = normalize_agenda(recovery.get("agenda"))
+                if content_hash(recovered_agenda) != recovery.get("agenda_sha256"):
+                    raise ValueError("Recovered author agenda hash changed")
+                agenda = recovered_agenda
+            except (ValueError, OSError, TypeError, KeyError, AttributeError) as recovery_error:
+                errors.append("Author agenda recovery failed: " + str(recovery_error))
+                recovery = None
         agenda = agenda or normalize_agenda({"intent": "exploratory"})
         report = evaluate_novelty(task, agenda, candidate_packet=candidate_packet)
+        if recovery is not None:
+            report["agenda_recovery"] = {
+                "status": recovery["status"],
+                "source_directory": recovery.get("source_directory"),
+                "source_receipt_sha256": recovery.get("source_receipt_sha256"),
+                "source_assessment_sha256": recovery.get("source_assessment_sha256"),
+                "agenda_sha256": recovery["agenda_sha256"],
+                "scientific_status": "needs_evidence",
+            }
     if errors:
         report.setdefault("gaps", []).append({"code": "review_execution_failed", "detail": "; ".join(errors)})
         report["status"] = "needs_evidence"

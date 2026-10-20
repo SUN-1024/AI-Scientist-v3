@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
 import math
+import re
 import signal
 import threading
 import time
@@ -434,10 +436,51 @@ def _preflight_resume(directories: list[Path], cfg: LiteratureConfig, phase: str
             native_sessions.add(native)
 
 
+def _agenda_round(directory: Path) -> int | None:
+    if directory.name == "agenda_draft":
+        return 1
+    match = re.fullmatch(r"agenda_reflection_([2-9][0-9]?)", directory.name)
+    return int(match.group(1)) if match else None
+
+
+def _latest_verified_author_agenda(
+    output: Path, cfg: LiteratureConfig, frozen: dict[str, Any],
+    reviewer_settings: dict[str, Any] | None,
+) -> tuple[dict[str, Any], Path, dict[str, Any]] | None:
+    """Recover the newest schema-valid author result after a later round fails."""
+    directories = []
+    for directory in output.glob("agenda_*"):
+        round_index = _agenda_round(directory)
+        if round_index is not None:
+            directories.append((round_index, directory))
+    for round_index, directory in sorted(directories, reverse=True):
+        try:
+            receipt, result = _existing_call(
+                directory, cfg, "research_agenda", frozen, reviewer_settings,
+            )
+            if result is None:
+                continue
+            candidate = copy.deepcopy(result)
+            feedback = candidate.pop("_reflection", None)
+            if round_index > 1:
+                if (not isinstance(feedback, dict)
+                        or type(feedback.get("done", False)) is not bool
+                        or not isinstance(feedback.get("changes", ""), str)
+                        or not isinstance(feedback.get("remaining_gaps", []), list)
+                        or not all(isinstance(gap, str)
+                                   for gap in feedback.get("remaining_gaps", []))):
+                    continue
+            return normalize_agenda(candidate), directory, receipt
+        except (ValueError, OSError, TypeError, KeyError, AttributeError):
+            continue
+    return None
+
+
 def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
                 frozen: dict[str, Any], reviewer_settings: dict[str, Any] | None = None, *,
                 resume: bool = False, cancel_event: threading.Event | None = None,
-                deadline_unix: float | None = None) -> dict[str, Any]:
+                deadline_unix: float | None = None,
+                source_pdf_files: dict[str, tuple[Path, str]] | None = None) -> dict[str, Any]:
     if deadline_unix is not None and (type(deadline_unix) not in (int, float)
             or not math.isfinite(deadline_unix) or deadline_unix <= 0):
         raise ValueError("Research model deadline must be finite positive Unix seconds")
@@ -600,7 +643,9 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     if resume and host_context is not None and review_started and not (output / "campaign_plan.json").is_file():
         raise InvalidReviewResume("Independent review started but its frozen campaign plan is missing")
     if resume:
-        directories = sorted(path for path in output.glob("agenda_*") if path.name != "agenda_reflection_trace.json")
+        ignored = {"agenda_reflection_trace.json", "agenda_reflection_recovery.json"}
+        directories = sorted(path for path in output.glob("agenda_*")
+                             if path.name not in ignored and path.is_dir())
         ordered = ["agenda_draft", *(f"agenda_reflection_{index}" for index in range(2, num_reflections + 1))]
         if [path.name for path in directories] != ordered[:len(directories)]:
             raise InvalidReviewResume("Saved agenda rounds differ from this invocation")
@@ -675,11 +720,43 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     except InvalidReviewResume:
         raise
     except (ValueError, OSError, TypeError, KeyError) as exc:
+        recovery = None
+        try:
+            recovered = _latest_verified_author_agenda(
+                output, cfg, frozen, reviewer_settings,
+            )
+            if recovered is not None:
+                recovered_agenda, source_directory, source_receipt = recovered
+                recovery = {
+                    "schema_version": 1,
+                    "status": "verified_last_valid_author_agenda",
+                    "source_directory": source_directory.name,
+                    "source_receipt_sha256": _sha(source_directory / "receipt.json"),
+                    "source_assessment_sha256": _sha(source_directory / "assessment.json"),
+                    "agenda_sha256": content_hash(recovered_agenda),
+                    "agenda": recovered_agenda,
+                    "frozen_evidence": frozen,
+                    "native_session_id": source_receipt.get("native_session_id"),
+                    "scientific_status": "needs_evidence",
+                }
+                _dump(output / "agenda_reflection_recovery.json", recovery)
+        except (ValueError, OSError, TypeError, KeyError) as recovery_error:
+            recovery = {
+                "schema_version": 1, "status": "unavailable",
+                "error": str(recovery_error), "scientific_status": "needs_evidence",
+            }
+            _dump(output / "agenda_reflection_recovery.json", recovery)
         _dump(output / "agenda_reflection_trace.json", {
             "schema_version": 1, "upstream": "AI-Scientist-v1", "status": "failed",
             "author_proposal_only": True, "independent_novelty_evidence": False,
             "frozen_evidence": frozen, "initial_agenda_sha256": content_hash(agenda),
             "num_reflections": num_reflections, "error": str(exc),
+            **({"recovery": {
+                "path": "agenda_reflection_recovery.json",
+                "status": recovery.get("status"),
+                "source_directory": recovery.get("source_directory"),
+                "agenda_sha256": recovery.get("agenda_sha256"),
+            }} if recovery is not None else {}),
         })
         raise
     _dump(output / "agenda_reflection_trace.json", {
