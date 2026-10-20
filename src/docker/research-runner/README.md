@@ -82,20 +82,23 @@ complete macOS runs still require native state for filesystem guarantees.
 
 Each invocation creates a private launcher directory under
 `scratch/research-runner/`. Native mode then creates its active HOME and Docker
-client config under the volume's `sessions/`. Only the named Codex profile is
-copied from `RESEARCH_RUNNER_AUTH_ROOT/.codex/`; the default source is
-`scratch/harness-audit/container-auth`. The default profile name is `agsci-magpie`.
-The host user's global Codex home is not mounted. The provider URL in this profile
-must be reachable from Linux, such as `http://host.docker.internal:3425/v1` for the
-local Magpie bridge. Desktop-only MCP entries should be removed from this private
+client config under the volume's `sessions/`. Only the named Codex profile and
+its declared local model catalog are copied from
+`RESEARCH_RUNNER_AUTH_ROOT/.codex/`; the default source is
+`scratch/harness-audit/container-auth`. The default profile name is
+`agsci-deepseek`. The host user's global Codex home is not mounted. The default
+profile connects directly to `https://api.deepseek.com/` with
+`deepseek-flash`. Desktop-only MCP entries must be disabled in this private
 profile before use.
 
 For an external literature or review provider, explicitly set
 `RESEARCH_RUNNER_ENV_FILE=/private/path/outer.env`. Docker supplies that file's
 variables only to the trusted outer orchestrator. The wrapper does not copy the
 file, log its contents, or inherit all host API keys. `container.env_file` is a
-separate pipeline setting for inner coding-agent containers. The Magpie profile
-used here requires no API key file.
+separate pipeline setting for inner coding-agent containers. Magpie remains only
+an optional legacy profile. The direct DeepSeek profile reads
+`DEEPSEEK_API_KEY`; the wrapper forwards that single key when it is already set
+in the caller environment.
 
 If a portfolio stops after `CandidateContainerCleanupError`, preserve the failed
 attempt and its source before recovery. An `evaluation_failure.json` records that
@@ -162,7 +165,7 @@ Supported environment settings:
 | `RESEARCH_RUNNER_NETWORK` | Coordinator Docker network, default `bridge`. On Linux, `host` can reach a task-scoped SSH reverse tunnel bound to host loopback. Set the agent container network separately. |
 | `RESEARCH_CPU_IMAGE` | CPU base image and default preflight target |
 | `RESEARCH_RUNNER_AUTH_ROOT` | Directory containing the private `.codex/<profile>.config.toml` |
-| `RESEARCH_RUNNER_CODEX_PROFILE` | Named profile, default `agsci-magpie` |
+| `RESEARCH_RUNNER_CODEX_PROFILE` | Named profile, default `agsci-deepseek` |
 | `RESEARCH_RUNNER_NATIVE_STATE` | Set to `1` to select native state without the flag |
 | `RESEARCH_RUNNER_VOLUME` | Dedicated volume name; otherwise derived from the checkout path |
 | `RESEARCH_RUNNER_STATE_DIR` | Private launcher state within this checkout |

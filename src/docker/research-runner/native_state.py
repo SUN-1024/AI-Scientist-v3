@@ -5,11 +5,13 @@ import argparse
 import ctypes
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import tempfile
 import time
+import tomllib
 from pathlib import Path
 
 
@@ -21,6 +23,40 @@ def directory(path: Path) -> Path:
     return path
 
 
+PROFILE_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,255}$")
+
+
+def copy_selected_profile(seed: Path, destination: Path, profile: str) -> None:
+    """Copy one profile and its bounded, profile-local model catalog."""
+    if not PROFILE_NAME.fullmatch(profile):
+        raise ValueError("invalid Codex profile name")
+    source_home = seed.resolve(strict=True)
+    destination.mkdir(mode=0o700, exist_ok=True)
+    for name in ("config.toml", f"{profile}.config.toml"):
+        source = source_home / name
+        if source.is_symlink():
+            raise ValueError(f"Codex profile component must not be a symlink: {name}")
+        if source.is_file():
+            shutil.copyfile(source, destination / name)
+            (destination / name).chmod(0o600)
+    profile_path = source_home / f"{profile}.config.toml"
+    if not profile_path.is_file():
+        return
+    config = tomllib.loads(profile_path.read_text(encoding="utf-8"))
+    configured = config.get("model_catalog_json")
+    if configured is None:
+        return
+    if not isinstance(configured, str) or not configured:
+        raise ValueError("Codex model_catalog_json must be a nonempty path")
+    catalog = Path(configured)
+    catalog = catalog if catalog.is_absolute() else source_home / catalog
+    catalog = Path(os.path.abspath(catalog))
+    if not catalog.is_relative_to(source_home) or catalog.is_symlink() or not catalog.is_file():
+        raise ValueError("Codex model catalog must be a regular file inside the profile home")
+    shutil.copyfile(catalog, destination / catalog.name)
+    (destination / catalog.name).chmod(0o600)
+
+
 def initialize(root: Path, seed: Path, profile: str) -> Path:
     for name in ("sessions", "tmp", "workspaces"):
         directory(root / name)
@@ -29,11 +65,7 @@ def initialize(root: Path, seed: Path, profile: str) -> Path:
     codex = directory(home / ".codex")
     client = directory(session / "docker-client")
     (client / "config.json").write_text('{"auths":{}}\n', encoding="utf-8")
-    for name in ("config.toml", f"{profile}.config.toml"):
-        source = seed / ".codex" / name
-        if source.is_file():
-            shutil.copyfile(source, codex / name)
-            (codex / name).chmod(0o600)
+    copy_selected_profile(seed / ".codex", codex, profile)
     return session
 
 
@@ -160,6 +192,10 @@ def main() -> int:
     init.add_argument("root", type=Path)
     init.add_argument("seed", type=Path)
     init.add_argument("profile")
+    copy_profile = subparsers.add_parser("copy-profile")
+    copy_profile.add_argument("seed", type=Path)
+    copy_profile.add_argument("destination", type=Path)
+    copy_profile.add_argument("profile")
     info = subparsers.add_parser("info")
     info.add_argument("root", type=Path)
     info.add_argument("volume")
@@ -177,6 +213,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "init":
         print(initialize(args.root, args.seed, args.profile))
+    elif args.command == "copy-profile":
+        copy_selected_profile(args.seed, args.destination, args.profile)
     elif args.command == "info":
         print(json.dumps({"volume": args.volume, "native_root": str(args.root),
                           "workspaces": str(args.root / "workspaces"),

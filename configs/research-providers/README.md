@@ -4,6 +4,11 @@ Copy the selected `literature.model_search` into your project research.yaml.
 Fill in a model ID and export the named key. These are configuration templates, not live account certifications.
 See [the Chinese guide](../../docs/model-search.zh-CN.md) for setup and evidence handling.
 
+The current project default is direct DeepSeek access. Agent work uses the
+`agsci-deepseek` Codex profile with `deepseek-flash`; literature search uses the
+DeepSeek provider template with its separate Search API. Magpie remains an
+optional legacy template and is not required.
+
 The DeepSeek template uses `deepseek-flash` plus DeepSeek's standalone Search API.
 Both calls use `DEEPSEEK_API_KEY`. Flash does not execute the Responses API's
 `web_search` tool. The external backend remains configurable, as does the model.

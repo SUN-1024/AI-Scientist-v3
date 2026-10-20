@@ -30,12 +30,12 @@ literature:
   timeout_seconds: 15
   proxy_fallback: http://127.0.0.1:7890
   model_search:
-    provider: magpie
-    model: codex/gpt-6.1-sol
-    base_url: http://127.0.0.1:3425/v1
-    api_key_env: ''
-    api_format: responses
-    mode: native
+    provider: deepseek
+    model: deepseek-flash
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+    api_format: chat_completions
+    mode: external
     api_path: ''
     api_key_header: ''
     api_key_prefix: ''
@@ -44,10 +44,11 @@ literature:
     max_output_tokens: 4000
     max_search_calls: 3
     max_continuations: 2
-    request_overrides:
-      store: false
-      include:
-      - web_search_call.action.sources
+    external_search:
+      provider: deepseek
+      base_url: https://api.deepseek.com
+      api_key_env: DEEPSEEK_API_KEY
+      max_results: 5
       reasoning:
         effort: low
     external_search:

@@ -8,12 +8,14 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import tomllib
 from pathlib import Path
 
 import pytest
 
 
 RUNNER = Path(__file__).resolve().parents[2] / "scripts/run-research-harness-container.sh"
+REPO_ROOT = RUNNER.parent.parent
 
 
 def native_helpers():
@@ -23,6 +25,27 @@ def native_helpers():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_deepseek_profile_is_direct_and_keeps_the_key_out_of_files() -> None:
+    provider_root = REPO_ROOT / "configs/research-providers"
+    profile = tomllib.loads((provider_root / "agsci-deepseek.config.toml.example").read_text())
+    provider = profile["model_providers"]["deepseek_direct"]
+    assert profile["model"] == "deepseek-flash"
+    assert profile["model_provider"] == "deepseek_direct"
+    assert profile["model_catalog_json"] == "deepseek-models.json"
+    assert provider == {
+        "name": "DeepSeek direct",
+        "base_url": "https://api.deepseek.com/",
+        "wire_api": "responses",
+        "env_key": "DEEPSEEK_API_KEY",
+        "requires_openai_auth": False,
+        "request_max_retries": 3,
+        "stream_max_retries": 3,
+    }
+    assert "experimental_bearer_token" not in provider
+    catalog = json.loads((provider_root / "deepseek-models.json").read_text())
+    assert [row["slug"] for row in catalog["models"]] == ["deepseek-flash", "deepseek-v4-pro"]
 
 
 def test_runner_keeps_paths_and_private_host_config(tmp_path: Path) -> None:
@@ -54,6 +77,7 @@ def test_runner_keeps_paths_and_private_host_config(tmp_path: Path) -> None:
                  "RESEARCH_RUNNER_STATE_DIR": str(root / "scratch/research-runner"),
                  "AGENTIC_TEMP_ROOT": str(root / "scratch/tmp"),
                  "RESEARCH_RUNNER_ENV_FILE": str(env_file),
+                 "DEEPSEEK_API_KEY": "secret-not-logged",
                  "TEST_DOCKER_LOG": str(log), "TEST_GIT_COMMON": str(common)},
         )
     assert result.returncode == 0, result.stderr
@@ -74,6 +98,8 @@ def test_runner_keeps_paths_and_private_host_config(tmp_path: Path) -> None:
     assert "HTTP_PROXY=" in args
     assert "DOCKER_HOST=unix:///var/run/docker.sock" in args
     assert "USER=agent" in args and "LOGNAME=agent" in args
+    assert args[args.index("DEEPSEEK_API_KEY") - 1] == "--env"
+    assert "secret-not-logged" not in args
     assert args[args.index("--env-file") + 1] == str(env_file)
     assert "TEST_PROVIDER_KEY=placeholder" not in args
 
@@ -134,6 +160,43 @@ def test_native_workspace_rejects_another_volume_or_symlink_escape(tmp_path: Pat
     (root / "workspaces/escape").symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(ValueError, match="selected native volume"):
         native.validate_workspace(root, ["research", "harness", f"--workspace={root / 'workspaces/escape/study'}"])
+
+
+def test_native_profile_copy_includes_its_model_catalog(tmp_path: Path) -> None:
+    native = native_helpers()
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    (seed / "config.toml").write_text('model_provider = "deepseek_direct"\n')
+    (seed / "agsci-deepseek.config.toml").write_text(
+        'model = "deepseek-flash"\n'
+        'model_provider = "deepseek_direct"\n'
+        'model_catalog_json = "deepseek-models.json"\n'
+        '[model_providers.deepseek_direct]\n'
+        'name = "DeepSeek direct"\n'
+        'base_url = "https://api.deepseek.com/"\n'
+        'env_key = "DEEPSEEK_API_KEY"\n'
+    )
+    catalog = '{"models":[{"slug":"deepseek-flash"}]}\n'
+    (seed / "deepseek-models.json").write_text(catalog)
+    destination = tmp_path / "destination"
+    native.copy_selected_profile(seed, destination, "agsci-deepseek")
+    assert (destination / "config.toml").read_text() == 'model_provider = "deepseek_direct"\n'
+    assert (destination / "agsci-deepseek.config.toml").is_file()
+    assert (destination / "deepseek-models.json").read_text() == catalog
+    assert all(path.stat().st_mode & 0o777 == 0o600 for path in destination.iterdir())
+
+
+def test_native_profile_copy_rejects_catalog_outside_private_home(tmp_path: Path) -> None:
+    native = native_helpers()
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    outside = tmp_path / "outside-models.json"
+    outside.write_text('{"models":[]}\n')
+    (seed / "agsci-deepseek.config.toml").write_text(
+        f'model_catalog_json = "{outside}"\n'
+    )
+    with pytest.raises(ValueError, match="inside the profile home"):
+        native.copy_selected_profile(seed, tmp_path / "destination", "agsci-deepseek")
 
 
 def test_export_is_readonly_snapshot_without_credentials_or_receipt_rewrites(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

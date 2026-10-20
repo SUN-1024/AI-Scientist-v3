@@ -15,11 +15,11 @@ literature:
   timeout_seconds: 30
   proxy_fallback: http://127.0.0.1:7890
   model_search:
-    provider: magpie
-    model: deepseek/deepseek-flash
-    base_url: http://127.0.0.1:3425/v1
-    api_key_env: ''
-    api_format: responses
+    provider: deepseek
+    model: deepseek-flash
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+    api_format: chat_completions
     mode: external
     timeout_seconds: 180
     max_output_tokens: 6000

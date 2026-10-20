@@ -1,0 +1,49 @@
+# Project profile for direct DeepSeek Responses API access.
+# The API key is read from DEEPSEEK_API_KEY and is never stored here.
+model = "deepseek-flash"
+model_provider = "deepseek_direct"
+preferred_auth_method = "apikey"
+forced_login_method = "api"
+model_reasoning_effort = "high"
+web_search = "disabled"
+show_raw_agent_reasoning = true
+model_catalog_json = "deepseek-models.json"
+
+[model_providers.deepseek_direct]
+name = "DeepSeek direct"
+base_url = "https://api.deepseek.com/"
+wire_api = "responses"
+env_key = "DEEPSEEK_API_KEY"
+requires_openai_auth = false
+request_max_retries = 3
+stream_max_retries = 3
+
+[mcp_servers."computer-use"]
+enabled = false
+
+[mcp_servers."cua_repl"]
+command = "/usr/bin/false"
+enabled = false
+
+[mcp_servers."computer-history"]
+command = "/usr/bin/false"
+enabled = false
+
+[mcp_servers."node_repl"]
+enabled = false
+
+[mcp_servers."iphone-use"]
+enabled = false
+
+[mcp_servers."mirroir"]
+enabled = false
+
+[features]
+apps = false
+memories = false
+browser_use = false
+computer_use = false
+chronicle = false
+multi_agent = false
+multi_agent_v2 = false
+skip_host_skill_discovery = true

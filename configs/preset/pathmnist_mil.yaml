@@ -1,9 +1,9 @@
 # @package _global_
-# Fast local experiment. The named Codex profile routes only this run to Magpie.
+# Fast local experiment. The named Codex profile uses the direct DeepSeek API.
 agent:
   name: codex
-  model: codex/gpt-6.1-sol
-  profile: agsci-magpie
+  model: deepseek-flash
+  profile: agsci-deepseek
   reasoning_effort: low
 container:
   enabled: false

@@ -35,13 +35,13 @@ runner_home="$host_session/home"
 mkdir -p "$runner_home/.codex" "$host_session/docker-client"
 printf '{"auths":{}}\n' > "$host_session/docker-client/config.json"
 docker_cmd=("$docker_bin" --config "$host_session/docker-client" --host "$endpoint")
-profile="${RESEARCH_RUNNER_CODEX_PROFILE:-agsci-magpie}"
+profile="${RESEARCH_RUNNER_CODEX_PROFILE:-agsci-deepseek}"
 case "$profile" in ''|*[!a-zA-Z0-9_-]*) echo 'Invalid Codex profile name.' >&2; exit 2 ;; esac
 auth_root="${RESEARCH_RUNNER_AUTH_ROOT:-$root/scratch/harness-audit/container-auth}"
 config="$auth_root/.codex/$profile.config.toml"
 if [ -f "$config" ]; then
-  cp "$config" "$runner_home/.codex/$profile.config.toml"
-  cp "$config" "$runner_home/.codex/config.toml"
+  python3 "$root/src/docker/research-runner/native_state.py" copy-profile \
+    "$auth_root/.codex" "$runner_home/.codex" "$profile"
 fi
 source_mount="type=bind,source=$root,target=$root"
 native_mount=()
@@ -141,6 +141,9 @@ args=(run --rm --init --network "${RESEARCH_RUNNER_NETWORK:-bridge}"
   --env http_proxy= --env https_proxy= --env all_proxy=)
 if [ "$native" = 1 ]; then args+=("${native_mount[@]}"); fi
 args+=("${broker_mount[@]}")
+if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+  args+=(--env DEEPSEEK_API_KEY)
+fi
 if [ -n "${RESEARCH_RUNNER_ENV_FILE:-}" ]; then
   if [ ! -f "$RESEARCH_RUNNER_ENV_FILE" ] || [ ! -r "$RESEARCH_RUNNER_ENV_FILE" ]; then
     echo 'RESEARCH_RUNNER_ENV_FILE must be a readable file.' >&2

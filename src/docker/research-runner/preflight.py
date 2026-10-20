@@ -87,12 +87,20 @@ def main() -> int:
         record("TeX PDF", compiled and (path / "probe.pdf").is_file(), "probe.pdf")
     try:
         codex_dir = Path(os.environ["CODEX_HOME"])
-        profile = os.environ.get("RESEARCH_RUNNER_CODEX_PROFILE", "agsci-magpie")
+        profile = os.environ.get("RESEARCH_RUNNER_CODEX_PROFILE", "agsci-deepseek")
         config = tomllib.loads((codex_dir / f"{profile}.config.toml").read_text())
         provider = config["model_providers"][config["model_provider"]]
         url = provider["base_url"].rstrip("/") + "/models"
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(url, timeout=15) as response:
+        headers = {}
+        api_key_name = provider.get("env_key")
+        if api_key_name:
+            api_key = os.environ.get(api_key_name)
+            if not api_key:
+                raise ValueError(f"{api_key_name} is not set")
+            headers["Authorization"] = "Bearer " + api_key
+        request = urllib.request.Request(url, headers=headers)
+        with opener.open(request, timeout=15) as response:
             payload = json.loads(response.read(2 * 1024 * 1024))
             record("provider model catalogue", response.status == 200 and isinstance(payload, (dict, list)), f"HTTP {response.status}; no model invocation")
     except (OSError, ValueError, KeyError) as exc:

@@ -1,5 +1,8 @@
 # 用可配置模型检索论文
 
+项目默认使用 DeepSeek 官方 API 的 `deepseek-flash`。Magpie 示例保留为可选
+legacy 路径，不再是本项目默认配置。
+
 在线文献检索现在通过模型 API 执行，不再调用 Semantic Scholar API。使用者选择服务、模型、API 地址和 key 的环境变量。检索模型与 V3 的实验 coding agent 分开配置，可以使用不同服务。
 
 这适用于新 `research` 项目的前置文献检索、论文初稿引用检索和初稿后的补充检索。通过项目中的 `research.yaml` 识别这一流程。上游没有该配置文件的旧任务仍保留原有引用流程。
@@ -94,7 +97,7 @@ literature:
 
 服务接口会变化。自定义地址和参数可以覆盖模板；本地 HTTP 测试不代表这些服务已逐个用真实账户验证。
 
-## 本机 Magpie
+## 可选 legacy：本机 Magpie
 
 `magpie` 模板使用本机 Responses 网关。文献检索填写：
 

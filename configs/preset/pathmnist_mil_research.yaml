@@ -5,8 +5,8 @@ task:
   dir: examples/pathmnist_mil
 agent:
   name: codex
-  model: codex/gpt-6.1-sol
-  profile: agsci-magpie
+  model: deepseek-flash
+  profile: agsci-deepseek
   reasoning_effort: high
 container:
   enabled: false

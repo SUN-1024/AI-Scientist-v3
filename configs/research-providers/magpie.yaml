@@ -1,4 +1,4 @@
-# Local Magpie gateway. Change the model to a model exposed by /v1/models.
+# Optional legacy gateway template. The project default is direct DeepSeek Flash.
 literature:
   model_search:
     provider: magpie

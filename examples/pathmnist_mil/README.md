@@ -2,7 +2,10 @@
 
 问题：保持肿瘤 patch 不变，只加入正常组织背景，MIL 分类器是否变差？小幅修改聚合方法能否在 15% bag 标签噪声下保持效果？
 
-本例通过融合项目的 `research run` 运行。模型为本机 Magpie 中的 `codex/gpt-6.1-sol`。用途是检查研究流程及短时实验能力。它使用真实 PathMNIST 图像构造合成 bags，不能当作临床全切片或患者级验证。
+本例通过融合项目的 `research run` 运行。默认模型为 DeepSeek 官方 API 的
+`deepseek-flash`，直接使用 `https://api.deepseek.com/`，不需要 Magpie。
+用途是检查研究流程及短时实验能力。它使用真实 PathMNIST 图像构造合成 bags，
+不能当作临床全切片或患者级验证。
 
 本页先给出最小连通配置。增加预算的开发研究见下方“多 seed 与更大搜索”；各层预算的含义见[研究质量指南](../../docs/research-quality-guide.zh-CN.md)。
 
@@ -39,7 +42,10 @@ curl -fL --retry 2 -C - --proxy http://127.0.0.1:7890 \
 
 `prepare_data.py` 核验官方 MD5，移除跨分区完全重复图像，并保存构造记录和 SHA-256。不会覆盖已有特征或 holdout。数据和论文缓存不进入 Git。
 
-为实验 Codex 创建专用 `~/.codex/agsci-magpie.config.toml`，可从 [模板](../../configs/research-providers/agsci-magpie.config.toml.example)复制。它不含上游 key。Magpie 必须正在本机监听相应地址；若网关启用认证，按网关设置补充环境变量。
+为实验 Codex 创建专用 `~/.codex/agsci-deepseek.config.toml`，可从
+[模板](../../configs/research-providers/agsci-deepseek.config.toml.example)复制，
+并从该模板目录复制 `deepseek-models.json` 到同一 `.codex` 目录。配置文件不含
+API key。设置 `DEEPSEEK_API_KEY` 后，Codex 直接访问 DeepSeek Responses API。
 
 ## 执行融合流程
 
@@ -48,7 +54,7 @@ curl -fL --retry 2 -C - --proxy http://127.0.0.1:7890 \
   --workspace results/unified/pathmnist-mil-quick \
   preset=pathmnist_mil --dry-run
 
-# 调用 Magpie 完成真实文献检索、idea 生成、代码生成和实验。
+# 调用 DeepSeek Flash 完成真实文献检索、idea 生成、代码生成和实验。
 ./scripts/research-agent run examples/pathmnist_mil \
   --workspace results/unified/pathmnist-mil-quick \
   preset=pathmnist_mil

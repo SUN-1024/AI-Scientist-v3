@@ -8,12 +8,11 @@ The checked-in directory is a source template. Generate a frozen task under an i
 scratch directory before a Harness run. It refuses to overwrite an existing task.
 
 `research.yaml` is a configurable example. Its literature default is
-`deepseek/deepseek-flash` through a local Magpie gateway, with DeepSeek's standalone
-Search API as the external search backend. Export `DEEPSEEK_API_KEY` in the Harness
-process for search; the file contains no key. To use GPT through the same gateway,
-change `literature.model_search.model` to `codex/gpt-6.1-sol`. Keep `mode: external`
-to retain the separate search backend, or use `native` only when that model returns
-structured search receipts. See the [model guide](../../docs/model-search.zh-CN.md).
+`deepseek-flash` through the official DeepSeek API, with DeepSeek's standalone
+Search API as the external search backend. Agent calls use the project's
+`agsci-deepseek` Codex profile and also connect directly to DeepSeek. Export
+`DEEPSEEK_API_KEY` for both paths; the files contain no key. See the
+[model guide](../../docs/model-search.zh-CN.md).
 Author and code models use `agent.*`; independent review overrides use `review.agent_*`.
 These choices affect this run, not the user's global Codex configuration.
 New tasks enable the `medical` methodology profile. The Harness freezes its rules

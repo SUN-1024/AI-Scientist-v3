@@ -1,0 +1,10 @@
+{
+  "source": "https://api-docs.deepseek.com/quick_start/agent_integrations/codex/",
+  "retrieved_at": "2026-10-20",
+  "source_models": [
+    "deepseek-flash",
+    "deepseek-v4-pro"
+  ],
+  "bytes": 76107,
+  "sha256": "bce20f679495809f4fa6e48672b6dcbab84b6adff5251890b6e6a21eddb9c12f"
+}

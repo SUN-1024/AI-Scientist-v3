@@ -72,12 +72,15 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 ./scripts/research-agent harness playground/my-study \
   --workspace results/harness/my-study \
   --dry-run \
-  agent.name=codex agent.profile=YOUR_PROFILE agent.model=codex/gpt-6.1-sol \
+  agent.name=codex agent.profile=agsci-deepseek agent.model=deepseek-flash \
   container.image=unified-ai-scientist/research-cpu:2026.10 \
   container.env_file=
 ```
 
-检查配置后，删除 `--dry-run` 执行。`YOUR_PROFILE` 是本机已配置的 Headless/Codex profile 名。模型可通过 `agent.model` 指定。文献服务在任务的 `research.yaml` 中配置，见[模型检索指南](model-search.zh-CN.md)。
+检查配置后，删除 `--dry-run` 执行。项目默认 profile 为
+`agsci-deepseek`，直接访问 `https://api.deepseek.com/`。运行前设置
+`DEEPSEEK_API_KEY`。模型可通过 `agent.model` 指定。文献服务在任务的
+`research.yaml` 中配置，见[模型检索指南](model-search.zh-CN.md)。
 
 模型按用途配置。框架不把任何阶段固定到 GPT 或 DeepSeek：
 
@@ -87,17 +90,17 @@ macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须�
 | `review.agent_name/agent_model/agent_profile/agent_reasoning_effort` | `review.backend=agent` 时的独立创新性审查与论文审稿 | 未填写的字段继承 `agent.*`；每次审查仍使用新的上下文 |
 | `literature.model_search` | 文献检索及检索结果解析 | 在任务 `research.yaml` 中单独配置，不随 `agent.model` 改变 |
 
-例如，本机 Magpie profile 可让 DeepSeek Flash 负责作者工作，让 GPT 独立审稿：
+例如，可让 DeepSeek Flash 负责作者工作，再为独立审稿配置另一个兼容 profile：
 
 ```bash
 ./scripts/research-agent harness playground/my-study \
   --workspace results/harness/my-study --dry-run \
-  agent.name=codex agent.profile=YOUR_MAGPIE_PROFILE \
-  agent.model=deepseek/deepseek-flash \
-  review.agent_model=codex/gpt-6.1-sol
+  agent.name=codex agent.profile=agsci-deepseek \
+  agent.model=deepseek-flash \
+  review.agent_profile=REVIEW_PROFILE review.agent_model=REVIEW_MODEL
 ```
 
-把 `agent.model` 改为 `codex/gpt-6.1-sol` 即可让 GPT 负责作者工作。删去 `review.agent_model` 则让审稿继承作者模型；独立性来自新的上下文和独立证据回执。模型 ID 是网关路由示例，须以所用服务实际提供的 ID 为准。示例默认值只影响这个任务，不修改用户的全局 Codex 设置。
+删去 `review.agent_model` 则让审稿继承作者模型；独立性来自新的上下文和独立证据回执。示例默认值只影响这个任务，不修改用户的全局 Codex 设置。
 
 文献模型和搜索服务也可分别选择。支持服务端搜索且能返回结构化来源时使用 `native`；普通模型使用 `external`，由 Harness 实际请求所配置的搜索服务。仅更换模型名称不会自动赋予联网能力。详见[两条检索路径](model-search.zh-CN.md#两条执行路径)。
 
@@ -125,7 +128,9 @@ docker image inspect unified-ai-scientist/finite-python-torch:local --format '{{
 
 程序、输入、实际输出、隔离条件与执行收据均绑定到该次提示词。取消或超时会停止服务并清理程序容器；恢复时先核验独占租约、容器 ID 和所有权标签。无法确认容器身份或清理结果时，保留私有恢复记录并拒绝将调用保存为完成状态。缓存重放只校验证据，不在宿主机执行模型代码。执行收据证明本次运行与保存字节的关系，科学含义仍由研究设计、原文证据和独立审查判断。
 
-在 macOS Docker 中，宿主服务地址应使用 `host.docker.internal`。例如 Magpie 位于宿主机时，为容器准备独立 profile，并通过 `container.auth_root` 指向它的父目录；保留本机 profile 的原地址。不要把凭据加入任务目录或 Git。
+DeepSeek 直连使用公网地址，容器不需要访问宿主网关。通过
+`RESEARCH_RUNNER_ENV_FILE` 或调用环境提供 `DEEPSEEK_API_KEY`；不要把凭据加入
+任务目录或 Git。
 
 从中断点恢复：
 
