@@ -438,12 +438,17 @@ ENVIRONMENT_CASES = [
         "excludes-unrelated-credentials",
         {
             "PATH": "/usr/bin",
+            "DEEPSEEK_API_KEY": "deepseek-secret",
             "OPENAI_API_KEY": "openai-secret",
             "GITHUB_TOKEN": "github-secret",
             "AWS_SECRET_ACCESS_KEY": "aws-secret",
             "UV_INDEX_INTERNAL_TOKEN": "unsupported-index-secret",
         },
-        {"PATH": "/usr/bin", "OPENAI_API_KEY": "openai-secret"},
+        {
+            "PATH": "/usr/bin",
+            "DEEPSEEK_API_KEY": "deepseek-secret",
+            "OPENAI_API_KEY": "openai-secret",
+        },
     ),
     ("preserves-uv-resolver-settings", _UV_RESOLVER_ENV, _UV_RESOLVER_ENV),
 ]
@@ -459,6 +464,7 @@ def test_final_ai_review_environment_filters_process_env_and_scopes_env_file(
     # loads only OpenAI values from an env file
     env_file = tmp_path / "container.env"
     env_file.write_text(
+        "DEEPSEEK_API_KEY=file-deepseek-secret\n"
         'OPENAI_API_KEY="file-openai-secret" # reviewer credential\n'
         "OPENAI_BASE_URL=https://openai.example.test/v1\n"
         "AWS_SECRET_ACCESS_KEY=aws-secret\n"
@@ -467,6 +473,7 @@ def test_final_ai_review_environment_filters_process_env_and_scopes_env_file(
     )
 
     assert final_ai_review_environment({"PATH": "/usr/bin"}, env_file=env_file) == {
+        "DEEPSEEK_API_KEY": "file-deepseek-secret",
         "OPENAI_API_KEY": "file-openai-secret",
         "OPENAI_BASE_URL": "https://openai.example.test/v1",
         "PATH": "/usr/bin",

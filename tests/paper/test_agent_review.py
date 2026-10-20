@@ -65,6 +65,18 @@ def test_real_subprocess_uses_fresh_context_and_records_provider(tmp_path: Path)
     assert json.loads((tmp_path / "artifacts/receipt.json").read_text())["independent_context"] is True
 
 
+def test_agent_review_environment_passes_deepseek_key_only_by_allowlist() -> None:
+    environment = backend.agent_review_environment({
+        "PATH": "/usr/bin",
+        "DEEPSEEK_API_KEY": "deepseek-review-secret",
+        "OPENAI_API_KEY": "openai-unrelated",
+        "UNRELATED_SECRET": "must-not-leak",
+    })
+    assert environment["DEEPSEEK_API_KEY"] == "deepseek-review-secret"
+    assert environment["OPENAI_API_KEY"] == "openai-unrelated"
+    assert "UNRELATED_SECRET" not in environment
+
+
 @pytest.mark.parametrize("message,exit_code,expected", [
     ("not JSON", 0, "exactly one JSON"),
     ('{"x":1,"x":2}', 0, "duplicate"),

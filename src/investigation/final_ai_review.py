@@ -43,7 +43,8 @@ _ENV_FILE_MAX_BYTES = 1024 * 1024
 _PAPER_MANIFEST_MAX_BYTES = 1024 * 1024
 _REVIEW_OUTPUT_MAX_BYTES = 4 * 1024 * 1024
 _REVIEW_LOG_MAX_BYTES = 16 * 1024 * 1024
-_OPENAI_ENVIRONMENT_KEYS = {
+_PROVIDER_ENVIRONMENT_KEYS = {
+    "DEEPSEEK_API_KEY",
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
     "OPENAI_ORG_ID",
@@ -66,6 +67,7 @@ _ENVIRONMENT_ALLOWLIST = {
     "LC_ALL",
     "NETRC",
     "NO_PROXY",
+    "DEEPSEEK_API_KEY",
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
     "OPENAI_ORG_ID",
@@ -185,7 +187,7 @@ def read_paper_manifest(path: Path) -> dict[str, object]:
     return manifest
 
 
-def _openai_environment_from_file(path: Path) -> dict[str, str]:
+def _provider_environment_from_file(path: Path) -> dict[str, str]:
     selected: dict[str, str] = {}
     for raw_line in _read_env_file_no_follow(path).splitlines():
         assignment = raw_line.strip()
@@ -198,7 +200,7 @@ def _openai_environment_from_file(path: Path) -> dict[str, str]:
             assignment = parts[1]
         key, separator, raw_value = assignment.partition("=")
         key = key.strip()
-        if not separator or key not in _OPENAI_ENVIRONMENT_KEYS:
+        if not separator or key not in _PROVIDER_ENVIRONMENT_KEYS:
             continue
         selected[key] = _parse_env_value(raw_value, key=key)
     return selected
@@ -241,8 +243,8 @@ def final_ai_review_environment(
         for key, value in environment.items()
         if key in _ENVIRONMENT_ALLOWLIST or _UV_INDEX_CREDENTIAL_PATTERN.fullmatch(key)
     }
-    if env_file is not None and not selected.get("OPENAI_API_KEY"):
-        for key, value in _openai_environment_from_file(env_file).items():
+    if env_file is not None:
+        for key, value in _provider_environment_from_file(env_file).items():
             if not selected.get(key):
                 selected[key] = value
     return selected

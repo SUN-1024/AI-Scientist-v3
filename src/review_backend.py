@@ -37,6 +37,7 @@ _MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 _AGENT_KEYS = {
     "HEADLESS_BIN", "HEADLESS_BILLING", "CODEX_HOME", "NODE_EXTRA_CA_CERTS",
     "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "GEMINI_API_KEY", "GOOGLE_API_KEY",
+    "DEEPSEEK_API_KEY",
 }
 _SCORE_RANGES = {
     "Originality": 4, "Quality": 4, "Clarity": 4, "Significance": 4,
@@ -123,6 +124,7 @@ def run_fresh_agent_json(
     profile: str | None = None, reasoning_effort: str | None = None,
     timeout_seconds: int = 1800, environment: Mapping[str, str] | None = None,
     source_lookup_packet: dict[str, Any] | None = None,
+    source_pdf_files: Mapping[str, tuple[Path, str]] | None = None,
     python_execution_image: str | None = None,
     cancel_event: threading.Event | None = None,
     on_process_start: Callable[[subprocess.Popen[bytes]], None] | None = None,
@@ -146,6 +148,8 @@ def run_fresh_agent_json(
         raise AgentReviewError("gemini does not support reviewer reasoning effort")
     if type(timeout_seconds) is not int or timeout_seconds < 1:
         raise AgentReviewError("review timeout must be a positive integer")
+    if source_pdf_files is not None and source_lookup_packet is None:
+        raise AgentReviewError("PDF page tools require the frozen source lookup packet")
     env = agent_review_environment(os.environ if environment is None else environment)
     executable = env.get("HEADLESS_BIN") or shutil.which("headless", path=env.get("PATH"))
     if not executable:
@@ -161,6 +165,8 @@ def run_fresh_agent_json(
     }
     if source_lookup_packet is not None:
         receipt["source_lookup_requested"] = True
+    if source_pdf_files:
+        receipt["source_pages_requested"] = True
     if python_execution_image is not None:
         receipt["python_execution_requested"] = True
     cleanup_witness = ProcessCleanupWitness()
@@ -223,6 +229,7 @@ def run_fresh_agent_json(
             prompt_file = cwd / "prompt.txt"
             prompt_file.write_text(prompt, encoding="utf-8")
             source_tools = None
+            page_tools = None
             execution_tools = None
             call_env = env
             tool_profile = None
@@ -238,6 +245,11 @@ def run_fresh_agent_json(
                     agent=agent, model=model, profile=profile, tool_profile=tool_profile,
                 )
                 call_env = source_tools.environment
+            if source_pdf_files:
+                from src.research.agent_source_pages import prepare_source_pages
+                assert tool_profile is not None and source_lookup_packet is not None
+                page_tools = prepare_source_pages(source_lookup_packet, source_pdf_files,
+                                                  artifacts=work_dir, profile=tool_profile)
             if python_execution_image is not None:
                 from src.research.agent_execution_tools import PreparedExecutionTools
                 assert tool_profile is not None
@@ -289,6 +301,8 @@ def run_fresh_agent_json(
                 receipt["python_execution"] = execution_tools.finish()
             if source_tools is not None:
                 receipt["source_lookup"] = source_tools.finish()
+            if page_tools is not None:
+                receipt["source_pages"] = page_tools.finish()
             receipt.update(status="completed", observed_model=data.get("model"),
                            observed_provider=data.get("provider"), native_session_id=data.get("nativeSessionId"),
                            usage=data.get("usage"), response_sha256=sha256(data["finalMessage"]))
