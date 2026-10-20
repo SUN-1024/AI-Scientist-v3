@@ -333,3 +333,20 @@ python -m src.research.audit.mil_assumption_audit task.json --output report.json
 `permutation`。报告包含：相容布尔映射与 support、forced/unresolved 证书、
 组成矩阵及其精确秩、A4/A5 集合（含置换后对比）、target-blind 自适应查询最优、
 target-aware teaching 成本。全部用整数与 `fractions.Fraction`，无第三方依赖、无随机抽样。
+
+## 复现包校验（`verify-bundle`）
+
+```bash
+agsci research verify-bundle reproduction-bundle.tar.gz \
+  --manuscript NOTE.tex \
+  --expect-hash <manifest-sha256>
+```
+
+复现包是含 `MANIFEST.json`（`{"files": {相对路径: sha256}}`）的目录或 `.tar.gz`。
+校验是精确的：列出的文件必须存在且字节一致，不允许未列出的文件，拒绝符号链接；
+若给出 `--manuscript`，正文必须引用 manifest 的 SHA-256，防止重建包后正文仍引用旧哈希。
+命令在失败时返回 1。
+
+注意：正文应引用 **manifest 哈希**（内容指纹），而不是 tar.gz 的哈希（会随压缩元数据变化）。
+在 macOS 上用 `COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata` 打包，
+否则归档会混入 `._*` AppleDouble 文件，被校验判为未列出文件。

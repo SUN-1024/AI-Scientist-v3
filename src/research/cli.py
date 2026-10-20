@@ -79,6 +79,10 @@ def _parser() -> argparse.ArgumentParser:
     critique.add_argument("--reviewers", type=int, default=2)
     critique.add_argument("--reasoning-effort", default="high")
     critique.add_argument("--timeout-seconds", type=int, default=1800)
+    verify = sub.add_parser("verify-bundle", help="Verify a reproduction bundle against its manifest")
+    verify.add_argument("bundle", type=Path, help="Bundle directory or .tar.gz archive")
+    verify.add_argument("--manuscript", type=Path, help="Require the manifest hash to appear here")
+    verify.add_argument("--expect-hash", help="Require this exact manifest SHA-256")
     return parser
 
 
@@ -144,6 +148,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Created research project: {destination}")
             print("Edit research.yaml for the model provider, model ID, key environment variable and sources; then run agsci research prepare.")
             return 0
+        if args.command == "verify-bundle":
+            from .evidence_bundle import verify_bundle
+            report = verify_bundle(args.bundle, manuscript=args.manuscript, expect_hash=args.expect_hash)
+            print(json.dumps({key: report[key] for key in
+                              ("status", "checked_files", "manifest_sha256", "missing", "mismatched",
+                               "unexpected", "manuscript_cites_manifest")
+                              if key in report}, indent=1, sort_keys=True))
+            return 0 if report["status"] == "verified" else 1
         if args.command == "critique":
             from .paper_critique import critique
             report = critique(args.manuscript, args.output, reviewers=args.reviewers, settings={
