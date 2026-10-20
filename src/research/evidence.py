@@ -514,6 +514,16 @@ def load_catalog(task_dir: Path) -> dict[str, Any] | None:
             text = body.decode("utf-8")
         if source["availability"] != "metadata" and not text.strip():
             raise ValueError("Research source availability requires saved text")
+        if source.get("raw_path") is not None:
+            from .agent_tool_profile import _regular
+            relative = source["raw_path"]
+            if (not isinstance(relative, str) or not relative or Path(relative).is_absolute()
+                    or ".." in Path(relative).parts or Path(relative).as_posix() != relative
+                    or Path(relative).suffix.lower() != ".pdf"):
+                raise ValueError("Research PDF path must stay inside the catalog directory")
+            body = _regular(root / relative, 20 * 1024 * 1024)
+            if hashlib.sha256(body).hexdigest() != source.get("download_sha256"):
+                raise ValueError(f"Research source PDF changed: {source['id']}")
         if "extraction" in source:
             extraction = source["extraction"]
             if (not isinstance(extraction, dict) or extraction.get("policy_version") != 1

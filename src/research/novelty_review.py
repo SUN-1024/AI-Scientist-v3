@@ -161,6 +161,14 @@ def source_packet(task_dir: Path, agenda: dict[str, Any] | None = None) -> dict[
     return packet
 
 
+def _page_tools_context(task_dir: Path, settings: dict[str, Any] | None) -> dict[str, Any]:
+    if settings is None or not settings.get("source_lookup"):
+        return {}
+    from .agent_source_pages import pdf_files_for_task
+    files = pdf_files_for_task(task_dir)
+    return {"source_pdf_files": files} if files else {}
+
+
 def _review_prompt_payload(prompt: str) -> dict[str, Any]:
     marker = "\n\nFROZEN INPUT DATA:\n"
     if marker not in prompt:
@@ -269,6 +277,9 @@ def _check_binding(receipt: dict[str, Any], cfg: LiteratureConfig,
         raise ValueError("Saved source-tool configuration changed")
     if enabled and receipt.get("status") == "complete" and not isinstance(receipt.get("source_lookup"), dict):
         raise ValueError("Completed call is missing its source-tool evidence")
+    if receipt.get("source_pages_requested") is True and (not enabled or (
+            receipt.get("status") == "complete" and not isinstance(receipt.get("source_pages"), dict))):
+        raise ValueError("Saved call is missing its PDF page tool evidence")
 
 
 def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
@@ -346,6 +357,18 @@ def _replay_call(directory: Path, receipt: dict[str, Any], phase: str,
             expected_binding = _source_packet_binding(complete_packet)
             if any(receipt.get(key) != value for key, value in expected_binding.items()):
                 raise ValueError("Source-tool packet differs from its call source binding")
+        if bool(receipt.get("source_pages_requested")) != bool(transport.get("source_pages_requested")):
+            raise ValueError("Agent PDF tool request differs from its transport")
+        if receipt.get("source_pages_requested") is True:
+            from .agent_source_pages import verify_source_pages
+            if (receipt.get("source_lookup_requested") is not True
+                    or receipt.get("source_pages") != transport.get("source_pages")):
+                raise ValueError("Agent PDF page receipt differs from its source/transport")
+            manifest = _read(directory / "transport/source_pages/manifest.json")
+            hashes = {row["id"]: frozen["sources"].get(row["id"], {}).get("download_sha256")
+                      for row in manifest["sources"]}
+            verify_source_pages(directory / "transport", receipt["source_pages"],
+                                expected_packet_sha256=content_hash(complete_packet), expected_pdf_hashes=hashes)
         if receipt.get("python_execution_requested") is True:
             from .agent_execution_tools import verify_execution_tools
             if receipt.get("python_execution") != transport.get("python_execution"):
@@ -508,7 +531,8 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
             execution_settings["timeout_seconds"] = min(execution_settings.get("timeout_seconds", 1800), remaining)
         return _agent_call(prompt, directory, phase, frozen, execution_settings,
                            configuration_sha256=_configuration_hash(cfg, reviewer_settings),
-                           cancel_event=cancel_event)
+                           cancel_event=cancel_event,
+                           **({"source_pdf_files": source_pdf_files} if source_pdf_files else {}))
     session = SearchSession(cfg, directory, **({"deadline_unix": deadline_unix} if deadline_unix is not None else {}))
     write_private_text(directory / "prompt.txt", prompt)
     receipt: dict[str, Any] = {
@@ -543,7 +567,8 @@ def _model_call(prompt: str, cfg: LiteratureConfig, directory: Path, phase: str,
 
 def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any],
                 settings: dict[str, Any], *, configuration_sha256: str,
-                cancel_event: threading.Event | None = None) -> dict[str, Any]:
+                cancel_event: threading.Event | None = None,
+                source_pdf_files: dict[str, tuple[Path, str]] | None = None) -> dict[str, Any]:
     from src.review_backend import run_fresh_agent_json
 
     allowed = {"agent", "model", "profile", "reasoning_effort", "timeout_seconds", "environment", "source_lookup", "python_execution_image"}
@@ -565,6 +590,8 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
     }
     if enabled:
         receipt.update(source_lookup_requested=True, **_source_packet_binding(lookup_packet))
+        if source_pdf_files:
+            receipt["source_pages_requested"] = True
     if "python_execution_image" in execution_settings:
         receipt["python_execution_requested"] = True
     _dump(directory / "receipt.json", receipt)
@@ -572,6 +599,8 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
         lifecycle: dict[str, Any] = {"cancel_event": cancel_event} if cancel_event is not None else {}
         if enabled:
             lifecycle["source_lookup_packet"] = lookup_packet
+            if source_pdf_files:
+                lifecycle["source_pdf_files"] = source_pdf_files
         parsed, transport = run_fresh_agent_json(prompt, work_dir=directory / "transport", **execution_settings, **lifecycle)
         if transport.get("status") != "completed" or transport.get("independent_context") is not True:
             raise ValueError("Reviewer did not complete in an independent agent context")
@@ -588,6 +617,14 @@ def _agent_call(prompt: str, directory: Path, phase: str, frozen: dict[str, Any]
             source_receipt = transport.get("source_lookup")
             verify_source_tools(directory / "transport", source_receipt, expected_packet=lookup_packet)
             completed["source_lookup"] = source_receipt
+        if receipt.get("source_pages_requested") is True:
+            from .agent_source_pages import verify_source_pages
+            assert source_pdf_files is not None
+            page_receipt = transport.get("source_pages")
+            verify_source_pages(directory / "transport", page_receipt,
+                                expected_packet_sha256=content_hash(lookup_packet),
+                                expected_pdf_hashes={key: value[1] for key, value in source_pdf_files.items()})
+            completed["source_pages"] = page_receipt
         if receipt.get("python_execution_requested") is True:
             from .agent_execution_tools import verify_execution_tools
             execution_receipt = transport.get("python_execution")
@@ -696,7 +733,9 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
     if len(prompt.encode("utf-8")) > 1800_000:
         raise ValueError("Agenda prompt exceeds 1.8 MB; split the study rather than truncating source or implementation evidence")
     deadline: dict[str, Any] = {"deadline_unix": deadline_unix} if deadline_unix is not None else {}
-    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings, resume=resume, **deadline)
+    page_context = _page_tools_context(task_dir, reviewer_settings)
+    agenda = _model_call(prompt, cfg, output / "agenda_draft", "research_agenda", frozen, reviewer_settings,
+                         resume=resume, **deadline, **page_context)
     def plan_errors(proposed: dict[str, Any]) -> list[dict[str, Any]]:
         from .campaign_plan import compile_campaign_plan, PlanValidationError
         if host_context is None:
@@ -713,7 +752,7 @@ def draft_research_agenda(task_dir: Path, cfg: LiteratureConfig, output: Path, *
             num_reflections=num_reflections,
             request=lambda reflection_prompt, round_index: _model_call(
                 reflection_prompt, cfg, output / f"agenda_reflection_{round_index}",
-                "research_agenda", frozen, reviewer_settings, resume=resume, **deadline,
+                "research_agenda", frozen, reviewer_settings, resume=resume, **deadline, **page_context,
             ),
             **validation,
         )
@@ -820,6 +859,7 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
         validate_candidate_packet(candidate_packet)
         frozen["candidate_packet_sha256"] = content_hash(candidate_packet)
     packet = source_packet(task_dir, agenda)
+    page_context = _page_tools_context(task_dir, reviewer_settings)
     template = (PROMPTS / "novelty_review.md").read_text(encoding="utf-8")
     guidance = render_methodology(task_dir, stage="novelty", agenda=agenda)
     whole_idea_guidance = render_whole_idea_guidance(task_dir, stage="novelty")
@@ -910,7 +950,7 @@ def review_novelty(task_dir: Path, agenda: dict[str, Any], cfg: LiteratureConfig
                 logger.info("Novelty %s start", name)
                 deadline: dict[str, Any] = {"deadline_unix": deadline_unix} if deadline_unix is not None else {}
                 future = executor.submit(_model_call, prompt, cfg, output / name, "novelty_review",
-                                         frozen, reviewer_settings, cancel_event=cancellation, **deadline)
+                                         frozen, reviewer_settings, cancel_event=cancellation, **deadline, **page_context)
                 futures[future] = name
             remaining = set(futures)
             while remaining:

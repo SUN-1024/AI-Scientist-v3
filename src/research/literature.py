@@ -141,6 +141,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
         text = ""
         availability = "metadata"
         raw_hash = None
+        pdf_body = None
         extraction: dict[str, Any] = {}
         origin = record.get("url") or "local source"
         if record.get("path"):
@@ -155,6 +156,8 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
             text, availability = _extract_text(body, pdf=path.suffix.lower() == ".pdf",
                                                provenance=extraction)
             raw_hash = hashlib.sha256(body).hexdigest()
+            if path.suffix.lower() == ".pdf":
+                pdf_body = body
             origin = record["path"]
         elif not offline and cfg.fetch_full_text:
             access = record.get("openAccessPdf")
@@ -164,6 +167,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
                     body = download(pdf_url, cfg)
                     text, availability = _extract_text(body, pdf=True, provenance=extraction)
                     raw_hash = hashlib.sha256(body).hexdigest()
+                    pdf_body = body
                     origin = pdf_url
                 except Exception as exc:
                     errors.append({"stage": "full_text", "source_id": source_id, "error": str(exc)})
@@ -173,6 +177,11 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
         text_path = f"text/{source_id}.txt" if text else None
         if text_path:
             (output / text_path).write_text(text, encoding="utf-8")
+        raw_path = None
+        if pdf_body is not None:
+            (output / "raw").mkdir(exist_ok=True)
+            raw_path = f"raw/{source_id}.pdf"
+            (output / raw_path).write_bytes(pdf_body)
         sources.append({
             "id": source_id, "title": record["title"], "year": record.get("year"),
             "venue": record.get("venue"), "url": record.get("url"),
@@ -182,6 +191,7 @@ def prepare_literature(task_dir: Path, cfg: LiteratureConfig, *, offline: bool =
             "model_summary": record.get("model_summary"), "search_sources": record.get("search_sources", []),
             "text_path": text_path, "text_sha256": hashlib.sha256(text.encode()).hexdigest() if text else None,
             "download_sha256": raw_hash, "passages": passages(text, source_id, cfg.queries),
+            **({"raw_path": raw_path} if raw_path else {}),
             **({"extraction": extraction} if extraction else {}),
         })
         if len(sources) >= cfg.max_papers:

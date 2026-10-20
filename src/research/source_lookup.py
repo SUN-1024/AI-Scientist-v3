@@ -185,9 +185,14 @@ def tools() -> list[dict[str, Any]]:
 
 
 def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
-          packet_sha256: str, audit: Callable[[dict[str, Any]], None] | None = None) -> None:
+          packet_sha256: str, audit: Callable[[dict[str, Any]], None] | None = None,
+          tool_definitions: list[dict[str, Any]] | None = None,
+          result_content: Callable[[dict[str, Any]], list[dict[str, Any]]] | None = None,
+          server_name: str = "agsci-source-lookup", max_requests: int | None = None,
+          record_errors: bool = False) -> None:
     """Serve the MCP 2025-06-18 stdio subset declared in capabilities."""
     initialized = False
+    requests = 0
 
     def send(value: dict[str, Any]) -> None:
         outgoing.write((_json(value) + "\n").encode("utf-8"))
@@ -199,6 +204,9 @@ def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
             return
         if len(line) > MAX_MESSAGE_BYTES:
             raise ValueError("MCP input exceeds the message bound")
+        requests += 1
+        if max_requests is not None and requests > max_requests:
+            raise ValueError("MCP request budget exhausted")
         request_id: Any = None
         try:
             request = _parse(line.decode("utf-8"))
@@ -219,7 +227,7 @@ def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
                 initialized = True
                 result: dict[str, Any] = {
                     "protocolVersion": PROTOCOL_VERSION, "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "agsci-source-lookup", "version": "1.0.0"},
+                    "serverInfo": {"name": server_name, "version": "1.0.0"},
                     "instructions": "Navigate only the frozen source packet. Tool output establishes exact text "
                                     "locations, not novelty, truth, or scientific support.",
                 }
@@ -231,7 +239,7 @@ def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
             elif not initialized:
                 raise ValueError("Initialize the MCP connection first")
             elif method == "tools/list":
-                result = {"tools": tools()}
+                result = {"tools": tools() if tool_definitions is None else tool_definitions}
                 if audit is not None:
                     audit({"event": "source_lookup_tools_listed", "packet_sha256": packet_sha256,
                            "result_sha256": _sha(_json(result))})
@@ -242,13 +250,18 @@ def serve(lookup: SourceLookup, incoming: BinaryIO, outgoing: BinaryIO, *,
                     if not isinstance(name, str):
                         raise ValueError("Tool name must be a string")
                     data = lookup.call(name, arguments)
-                    result = {"content": [{"type": "text", "text": _json(data)}], "isError": False}
+                    content = ([{"type": "text", "text": _json(data)}] if result_content is None
+                               else result_content(data))
+                    result = {"content": content, "isError": False}
                 except ValueError as exc:
                     result = {"content": [{"type": "text", "text": str(exc)}], "isError": True}
                 if audit is not None:
-                    audit({"event": "source_lookup_call", "packet_sha256": packet_sha256,
-                           "tool": params.get("name"), "arguments": params.get("arguments", {}),
-                           "result_sha256": _sha(_json(result)), "is_error": result["isError"]})
+                    event = {"event": "source_lookup_call", "packet_sha256": packet_sha256,
+                             "tool": params.get("name"), "arguments": params.get("arguments", {}),
+                             "result_sha256": _sha(_json(result)), "is_error": result["isError"]}
+                    if record_errors and result["isError"]:
+                        event["error_result"] = result
+                    audit(event)
             else:
                 send({"jsonrpc": "2.0", "id": request_id,
                       "error": {"code": -32601, "message": "Method not found"}})
