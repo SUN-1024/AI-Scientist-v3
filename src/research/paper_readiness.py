@@ -136,6 +136,31 @@ def _portfolio_confirmation(workspace: Path, cfg: ResearchConfig) -> dict[str, A
                    matched_hpo_verified=False)
 
 
+def _evidence_bundle(workspace: Path) -> dict[str, Any] | None:
+    """Verify a shipped reproduction bundle; absent bundles are not a gap."""
+    from .evidence_bundle import verify_bundle
+
+    paper = workspace / "run/paper"
+    bundles = sorted(paper.glob("reproduction-bundle-*.tar.gz"))
+    if not bundles:
+        return None
+    if len(bundles) > 1:
+        return _result("missing_or_invalid", "More than one reproduction bundle is present; keep exactly one")
+    manuscript = paper / "paper.tex"
+    if not manuscript.is_file() or manuscript.is_symlink():
+        return _result("missing_or_invalid", "A reproduction bundle ships without a regular paper.tex")
+    try:
+        report = verify_bundle(bundles[0], manuscript=manuscript)
+    except (OSError, ValueError, TypeError) as exc:
+        return _result("missing_or_invalid", str(exc))
+    return _result("verified" if report["status"] == "verified" else "failed",
+                   "Bundle files match MANIFEST.json and the manuscript cites the manifest hash",
+                   archive=str(bundles[0].relative_to(workspace)),
+                   checked_files=report["checked_files"],
+                   manifest_sha256=report["manifest_sha256"],
+                   manuscript_cites_manifest=report.get("manuscript_cites_manifest"))
+
+
 def _paper(workspace: Path, state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     from src.pipeline.config import validate_review_input
     from src.orchestrator.paper_finalize import _paper_audit_is_current_and_passing
@@ -245,6 +270,9 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
     postdraft = verify_postdraft_execution_agenda(workspace)
     if postdraft is not None:
         checks["postdraft_execution_agenda"] = postdraft
+    evidence_bundle = _evidence_bundle(workspace)
+    if evidence_bundle is not None:
+        checks["evidence_bundle"] = evidence_bundle
     quality = cfg.harness.quality
     effect = (portfolio_confirmation.get("paired_comparison", {}).get("aggregate_metrics", {})
               if portfolio_confirmation is not None else checks["confirmation"].get("metrics", {}))
@@ -301,6 +329,8 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
         expected["methodology"] = "declared"
     if postdraft is not None:
         expected["postdraft_execution_agenda"] = "declared"
+    if "evidence_bundle" in checks:
+        expected["evidence_bundle"] = "verified"
     if portfolio_confirmation is not None:
         expected["portfolio_final_comparison"] = "verified"
     gaps = [{"check": key, "status": checks[key].get("status"), "detail": checks[key].get("detail", checks[key].get("gaps", []))}
@@ -324,6 +354,7 @@ def assess_readiness(workspace: Path, cfg: ResearchConfig, state: dict[str, Any]
         "novelty": ("verify_novelty", "Read the closest full methods, resolve source gaps, and test the stated discriminating hypothesis."),
         "methodology": ("methodology_coverage", "Resolve the declared study-design gaps using existing evidence. Methodology coverage does not certify causal or clinical validity. Preserve the frozen confirmation protocol; design changes after confirmation require a new study."),
         "postdraft_execution_agenda": ("methodology_coverage", "Resolve the reviewed execution agenda's declared design gaps and recover its frozen draft, review, publication, and plan bindings. This coverage check does not assess the selected implementation's actual design."),
+        "evidence_bundle": ("repair_manuscript", "Rebuild the reproduction bundle from the current artifacts, cite its MANIFEST.json hash in the manuscript, and re-run verification."),
         "quality_target": ("new_study", "Declare a full research study before making a high-impact readiness claim."),
     }
     for gap in gaps:

@@ -350,3 +350,10 @@ agsci research verify-bundle reproduction-bundle.tar.gz \
 注意：正文应引用 **manifest 哈希**（内容指纹），而不是 tar.gz 的哈希（会随压缩元数据变化）。
 在 macOS 上用 `COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata` 打包，
 否则归档会混入 `._*` AppleDouble 文件，被校验判为未列出文件。
+
+## 复现包进入就绪判定
+
+当 `run/paper/` 下存在 `reproduction-bundle-*.tar.gz` 时，`paper_readiness.json` 会自动增加
+`evidence_bundle` 检查：包必须与 `MANIFEST.json` 完全一致，且 `paper.tex` 必须引用该 manifest
+的 SHA-256。检查失败会把就绪状态降为 `evidence_gaps`，并给出 `repair_manuscript` 动作。
+没有复现包时该检查不出现，不构成缺口。多于一个复现包或缺少 `paper.tex` 都判为无效。
