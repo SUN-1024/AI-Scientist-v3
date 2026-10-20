@@ -6,7 +6,7 @@ ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple
 # Debian's docker-cli package contains the client, not the Docker daemon.
 # The base image already configures the Aliyun Debian mirror.
 RUN apt-get update -o Acquire::Retries=3 \
-    && apt-get install -y --no-install-recommends docker-cli \
+    && apt-get install -y --no-install-recommends docker-cli poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Exported from uv.lock by the build script. The project itself is loaded from

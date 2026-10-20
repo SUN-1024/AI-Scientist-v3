@@ -46,7 +46,7 @@ uv sync --frozen --group dev --index-url https://mirrors.aliyun.com/pypi/simple
 ./scripts/build-research-cpu-image.sh
 ```
 
-专用镜像包含 Codex、固定版本的 Headless、Python、LaTeX 和 PDF 工具。任务自己的依赖由受管理的任务环境安装。镜像不包含个人凭据，也不包含 GPU/PyTorch 训练环境。
+专用镜像包含 Codex、固定版本的 Headless、Python、LaTeX 和 PDF 工具；新构建还包含用于替代文本提取的 Poppler。任务自己的依赖由受管理的任务环境安装。镜像不包含个人凭据，也不包含 GPU/PyTorch 训练环境。
 
 macOS 完整运行还需要 Linux 运行器。运行状态和临时文件必须放在 Docker 原生 volume 中。macOS 共享目录不能可靠执行这里使用的原子目录替换和恢复操作；启动检查会在调用模型前发现这类问题。
 
