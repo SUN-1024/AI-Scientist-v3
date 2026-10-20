@@ -232,6 +232,64 @@ def adaptive_optimum(maps: Sequence[Map], queries: Sequence[Bag], *,
             "uniform_prior_mean_float": float(mean), "queries": len(queries), "maps": len(maps)}
 
 
+def _minimum_cover_size(elimination_masks: Sequence[int], full: int) -> int | None:
+    """Exact minimum set-cover size over at most 2**competitors mask states."""
+    if full == 0:
+        return 0
+    distance = {0: 0}
+    frontier = [0]
+    while frontier:
+        next_frontier = []
+        for mask in frontier:
+            for query_mask in elimination_masks:
+                combined = mask | query_mask
+                if combined == full:
+                    return distance[mask] + 1
+                if combined not in distance:
+                    distance[combined] = distance[mask] + 1
+                    next_frontier.append(combined)
+        frontier = next_frontier
+    return None
+
+
+def teaching_costs(maps: Sequence[Map], queries: Sequence[Bag], *,
+                   target_index: int | None = None) -> dict[str, Any]:
+    """Target-aware teaching cost: how many target-labelled bags identify a known target.
+
+    A cover is a set of added bags such that every competing map disagrees with the target on at
+    least one of their labels. Costs are reported per compatible target because they are
+    target-dependent; ``worst_case`` and ``uniform_prior_mean`` aggregate over the version space.
+    """
+    if not maps:
+        raise ValueError("Teaching costs need a non-empty version space")
+    targets = range(len(maps)) if target_index is None else [target_index]
+    costs: dict[int, int | None] = {}
+    for position in targets:
+        target = maps[position]
+        competitors = [candidate for index, candidate in enumerate(maps) if index != position]
+        if not competitors:
+            costs[position] = 0
+            continue
+        masks = []
+        for query in queries:
+            mask = 0
+            for bit, candidate in enumerate(competitors):
+                if bag_label(candidate, query) != bag_label(target, query):
+                    mask |= 1 << bit
+            masks.append(mask)
+        costs[position] = _minimum_cover_size(masks, (1 << len(competitors)) - 1)
+    values = [cost for cost in costs.values() if cost is not None]
+    mean = Fraction(sum(values), len(values)) if values else None
+    return {
+        "per_target": {str(position): cost for position, cost in sorted(costs.items())},
+        "per_target_list": [costs[position] for position in sorted(costs)],
+        "unresolved_targets": sum(1 for cost in costs.values() if cost is None),
+        "worst_case": max(values) if values else None,
+        "uniform_prior_mean": f"{mean.numerator}/{mean.denominator}" if mean is not None else None,
+        "uniform_prior_mean_float": float(mean) if mean is not None else None,
+    }
+
+
 def diagnostic(points: Sequence[Sequence[Any]], labelled_bags: Iterable[tuple[Sequence[int], int]],
                *, causality: str = "T", permutation: Sequence[int] | None = None,
                query_size: int = 3, compute_queries: bool = True) -> dict[str, Any]:
@@ -270,6 +328,7 @@ def diagnostic(points: Sequence[Sequence[Any]], labelled_bags: Iterable[tuple[Se
             queries = query_multisets(point_count, size=query_size, shared_environment=shared, points=points)
             try:
                 report.setdefault("query_optima", {})[name] = adaptive_optimum(maps, queries)
+                report.setdefault("teaching_costs", {})[name] = teaching_costs(maps, queries)
             except ValueError as exc:
                 report.setdefault("query_optima", {})[name] = {"status": "skipped", "reason": str(exc)}
         report["query_optima_target_note"] = (

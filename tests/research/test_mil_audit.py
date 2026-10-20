@@ -9,6 +9,7 @@ import pytest
 from src.research.audit.mil_assumption_audit import (
     a4_a5_sets, adaptive_optimum, bag_label, certificate, compatible_maps,
     composition_matrix, diagnostic, main, matrix_rank, normalize_bags, query_multisets,
+    teaching_costs,
 )
 
 POINTS = [["T", 0], ["T", 1], ["X", 0], ["X", 1], ["Y", 0], ["Y", 1], ["Z", 0], ["Z", 1]]
@@ -106,6 +107,19 @@ def test_adaptive_optimum_is_four_and_ten_thirds() -> None:
         assert result["uniform_prior_mean"] == "10/3"
 
 
+def test_teaching_costs_are_target_dependent_but_worst_case_is_four() -> None:
+    maps = compatible_maps(len(POINTS), BAGS)
+    mixed = teaching_costs(maps, query_multisets(len(POINTS), points=POINTS))
+    shared = teaching_costs(maps, query_multisets(len(POINTS), shared_environment=True, points=POINTS))
+    assert mixed["per_target_list"] == [1, 1, 3, 1, 3, 1, 3, 3, 4]
+    assert shared["per_target_list"] == [2, 2, 3, 2, 3, 2, 3, 3, 4]
+    assert mixed["worst_case"] == 4
+    assert shared["worst_case"] == 4
+    assert mixed["uniform_prior_mean"] == "20/9"
+    assert shared["uniform_prior_mean"] == "8/3"
+    assert mixed["unresolved_targets"] == 0
+
+
 def test_diagnostic_report_is_json_serialisable_and_matches_records() -> None:
     report = diagnostic(POINTS, BAGS, permutation=PERMUTATION, compute_queries=False)
     assert json.loads(json.dumps(report)) == report
@@ -114,6 +128,12 @@ def test_diagnostic_report_is_json_serialisable_and_matches_records() -> None:
     assert report["composition_full_rank"] is False
     assert report["permutation"]["preserves_bag_multisets"] is True
     assert report["certificate"]["unresolved"] == [0, 1, 2, 5]
+
+
+def test_diagnostic_can_include_teaching_costs() -> None:
+    report = diagnostic(POINTS, BAGS, compute_queries=True)
+    assert report["teaching_costs"]["mixed_environments"]["worst_case"] == 4
+    assert report["query_optima"]["shared_environment"]["uniform_prior_mean"] == "10/3"
 
 
 def test_cli_writes_a_report(tmp_path: Path) -> None:
