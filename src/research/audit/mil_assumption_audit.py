@@ -109,9 +109,9 @@ def certificate_stats(point_count: int, labelled_bags: Iterable[tuple[Sequence[i
             "true_positive_instances": len(true_positive),
             "forced_negative_precision": (f"{len(forced_negative & (set(range(point_count)) - true_positive))}"
                                            f"/{len(forced_negative)}" if forced_negative else "0/0"),
-            "positive_recall_ceiling": (f"{len(forced_positive & true_positive)}/{len(true_positive)}"
+            "certified_positive_recall": (f"{len(forced_positive & true_positive)}/{len(true_positive)}"
                                         if true_positive else "0/0"),
-            "positive_recall_ceiling_float": (len(forced_positive & true_positive) / len(true_positive)
+            "certified_positive_recall_float": (len(forced_positive & true_positive) / len(true_positive)
                                               if true_positive else 0.0),
             "unresolved_true_positive": len(set(cert["unresolved"]) & true_positive),
             "unresolved_true_negative": len(set(cert["unresolved"]) - true_positive),

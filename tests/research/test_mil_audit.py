@@ -114,7 +114,7 @@ def test_certificate_stats_against_instance_truth() -> None:
     assert stats["unresolved"] == 4
     assert stats["identifiable_fraction"] == "4/8"
     assert stats["forced_negative_precision"] == "4/4"
-    assert stats["positive_recall_ceiling"] == "0/2"
+    assert stats["certified_positive_recall"] == "0/2"
     assert stats["unresolved_true_positive"] == 2
     assert stats["unresolved_true_negative"] == 2
 
