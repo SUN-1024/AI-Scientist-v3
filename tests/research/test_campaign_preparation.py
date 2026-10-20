@@ -224,8 +224,8 @@ def test_harness_uses_final_resolved_budget_and_defers_briefs(study, tmp_path, m
     valid = proposed_agenda(agenda, context(task, actual_policy)) if ready_scaffold else agenda
     calls = install_provider(monkeypatch, [valid, {**valid, "_reflection": {"done": True}}, review])
     monkeypatch.setattr(harness, "ensure_execution_ready", lambda *_: None)
-    monkeypatch.setattr(harness, "_author_settings", lambda *_: None)
-    monkeypatch.setattr(harness, "_reviewer_settings", lambda *_: None)
+    monkeypatch.setattr(harness, "_author_settings", lambda *_, **__: None)
+    monkeypatch.setattr(harness, "_reviewer_settings", lambda *_, **__: None)
     monkeypatch.setattr(harness, "write_readiness", lambda *_: {"status": "fixture"})
     executed = []
     monkeypatch.setattr("src.pipeline.cli.main", lambda argv, **_: executed.append(argv) or 0)
