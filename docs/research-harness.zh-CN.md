@@ -400,3 +400,10 @@ JSON 记录逐字段比对；任何不一致返回非零。用于防止手稿表
   linear/max-pooling 成立；核查数据来源后发现实例标签根本不是独立标注。
 - **结论**：对 benchmark 的元数据（标签如何生成、袋是否混合）做审计，
   与对方法做审计同等重要；这类审计往往比再加一个模型更能暴露问题。
+
+## 可复现案例目录（`case-studies/`）
+
+`case-studies/or-mil-audit/` 保存了 OR-MIL 审计案例的可运行脚本（数据用 `fetch_archive.sh`
+按 SHA-256 校验拉取；输出用 `CASE_OUT` 指定）。该案例覆盖：版本空间分析、识别成本上下界、
+10 数据集模型对照、混合袋受控实验与图，以及手稿数字对账。脚本只依赖仓库内的
+`src.research.audit.mil_assumption_audit` 与 PyTorch（CPU，仅对照实验需要）。
