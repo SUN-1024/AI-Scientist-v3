@@ -479,7 +479,7 @@ def stop_container_session(
         if run.returncode == 0:
             log_event_fn("container_session_stopped", session=name, attempts=attempt)
             return True
-        if "No such container" in stderr_text:
+        if "no such container" in stderr_text.lower():
             return False
         if attempt < retries:
             time.sleep(retry_sleep)

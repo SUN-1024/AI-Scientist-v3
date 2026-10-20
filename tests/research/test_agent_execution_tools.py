@@ -57,7 +57,8 @@ if a[0]=='create':
 identity=a[-1]
 found=next((k for k,v in items.items() if k==identity or v['Name']=='/'+identity),None)
 if found is None:
-    print('Error: No such object: '+identity,file=sys.stderr);sys.exit(1)
+    message='error: no such object: ' if mode=='lowercase-absence' else 'Error: No such object: '
+    print(message+identity,file=sys.stderr);sys.exit(1)
 if a[0]=='inspect':print(json.dumps([items[found]]));sys.exit(0)
 if a[0]=='rm':
     if mode=='cleanup-fails':sys.exit(1)
@@ -225,6 +226,17 @@ def test_active_lease_and_unacknowledged_creation_are_fail_closed(tmp_path, dock
     artifacts.rename(tmp_path/'preserved')
     with pytest.raises(ValueError, match='not acknowledged'):
         FinitePythonBroker(artifacts, image=IMAGE, prompt_sha256='b'*64)
+
+
+def test_cleanup_accepts_case_insensitive_absence_message(tmp_path, docker_boundary):
+    # Docker CLI 29 prints "error: no such object"; older CLIs print "Error: No such object".
+    (docker_boundary/'mode').write_text('lowercase-absence')
+    broker=FinitePythonBroker(tmp_path/'jobs',image=IMAGE,prompt_sha256='b'*64)
+    result=broker.execute({'code':'print(1)'})
+    assert result['status']=='completed', result
+    assert result['cleanup_verified'] is True
+    broker.close()
+    assert json.loads((docker_boundary/'containers.json').read_text())=={}
 
 
 def test_ownership_mismatch_preserves_container_and_recovery_record(tmp_path, docker_boundary):

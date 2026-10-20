@@ -75,7 +75,8 @@ def inspect_container(name: str) -> dict[str, Any] | None:
         capture_output=True, text=True, timeout=15, check=False,
     )
     if result.returncode:
-        if "No such container:" in result.stderr or "No such object:" in result.stderr:
+        stderr = result.stderr.lower()
+        if "no such container" in stderr or "no such object" in stderr:
             return None
         raise ValueError("cannot confirm container scratch lifecycle: Docker inspect failed")
     details = json.loads(result.stdout)

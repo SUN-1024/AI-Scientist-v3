@@ -131,8 +131,10 @@ class FinitePythonBroker:
     def _inspect(self, identity: str) -> dict[str, Any] | None:
         result = self.run(["docker", "inspect", identity])
         if result.returncode:
-            error = result.stderr.decode(errors="replace")
-            if "No such object:" in error or "No such container:" in error:
+            error = result.stderr.decode(errors="replace").lower()
+            # Docker CLI casing differs by version ("Error: No such object" vs
+            # "error: no such object"); absence must not look like a failure.
+            if "no such object" in error or "no such container" in error:
                 return None
             raise ValueError("Cannot verify Python container state")
         rows = json.loads(result.stdout)
