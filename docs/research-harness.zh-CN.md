@@ -357,3 +357,46 @@ agsci research verify-bundle reproduction-bundle.tar.gz \
 `evidence_bundle` 检查：包必须与 `MANIFEST.json` 完全一致，且 `paper.tex` 必须引用该 manifest
 的 SHA-256。检查失败会把就绪状态降为 `evidence_gaps`，并给出 `repair_manuscript` 动作。
 没有复现包时该检查不出现，不构成缺口。多于一个复现包或缺少 `paper.tex` 都判为无效。
+
+## 确定性复现包构建（`bundle_build`）
+
+```bash
+python -m src.research.audit.bundle_build --root <证据目录> \
+  --output reproduction-bundle.tar.gz note.tex runs evidence.json
+```
+
+按显式条目列表收集文件（目录递归、自动跳过 macOS `._*`），写 `MANIFEST.json`，
+并产出两次构建**字节完全相同**的 `.tar.gz`：tar 成员 mtime/uid/gid/mode 固定，gzip 头
+`mtime=0` 且不写文件名。拒绝符号链接、`..`/绝对路径与空条目。与 `verify-bundle` 配对使用。
+
+## 证书表格一条命令复现（`certificate_tables`）
+
+```bash
+python -m src.research.audit.certificate_tables --root <证据目录> --records <记录目录>
+```
+
+从原始 MUSK CSV 与 Corel/TREC9 svm-light 文件重算每个数据集的证书统计，与已保存的
+JSON 记录逐字段比对；任何不一致返回非零。用于防止手稿表格与测量结果漂移。
+
+## 案例研究：OR-MIL 证书审计（2026-10）
+
+真实案例走通了完整链路，产出两篇论文（证据与手稿在 `scratch/`，不入库）：
+
+1. **A certificate audit of OR-MIL instance identifiability**（13 页）：
+   FocusMIL A1–A5 的有限见证（9 个相容映射、π=(0 2)(1 5) 保袋）、A4/A5 边缘读法、
+   VIB 目标置换对称性、forced/unresolved 证书、认证成本下界、12 个数据集的证书统计、
+   随机系统模拟、查询负结果、learned-vs-certified 对照。
+2. **Standard OR-MIL benchmarks distribute bag labels as instance labels**（4 页）：
+   从归档生成脚本确认"逐实例标签"实为袋标签传播；10 个数据集全部 label-pure；
+   标签传播基线 F1=1、prevalence 基线对照下 linear/max 10/10 低于、attention 7/10 高于。
+
+### 经验
+
+- **哈希纪律**：手稿只引用 manifest 哈希；`verify-bundle` 现在会拒绝正文中任何
+  "bundle/manifest" 上下文里出现的陈旧 64 位哈希。
+- **评审循环**：5 轮模型评审共 31 条 blocking，修复了过度声明、度量语义、
+  形式化边界、查询模型与数据来源等真实问题；模型评审不是人类评审，需在附录中声明。
+- **实验对照**：弱基线会制造虚假结论。加神经基线后发现"模型打不过平凡基线"只对
+  linear/max-pooling 成立；核查数据来源后发现实例标签根本不是独立标注。
+- **结论**：对 benchmark 的元数据（标签如何生成、袋是否混合）做审计，
+  与对方法做审计同等重要；这类审计往往比再加一个模型更能暴露问题。
