@@ -8,8 +8,8 @@ import pytest
 
 from src.research.audit.mil_assumption_audit import (
     a4_a5_sets, adaptive_optimum, bag_label, certificate, compatible_maps,
-    composition_matrix, diagnostic, main, matrix_rank, normalize_bags, query_multisets,
-    teaching_costs,
+    certificate_stats, composition_matrix, diagnostic, main, matrix_rank, normalize_bags,
+    query_multisets, teaching_costs,
 )
 
 POINTS = [["T", 0], ["T", 1], ["X", 0], ["X", 1], ["Y", 0], ["Y", 1], ["Z", 0], ["Z", 1]]
@@ -105,6 +105,31 @@ def test_adaptive_optimum_is_four_and_ten_thirds() -> None:
         result = adaptive_optimum(maps, queries)
         assert result["worst_case_responses"] == 4
         assert result["uniform_prior_mean"] == "10/3"
+
+
+def test_certificate_stats_against_instance_truth() -> None:
+    truth = [1, 1, 0, 0, 0, 0, 0, 0]
+    stats = certificate_stats(len(POINTS), BAGS, truth)
+    assert stats["forced_negative"] == 4 and stats["forced_positive"] == 0
+    assert stats["unresolved"] == 4
+    assert stats["identifiable_fraction"] == "4/8"
+    assert stats["forced_negative_precision"] == "4/4"
+    assert stats["positive_recall_ceiling"] == "0/2"
+    assert stats["unresolved_true_positive"] == 2
+    assert stats["unresolved_true_negative"] == 2
+
+
+def test_certificate_stats_without_truth_stops_at_counts() -> None:
+    stats = certificate_stats(len(POINTS), BAGS)
+    assert stats["instances"] == 8
+    assert stats["positive_bags"] == 2
+    assert "true_positive_instances" not in stats
+    assert stats["identifiable_fraction_float"] == pytest.approx(0.5)
+
+
+def test_certificate_stats_rejects_mismatched_truth() -> None:
+    with pytest.raises(ValueError):
+        certificate_stats(len(POINTS), BAGS, [1, 0])
 
 
 def test_teaching_costs_are_target_dependent_but_worst_case_is_four() -> None:

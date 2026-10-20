@@ -80,6 +80,45 @@ def certificate(point_count: int, labelled_bags: Iterable[tuple[Sequence[int], i
     }
 
 
+def certificate_stats(point_count: int, labelled_bags: Iterable[tuple[Sequence[int], int]],
+                        truth: Sequence[int] | None = None) -> dict[str, Any]:
+    """Counts and fractions for the monotone certificate, optionally against instance truth."""
+    observations = [(tuple(int(index) for index in bag), int(label)) for bag, label in labelled_bags]
+    cert = certificate(point_count, observations)
+    forced = len(cert["forced_negative"]) + len(cert["forced_positive"])
+    stats: dict[str, Any] = {
+        "instances": point_count,
+        "bags": len(observations),
+        "positive_bags": sum(1 for _, label in observations if label == 1),
+        "forced_negative": len(cert["forced_negative"]),
+        "forced_positive": len(cert["forced_positive"]),
+        "unresolved": len(cert["unresolved"]),
+        "identifiable_fraction": f"{forced}/{point_count}" if point_count else "0/0",
+        "identifiable_fraction_float": forced / point_count if point_count else 0.0,
+        "unique": cert["unique"],
+        "empty_positive_residual": cert["empty_positive_residual"],
+    }
+    if truth is not None:
+        labels = [int(value) for value in truth]
+        if len(labels) != point_count:
+            raise ValueError("Instance truth length differs from the point count")
+        true_positive = {index for index, label in enumerate(labels) if label}
+        forced_negative = set(cert["forced_negative"])
+        forced_positive = set(cert["forced_positive"])
+        stats.update({
+            "true_positive_instances": len(true_positive),
+            "forced_negative_precision": (f"{len(forced_negative & (set(range(point_count)) - true_positive))}"
+                                           f"/{len(forced_negative)}" if forced_negative else "0/0"),
+            "positive_recall_ceiling": (f"{len(forced_positive & true_positive)}/{len(true_positive)}"
+                                        if true_positive else "0/0"),
+            "positive_recall_ceiling_float": (len(forced_positive & true_positive) / len(true_positive)
+                                              if true_positive else 0.0),
+            "unresolved_true_positive": len(set(cert["unresolved"]) & true_positive),
+            "unresolved_true_negative": len(set(cert["unresolved"]) - true_positive),
+        })
+    return stats
+
+
 def version_space_labels(maps: Sequence[Map], point_count: int) -> dict[str, list[int]]:
     if not maps:
         return {"forced_one": [], "forced_zero": [], "unresolved": []}
